@@ -477,9 +477,13 @@ SF.Render = (function () {
   }
 
   // Stock waiting at a producer, stacked in a little pyramid.
+  // The base grows with the stock so any amount fits (4 wide holds 10, 5 wide 15, ...).
   function pile(ctx, res, n, x, y) {
+    let w = 4;
+    while (w * (w + 1) / 2 < n) w++;
+    const ox = x - (w - 4) * 7.5;
     let i = 0;
-    for (let row = 0; i < n; row++) for (let c = 0; c < 4 - row && i < n; c++, i++) item(ctx, res, x + c * 15 + row * 7.5, y - row * 11, 1.1);
+    for (let row = 0; row < w && i < n; row++) for (let c = 0; c < w - row && i < n; c++, i++) item(ctx, res, ox + c * 15 + row * 7.5, y - row * 11, 1.1);
   }
 
   const BUILDINGS = {
