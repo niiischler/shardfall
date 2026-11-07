@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+</head>
+<body>
+<!-- PAGE:START -->
+<title>Shardfall Outpost</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+
+<div id="app">
+  <canvas id="game" aria-label="Game view. Move with WASD, arrow keys, or drag anywhere."></canvas>
+
+  <header id="hud">
+    <div class="hud-left">
+      <div id="credit-box" class="pill" title="Credits">
+        <i class="coin" aria-hidden="true"></i><span id="credits">0</span>
+      </div>
+      <span id="planet-chip"></span>
+    </div>
+    <p id="goal" aria-live="polite"></p>
+    <div class="hud-buttons">
+      <button id="btn-sound" class="icon-btn" type="button" aria-label="Toggle sound" aria-pressed="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none"/><path class="cross" d="M16 9l6 6M22 9l-6 6" fill="none"/></svg>
+      </button>
+      <button id="btn-menu" class="icon-btn" type="button" aria-label="Menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section id="panel" hidden aria-live="polite">
+    <h2 id="panel-title">Upgrade terminal</h2>
+    <div id="panel-body"></div>
+    <p class="panel-hint">Tap a card, or press its number. Walk away to close.</p>
+  </section>
+
+  <section id="menu" class="sheet" hidden>
+    <div class="sheet-card">
+      <h2>Outpost log</h2>
+      <dl id="menu-stats"></dl>
+      <p class="muted">Progress saves automatically in this browser.</p>
+      <div class="row">
+        <button id="btn-close-menu" class="btn primary" type="button">Back to work</button>
+        <button id="btn-reset" class="btn ghost" type="button">Reset progress</button>
+      </div>
+      <div id="reset-confirm" hidden>
+        <p>Erase every credit, upgrade and building?</p>
+        <div class="row">
+          <button id="btn-reset-yes" class="btn danger" type="button">Erase and restart</button>
+          <button id="btn-reset-no" class="btn ghost" type="button">Keep playing</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="intro" class="sheet">
+    <div class="sheet-card intro-card">
+      <p class="eyebrow" id="intro-eyebrow">Planet Kelvos</p>
+      <h1>Shardfall<br><span>Outpost</span></h1>
+      <p id="intro-sub"></p>
+      <ul class="how">
+        <li><b>Move</b> WASD or arrow keys. On touch, drag anywhere.</li>
+        <li><b>Harvest</b> stand next to crystals, trees, rocks and more.</li>
+        <li><b>Sell</b> walk onto the DROP OFF pad by the lander.</li>
+        <li><b>Grow</b> stand on build plots and the upgrade terminal.</li>
+        <li><b>Travel</b> build the launch pad to fly on to the next planet.</li>
+      </ul>
+      <button id="btn-start" class="btn primary big" type="button">Start shift</button>
+    </div>
+  </section>
+
+  <section id="arrive" class="sheet" hidden>
+    <div class="sheet-card intro-card">
+      <p class="eyebrow" id="arrive-eyebrow"></p>
+      <h1 id="arrive-title"></h1>
+      <p class="tag" id="arrive-tag"></p>
+      <p id="arrive-sub"></p>
+      <ul id="arrive-res" class="res-list"></ul>
+      <p class="bonus" id="arrive-bonus"></p>
+      <button id="btn-arrive" class="btn primary big" type="button">Start building</button>
+    </div>
+  </section>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/planets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/save.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/world.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script>SF.boot();</script>
+<!-- PAGE:END -->
+</body>
+</html>
