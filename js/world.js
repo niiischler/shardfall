@@ -26,8 +26,12 @@
     // Rebuild everything for the current planet.
     load(ctx) {
       W.planet = SF.planet();
+      SF.Save.ensureWorld(SF.state, SF.state.planet);
       const L = SF.layoutPlanet(W.planet);
       W.regions = L.regions; W.plots = L.plots;
+      // The material chest stands next to the rocket on the home planet.
+      const rocket = W.plot('launch');
+      W.chest = W.planet.home ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;
       W._mask = null;
       W.generate();
       W.pattern = W.groundPattern(ctx, W.planet.theme);
@@ -36,7 +40,7 @@
     res(i) { return W.planet.resources[i]; },
     plot(id) { return W.plots.find(p => p.id === id); },
     region(id) { return W.regions.find(r => r.id === id); },
-    isOpen(reg) { return !reg.unlock || SF.state.plots[reg.unlock].built; },
+    isOpen(reg) { return !reg.unlock || SF.ws().plots[reg.unlock].built; },
     openRegions() { return W.regions.filter(r => W.isOpen(r)); },
     nodeOpen(n) { return W.isOpen(n.region); },
 
@@ -50,7 +54,9 @@
       ];
       W.plots.forEach(p => avoid.push({ x: p.x, y: p.y + 20, r: C.plotR + 80 }));
       W.nodes = [];
+      if (W.chest) avoid.push({ x: W.chest.x, y: W.chest.y, r: 110 });
       for (const reg of W.regions) {
+        if (reg.res == null) continue;
         const def = W.res(reg.res);
         let placed = 0, tries = 0;
         while (placed < def.count && tries++ < 4000) {
@@ -170,7 +176,7 @@
 
   // Each node shape gets its own random details, fixed by the seed.
   function makeNode(def, reg, x, y, R) {
-    const n = { res: def.tier, def, region: reg, x, y, r: def.r, hp: def.hp, maxHp: def.hp,
+    const n = { res: def.tier, code: SF.state.planet * 10 + def.tier, def, region: reg, x, y, r: def.r, hp: def.hp, maxHp: def.hp,
       alive: true, regrowT: 0, flash: 0, shake: 0, grow: 1, claimed: null, phase: R() * TAU };
     switch (def.node) {
       case 'crystal': {

@@ -96,39 +96,50 @@ Harvesting, selling and building all happen by standing in the right place.
 
 ## The loop
 
-1. **Harvest**: stand next to a resource node. Your plasma pick swings automatically.
+1. **Harvest**: stand next to a resource node. Your tool swings automatically.
 2. **Carry**: loot flies onto your back. The pack has a capacity (shown above your head).
 3. **Sell**: walk onto the DROP OFF pad in front of the lander. Items fly in one by one and pay credits.
-4. **Upgrade**: stand on the UPGRADES terminal for Cargo Pack, Plasma Pick and Thruster Boots.
-5. **Build**: stand on a dashed plot and credits flow in until it is built. Each planet has the same chain:
-   gate to region 2, helper building, refinery (+50%), gate to region 3, second helper, gates to regions 4 and 5, launch pad.
-6. **Travel**: on the built launch pad, launch to the next planet. Credits, upgrades and buildings reset there,
-   but every finished planet adds a permanent +25% to all sales ("star charts").
+4. **Upgrade**: stand on the UPGRADES terminal for Cargo Pack, Tool Power and Thruster Boots.
+5. **Build**: stand on a dashed plot and credits flow in until it is built.
+6. **Launch**: the launch pad flies you to the next planet.
 
-## Planets
+## Campaign: three planets, then home
 
-| Planet   | Resources (cheapest to most valuable)                      | Helpers                    |
-|----------|------------------------------------------------------------|----------------------------|
-| Kelvos   | Shards, Ember ore, Glowcaps, Frost spars, Void pearls      | Drone Bay                  |
-| Verdra   | Logs, Fire berries, Iron ore, Amber, Gold ore              | Sawmill, Iron Mine         |
-| Duneveil | Cactus water, Sandstone, Copper ore, Fossils, Sunstones    | Skimmer Bay, Excavator     |
+| # | Planet   | Resources (cheapest to most valuable)                    | Helpers                |
+|---|----------|----------------------------------------------------------|------------------------|
+| 1 | Kelvos   | Shards, Ember ore, Glowcaps, Frost spars, Void pearls    | Drone Bay              |
+| 2 | Verdra   | Logs, Fire berries, Iron ore, Amber, Gold ore            | Sawmill, Iron Mine     |
+| 3 | Duneveil | Cactus water, Sandstone, Copper ore, Fossils, Sunstones  | Skimmer Bay, Excavator |
+| 4 | Halcyon  | Sunfruit, Lagoon coral, Skyshell pearls (home planet)    | Habitats, Belt Factory |
 
-After Duneveil the tour starts again as Kelvos II, Verdra II, ... with bigger numbers.
+On planets 1-3, launching starts the next planet over (credits, upgrades, buildings), but you keep
+your cargo and gain for good, per finished planet: +10 cargo slots, +15 speed, +25% on every sale.
+After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster), after Verdra the
+**Sonic Drill** (rocks, crystals, fossils, clams 1.8x faster). The right tool is picked automatically.
 
-Drones/skimmers fly out, harvest the best node nearby and bring the cargo home.
-Producers (sawmill, mine, excavator) fill a stock pile on their own; stand on their pad to load it onto your back.
-Upgrade either kind at its pad.
+## Halcyon, the home planet
 
-Progress saves automatically to `localStorage` (about 200 bytes). The menu (top right) has a reset.
-Saves from the first version are migrated automatically.
+- From now on nothing resets. The rocket flies you to any planet and back; finished planets stay fully built.
+- Your cargo comes with you. The **material chest** next to the rocket stores whatever you unload there.
+- Home buildings cost credits **and materials** from the chest (shown under the plot), e.g. the Haven Bridge needs logs from Verdra.
+- **New Haven** (behind the bridge) is the expansion area:
+  - **Belt Factory** (iron + copper): unlocks conveyor belts. Install one at any sawmill, mine or excavator
+    for 10 iron ore; it then carries the stock to the drop off and sells it by itself.
+  - **Habitats** (logs, sandstone, ...): 2 beds each. Hire crew there and pick a job (any of the three cheapest
+    resources of any planet). Crew ship 1 unit to the chest every 8 s and eat 1 sunfruit from the chest every 40 s.
+    Without sunfruit they go hungry and stop.
+
+Progress saves automatically to `localStorage` (under 1 KB). The menu (top right) has a reset.
+Saves from earlier versions are migrated automatically.
 
 ## Code layout
 
 ```
 index.html        page shell and HUD markup
 css/style.css     HUD, panels, overlays
-js/config.js      shared rules: upgrades, plot costs and order, drones, producers
-js/planets.js     every planet: theme, layout, five resources, helpers, tier balance
+js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, producers, crew
+js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
+js/home.js        home planet systems: material chest, crew, conveyor belts
 js/audio.js       WebAudio synth sound effects (no audio files)
 js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults
@@ -145,3 +156,7 @@ mushroom, bush, cactus, bones) and an item look (gem, chunk, orb, log, cap, drop
 resource, plus colours. New looks go into `NODES` / `ITEMS` in `render.js`.
 
 All art is drawn with canvas shapes; there are no image files.
+
+## Save tool
+
+`save.html` (next to `index.html`) shows the browser save of this game, lets you copy it to another device or delete it, without starting the game.

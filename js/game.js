@@ -1,18 +1,19 @@
-// Game rules and the main loop: move, harvest, carry, deliver, build, launch.
+// Game rules and the main loop: move, harvest, carry, deliver, build, travel.
+// Home-base systems (chest, crew, belts) live in home.js.
 (function () {
   const C = SF.CFG, W = SF.World, FX = SF.FX, A = SF.Audio, Rn = SF.Render;
   const TAU = Math.PI * 2;
 
   const P = SF.player = {
-    x: 0, y: 0, vx: 0, vy: 0, face: 1, walk: 0, sway: 0,
+    x: 0, y: 0, vx: 0, vy: 0, face: 1, walk: 0, sway: 0, tool: 'pick',
     swing: 0, hitT: 0, target: null, incoming: 0, fullT: 0, fullWarned: false,
-    deliverT: 0, payT: 0, collectT: 0, stackFx: [], zone: null, hidden: false,
+    deliverT: 0, payT: 0, matT: 0, collectT: 0, stackFx: [], zone: null, hidden: false,
   };
-  const flyers = [];
+  const flyers = SF.flyers = [];
   const drones = SF.drones = [];
   const cam = { x: 0, y: 0 };
   let combo = 0, comboT = 0, depotGlow = 0, smokeT = 0, saveT = 0, time = 0;
-  let launch = null; // { t } while the rocket is lifting off
+  let launch = null; // { t, dest } while the rocket is lifting off
   let canvas, ctx, fog, fctx, dpr = 1, vw = 0, vh = 0, zoom = 1;
 
   // ---------- state ----------
@@ -30,6 +31,7 @@
     P.incoming = 0; P.stackFx = []; P.zone = null; P.hidden = false;
     flyers.length = 0; drones.length = 0;
     cam.x = P.x; cam.y = P.y - 30;
+    SF.Home.enter();
     document.documentElement.style.setProperty('--accent', W.planet.theme.accent);
   }
 
@@ -43,27 +45,29 @@
   SF.resetProgress = resetProgress;
 
   // ---------- flyers: items arcing between places ----------
-  function fly(res, sx, sy, getTarget, opts) {
-    flyers.push(Object.assign({ res, sx, sy, getTarget, t: -(opts.delay || 0), dur: 0.42, arc: 60, coin: false }, opts));
+  function fly(code, sx, sy, getTarget, opts) {
+    flyers.push(Object.assign({ code, sx, sy, getTarget, t: -(opts.delay || 0), dur: 0.42, arc: 60, coin: false }, opts));
   }
+  SF.fly = fly;
 
-  function earn(res) {
-    const v = SF.resValue(W.res(res)) * SF.sellMult();
+  function earn(code) {
+    const v = SF.resValue(code) * SF.sellMult();
     SF.state.credits += v; SF.state.totalEarned += v; SF.state.lifetime += v;
     combo++; comboT = 0.6; depotGlow = 1;
     A.coin(combo);
     const d = C.depot;
-    FX.pop(d.x + (Math.random() - 0.5) * 40, d.y - 70, '+' + SF.UI.fmt(v, 1), '#ffd36b', 18 + Math.min(10, combo * 0.3));
+    FX.pop(d.x + (Math.random() - 0.5) * 40, d.y - 70, '+' + SF.UI.fmt(v), '#ffd36b', 18 + Math.min(10, combo * 0.3));
     FX.burst(d.x, d.y - 28, ['#ffd36b', '#fff1bf'], 3, { z: 6, speed: 90, up: 220, shape: 'coin', size: 4, life: 0.7 });
     SF.UI.bump();
   }
+  SF.earn = earn;
 
-  function toStack(res, sx, sy, delay) {
+  function toStack(code, sx, sy, delay) {
     P.incoming++;
-    fly(res, sx, sy, () => Rn.stackSlot(P, SF.state.stack.length), {
+    fly(code, sx, sy, () => Rn.stackSlot(P, SF.state.stack.length), {
       delay, dur: 0.38, arc: 70,
       onArrive(f) {
-        SF.state.stack.push(f.res); P.incoming--;
+        SF.state.stack.push(f.code); P.incoming--;
         P.stackFx[SF.state.stack.length - 1] = 1;
         A.pick(SF.state.stack.length);
       },
@@ -92,10 +96,10 @@
     const k = Math.max(0, Math.min(R.drops, free));
     for (let i = 0; i < k; i++) {
       const sx = n.x + (Math.random() - 0.5) * 20, sy = n.y - 30;
-      if (isPlayer) toStack(n.res, sx, sy, i * 0.07);
+      if (isPlayer) toStack(n.code, sx, sy, i * 0.07);
       else {
         who.incoming++;
-        fly(n.res, sx, sy, () => ({ x: who.x, y: who.y - 40 }), { delay: i * 0.07, dur: 0.35, arc: 40, onArrive(f) { who.cargo.push(f.res); who.incoming--; } });
+        fly(n.code, sx, sy, () => ({ x: who.x, y: who.y - 40 }), { delay: i * 0.07, dur: 0.35, arc: 40, onArrive(f) { who.cargo.push(f.code); who.incoming--; } });
       }
     }
     if (isPlayer) FX.pop(n.x, n.y - 70, `+${k} ${k === 1 ? R.name : R.plural}`, R.color, 15, { life: 0.9 });
@@ -154,7 +158,7 @@
     if (d.state === 'return') {
       goal = { x: C.dropZone.x, y: C.dropZone.y - 20 };
       if (Math.hypot(goal.x - d.x, goal.y - d.y) < 34 && d.incoming === 0) {
-        d.cargo.forEach((res, i) => fly(res, d.x, d.y - 40, () => ({ x: C.depot.x, y: C.depot.y - 30 }), { delay: i * 0.08, dur: 0.4, arc: 50, onArrive(f) { earn(f.res); } }));
+        d.cargo.forEach((code, i) => fly(code, d.x, d.y - 40, depotTarget, { delay: i * 0.08, dur: 0.4, arc: 50, onArrive(f) { earn(f.code); } }));
         d.cargo = [];
         d.state = 'seek';
       }
@@ -168,6 +172,8 @@
     d.x += d.vx * dt; d.y += d.vy * dt;
   }
 
+  const depotTarget = () => ({ x: C.depot.x, y: C.depot.y - 30 });
+
   // ---------- producers (sawmill, mine, excavator) ----------
   SF.producerStats = function (p, st) {
     const h = p.helper;
@@ -175,27 +181,42 @@
   };
 
   function updateProducer(p, st, dt) {
-    const ps = SF.producerStats(p, st);
-    if (st.pile >= ps.cap) { st.t = 0; return; }
-    st.t = (st.t || 0) + dt;
-    if (st.t >= ps.every) {
-      st.t -= ps.every; st.pile++;
-      FX.burst(p.x - 20, p.y - 30, [W.res(p.helper.res).color, '#fff4e8'], 4, { z: 40, speed: 80, size: 3, life: 0.5 });
+    const ps = SF.producerStats(p, st), code = Rn.here(p.helper.res);
+    if (st.pile < ps.cap) {
+      st.t = (st.t || 0) + dt;
+      if (st.t >= ps.every) {
+        st.t -= ps.every; st.pile++;
+        FX.burst(p.x - 20, p.y - 30, [SF.res(code).color, '#fff4e8'], 4, { z: 40, speed: 80, size: 3, life: 0.5 });
+      }
+    } else st.t = 0;
+    // A conveyor belt carries the stock to the depot by itself.
+    if (st.belt && st.pile > 0) {
+      st.beltT = (st.beltT || 0) - dt;
+      if (st.beltT <= 0) {
+        st.beltT = 0.8; st.pile--;
+        fly(code, p.x, p.y + 40, () => ({ x: C.dropZone.x, y: C.dropZone.y }), {
+          dur: Math.hypot(p.x - C.dropZone.x, p.y + 40 - C.dropZone.y) / 110, arc: 8, linear: true,
+          onArrive(f) { fly(f.code, C.dropZone.x, C.dropZone.y, depotTarget, { dur: 0.35, arc: 40, onArrive(g) { earn(g.code); } }); },
+        });
+      }
     }
   }
 
   // ---------- building ----------
-  function plotVisible(p) { return !p.requires || SF.state.plots[p.requires].built; }
+  function plotVisible(p) { return !p.requires || SF.ws().plots[p.requires].built; }
   SF.plotVisible = plotVisible;
 
+  // Paid off in credits and, for home buildings, in materials from the chest.
+  SF.plotDone = (p, st) => p.cost - st.paid < 0.01 && Object.keys(p.needs || {}).every(c => (st.res[c] || 0) >= p.needs[c]);
+
   function build(p) {
-    const st = SF.state.plots[p.id];
+    const st = SF.ws().plots[p.id];
     st.built = true; st.paid = p.cost;
     FX.burst(p.x, p.y, ['#ffd36b', '#fff4e8', W.planet.theme.accent, '#ffab4a'], 46, { z: 10, speed: 320, up: 420, size: 6, life: 1.3 });
     FX.shake(0.6);
     A.build();
     FX.pop(p.x, p.y - 80, p.name + ' built!', '#fff4e8', 24, { life: 1.8, vy: -30 });
-    if (p.kind === 'drones' && SF.state.drones < 1) SF.state.drones = 1;
+    if (p.kind === 'drones' && SF.ws().drones < 1) SF.ws().drones = 1;
     if (p.kind === 'gate') {
       const reg = W.regions.find(r => r.unlock === p.id);
       FX.pop(reg.x, reg.y, reg.name + ' is open', '#fff4e8', 26, { life: 2.5, vy: -10 });
@@ -208,6 +229,7 @@
     if (SF.state.credits < cost) { A.nope(); return false; }
     SF.state.credits -= cost; A.buy(); return true;
   }
+  SF.spend = spend;
 
   SF.buyUpgrade = function (key) {
     const u = C.upgrades[key], s = SF.state;
@@ -221,17 +243,17 @@
   };
 
   SF.buyDrone = function () {
-    const s = SF.state, bay = droneBay();
-    if (s.drones >= C.drone.max || !spend(SF.droneCost())) return false;
-    s.drones++;
+    const ws = SF.ws(), bay = droneBay();
+    if (ws.drones >= C.drone.max || !spend(SF.droneCost())) return false;
+    ws.drones++;
     FX.burst(bay.x, bay.y - 20, [W.planet.theme.accent, '#fff4e8'], 24, { z: 30, speed: 200, size: 4 });
-    FX.pop(bay.x, bay.y - 80, bay.helper.unit + ' ' + s.drones + ' launched', W.planet.theme.accent, 18);
+    FX.pop(bay.x, bay.y - 80, bay.helper.unit + ' ' + ws.drones + ' launched', W.planet.theme.accent, 18);
     save(); SF.UI.refresh();
     return true;
   };
 
   SF.upgradeProducer = function (id) {
-    const p = W.plot(id), st = SF.state.plots[id];
+    const p = W.plot(id), st = SF.ws().plots[id];
     if (st.lvl >= C.producer.max || !spend(SF.producerCost(st))) return false;
     st.lvl++;
     FX.burst(p.x, p.y - 20, ['#ffd36b', '#fff4e8'], 24, { z: 30, speed: 200, size: 4 });
@@ -240,24 +262,35 @@
     return true;
   };
 
-  // ---------- launch to the next planet ----------
-  SF.startLaunch = function () {
+  // ---------- rocket: on to the next campaign planet, or travel once home is reached ----------
+  SF.startLaunch = function (dest) {
     if (launch) return;
-    launch = { t: 0 };
+    launch = { t: 0, dest: dest == null ? SF.state.planet + 1 : dest };
     P.hidden = true;
     SF.UI.setZone(null);
     A.build();
     save();
   };
 
-  function travel() {
+  function travel(dest) {
     const s = SF.state;
-    SF.state = SF.Save.fresh({ planet: s.planet + 1, stars: s.stars + 1, lifetime: s.lifetime, muted: s.muted });
+    let perks = null;
+    if (!SF.atHome()) {
+      // Finishing a campaign planet: start over on the next one, keeping the perks.
+      perks = SF.UI.perksFor(s.stars + 1);
+      SF.state = SF.Save.fresh({ planet: dest, stars: s.stars + 1, lifetime: s.lifetime, muted: s.muted, stack: s.stack, homeReached: dest >= C.home });
+    } else {
+      s.planet = dest;
+      s.player = { x: C.start.x, y: C.start.y };
+      SF.Save.ensureWorld(s, dest);
+    }
+    SF.state.player = { x: C.start.x, y: C.start.y };
     launch = null;
     enterPlanet();
     save();
     SF.UI.refresh();
-    SF.UI.showArrival();
+    if (perks) SF.UI.showArrival(perks);
+    else FX.pop(P.x, P.y - 120, 'Welcome to ' + SF.planetName(), W.planet.theme.accent, 26, { life: 2.4, vy: -16 });
   }
 
   function updateLaunch(dt) {
@@ -265,7 +298,7 @@
     FX.shake(0.04);
     const p = W.plot('launch');
     if (launch.t > 0.4 && Math.random() < 0.8) FX.smoke(p.x + (Math.random() - 0.5) * 30, p.y, 4);
-    if (launch.t > 3.2) travel();
+    if (launch.t > 3.2) travel(launch.dest);
   }
 
   const rocketLift = () => (launch ? Math.pow(Math.max(0, launch.t - 0.6), 2) * 140 : 0);
@@ -273,9 +306,12 @@
   // ---------- update ----------
   function update(dt) {
     time += dt;
-    const s = SF.state, st = SF.stats();
+    const s = SF.state, ws = SF.ws(), st = SF.stats();
 
-    if (launch) updateLaunch(dt);
+    if (launch) {
+      updateLaunch(dt);
+      if (!launch) return; // just arrived somewhere new; start fresh next frame
+    }
 
     // movement (frozen during launch)
     const v = launch ? { x: 0, y: 0 } : SF.Input.vector();
@@ -290,7 +326,7 @@
     W.pushOut(P, C.depot.x, C.depot.y - 10, 62);
     W.constrain(P, 18);
 
-    // harvest the nearest node in reach
+    // harvest the nearest node in reach, with the best tool for it
     P.swing = Math.max(0, P.swing - dt * 3.5);
     P.fullT = Math.max(0, P.fullT - dt);
     let tgt = null, td = Infinity;
@@ -300,6 +336,7 @@
       if (d < n.r + 46 && d < td) { td = d; tgt = n; }
     }
     P.target = tgt;
+    if (tgt) P.tool = SF.toolFor(tgt.def.node);
     P.hitT -= dt;
     const free = st.cap - s.stack.length - P.incoming;
     if (free > 0) P.fullWarned = false;
@@ -310,7 +347,7 @@
       } else if (P.hitT <= 0) {
         P.hitT = st.hitEvery; P.swing = 1;
         P.face = tgt.x >= P.x ? 1 : -1;
-        hitNode(tgt, st.dmg, P, 1);
+        hitNode(tgt, st.dmg * C.tools[P.tool].mult, P, 1);
         FX.shake(0.05);
       }
     } else P.hitT = Math.min(P.hitT, 0.08);
@@ -322,30 +359,32 @@
       const inZone = (x, y, r) => Math.hypot(P.x - x, (P.y - y) * 1.5) < r;
       if (inZone(C.dropZone.x, C.dropZone.y, C.dropZone.r)) zone = 'drop';
       else if (inZone(C.upgradePad.x, C.upgradePad.y, C.upgradePad.r)) zone = 'upgrade';
+      else if (W.chest && inZone(W.chest.x, W.chest.y, W.chest.r)) zone = 'chest';
       else for (const p of W.plots) {
         if (!plotVisible(p)) continue;
-        const ps = s.plots[p.id];
+        const ps = ws.plots[p.id];
         if (!ps.built && inZone(p.x, p.y, C.plotR)) { zone = 'plot:' + p.id; break; }
-        if (ps.built && (p.kind === 'drones' || p.kind === 'producer' || p.kind === 'launch') && inZone(p.x, p.y + 40, 54)) { zone = 'bld:' + p.id; break; }
+        if (ps.built && SF.UI.hasPanel(p) && inZone(p.x, p.y + 40, 54)) { zone = 'bld:' + p.id; break; }
       }
     }
     if (zone !== P.zone) { P.zone = zone; SF.UI.setZone(zone); }
 
-    // deliver cargo, one item at a time
-    if (zone === 'drop' && s.stack.length) {
+    // unload cargo, one item at a time: sell at the drop zone, store at the chest
+    if ((zone === 'drop' || zone === 'chest') && s.stack.length) {
       P.deliverT -= dt;
       while (P.deliverT <= 0 && s.stack.length) {
-        const from = Rn.stackSlot(P, s.stack.length - 1), res = s.stack.pop();
+        const from = Rn.stackSlot(P, s.stack.length - 1), code = s.stack.pop();
         P.stackFx.length = s.stack.length;
-        fly(res, from.x, from.y, () => ({ x: C.depot.x, y: C.depot.y - 30 }), { dur: 0.36, arc: 50, onArrive(f) { earn(f.res); } });
+        if (zone === 'drop') fly(code, from.x, from.y, depotTarget, { dur: 0.36, arc: 50, onArrive(f) { earn(f.code); } });
+        else SF.Home.store(code, from.x, from.y);
         P.deliverT += Math.max(0.03, 0.085 - s.stack.length * 0.0012);
       }
     } else P.deliverT = 0;
     comboT -= dt; if (comboT <= 0) combo = 0;
 
-    // pay into a build plot
+    // pay into a build plot: credits, then materials from the chest
     if (zone && zone.startsWith('plot:')) {
-      const p = W.plot(zone.slice(5)), ps = s.plots[p.id];
+      const p = W.plot(zone.slice(5)), ps = ws.plots[p.id];
       const left = p.cost - ps.paid;
       if (s.credits >= 0.01 && left > 0) {
         const amt = Math.min(Math.max(p.cost / 1.6, 40) * dt, s.credits, left);
@@ -356,16 +395,30 @@
           A.pay();
           flyers.push({ coin: true, sx: P.x, sy: P.y - 40, getTarget: () => ({ x: p.x, y: p.y }), t: 0, dur: 0.35, arc: 60 });
         }
-        if (p.cost - ps.paid < 0.01) build(p);
       }
+      if (p.needs) {
+        P.matT -= dt;
+        if (P.matT <= 0) {
+          P.matT = 0.05;
+          // Every material flows in at once, in chunks so big orders still take about a second.
+          for (const c in p.needs) {
+            const want = p.needs[c] - (ps.res[c] || 0), n = Math.min(want, s.hold[c] || 0, Math.ceil(p.needs[c] / 25));
+            if (n <= 0) continue;
+            s.hold[c] -= n; ps.res[c] = (ps.res[c] || 0) + n;
+            fly(+c, P.x, P.y - 60, () => ({ x: p.x, y: p.y }), { dur: 0.35, arc: 50 });
+          }
+          A.pay();
+        }
+      }
+      if (SF.plotDone(p, ps)) build(p);
     }
 
     // collect stock from a producer
     if (zone && zone.startsWith('bld:')) {
-      const p = W.plot(zone.slice(4)), ps = s.plots[p.id];
+      const p = W.plot(zone.slice(4)), ps = ws.plots[p.id];
       if (p.kind === 'producer' && ps.pile > 0 && free > 0) {
         P.collectT -= dt;
-        if (P.collectT <= 0) { P.collectT = 0.07; ps.pile--; toStack(p.helper.res, p.x - 30, p.y + 20, 0); }
+        if (P.collectT <= 0) { P.collectT = 0.07; ps.pile--; toStack(Rn.here(p.helper.res), p.x - 30, p.y + 20, 0); }
       }
     }
 
@@ -379,10 +432,11 @@
       } else n.grow = Math.min(1, n.grow + dt * 2.2);
     }
 
-    for (const p of W.plots) if (p.kind === 'producer' && s.plots[p.id].built) updateProducer(p, s.plots[p.id], dt);
+    for (const p of W.plots) if (p.kind === 'producer' && ws.plots[p.id].built) updateProducer(p, ws.plots[p.id], dt);
     const bay = droneBay();
-    while (bay && drones.length < s.drones) spawnDrone(bay.x, bay.y);
+    while (bay && drones.length < ws.drones) spawnDrone(bay.x, bay.y);
     for (const d of drones) updateDrone(d, dt);
+    SF.Home.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i];
@@ -390,7 +444,7 @@
       if (f.t >= 1) { flyers.splice(i, 1); if (f.onArrive) f.onArrive(f); }
     }
 
-    if (s.plots.ref.built) {
+    if (ws.plots.ref && ws.plots.ref.built) {
       smokeT -= dt;
       if (smokeT <= 0) { smokeT = 0.35; const p = W.plot('ref'); FX.smoke(p.x + 27, p.y, 108); }
     }
@@ -424,7 +478,7 @@
   }
 
   function draw() {
-    const t = time, s = SF.state, sh = FX.offset(t), th = W.planet.theme;
+    const t = time, ws = SF.ws(), sh = FX.offset(t), th = W.planet.theme;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = th.backdrop; ctx.fillRect(0, 0, canvas.width, canvas.height);
     worldTransform(ctx, sh);
@@ -432,17 +486,20 @@
     ctx.fillStyle = W.pattern; ctx.fillRect(L, T, Wd, Ht);
 
     Rn.dropZone(ctx, t, P.zone === 'drop');
-    for (const p of W.plots) if (plotVisible(p) && !s.plots[p.id].built) Rn.plotMarking(ctx, p, s.plots[p.id], t, P.zone === 'plot:' + p.id);
+    Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt).map(p => ({ x: p.x, y: p.y + 40 })), t);
+    for (const p of W.plots) if (plotVisible(p) && !ws.plots[p.id].built) Rn.plotMarking(ctx, p, ws.plots[p.id], t, P.zone === 'plot:' + p.id);
 
     // y-sorted objects
     const list = [];
     for (const n of W.nodes) if (n.x > L - 80 && n.x < L + Wd + 80 && n.y > T - 40 && n.y < T + Ht + 140) list.push({ y: n.y, fn: () => Rn.node(ctx, n, t) });
     list.push({ y: C.depot.y, fn: () => Rn.lander(ctx, t, depotGlow) });
     list.push({ y: C.upgradePad.y, fn: () => Rn.upgradePad(ctx, t, P.zone === 'upgrade') });
-    for (const p of W.plots) if (s.plots[p.id].built) {
+    if (W.chest) list.push({ y: W.chest.y, fn: () => Rn.chest(ctx, W.chest, t, P.zone === 'chest') });
+    for (const p of W.plots) if (ws.plots[p.id].built) {
       const lift = p.kind === 'launch' && launch ? rocketLift() + 0.001 : 0;
-      list.push({ y: p.y, fn: () => Rn.building(ctx, p, s.plots[p.id], t, P.zone === 'bld:' + p.id, lift) });
+      list.push({ y: p.y, fn: () => Rn.building(ctx, p, ws.plots[p.id], t, P.zone === 'bld:' + p.id, lift) });
     }
+    for (const m of SF.Home.walkers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
     for (const o of list) o.fn();
@@ -452,10 +509,10 @@
 
     for (const f of flyers) {
       if (f.t < 0) continue;
-      const tg = f.getTarget(), e = f.t < 0.5 ? 2 * f.t * f.t : 1 - Math.pow(-2 * f.t + 2, 2) / 2;
+      const tg = f.getTarget(), e = f.linear ? f.t : f.t < 0.5 ? 2 * f.t * f.t : 1 - Math.pow(-2 * f.t + 2, 2) / 2;
       const x = f.sx + (tg.x - f.sx) * e, y = f.sy + (tg.y - f.sy) * e - Math.sin(f.t * Math.PI) * f.arc;
       if (f.coin) Rn.hexCoin(ctx, x, y, 6);
-      else Rn.item(ctx, f.res, x, y, 1 + Math.sin(f.t * Math.PI) * 0.35);
+      else Rn.item(ctx, f.code, x, y - (f.linear ? 8 : 0), f.linear ? 1 : 1 + Math.sin(f.t * Math.PI) * 0.35);
     }
 
     // fog over locked land
@@ -472,7 +529,7 @@
     ctx.drawImage(fog, 0, 0);
     worldTransform(ctx, sh);
     for (const r of W.regions) if (!W.isOpen(r)) {
-      Rn.item(ctx, r.res, r.x, r.y - 56, 2.2);
+      if (r.res != null) Rn.item(ctx, Rn.here(r.res), r.x, r.y - 56, 2.2);
       Rn.label(ctx, r.name.toUpperCase(), r.x, r.y - 14, 26, 'rgba(255,244,232,0.75)');
       Rn.label(ctx, 'Locked. Build the ' + W.plot(r.unlock).name + ' to enter', r.x, r.y + 18, 14, 'rgba(255,244,232,0.6)', 600);
     }
@@ -500,13 +557,15 @@
 
   // A small arrow near the astronaut that points at the next useful place.
   function guideTarget() {
-    const s = SF.state, cap = SF.stats().cap;
+    const s = SF.state, ws = SF.ws(), cap = SF.stats().cap;
+    const foreign = s.stack.some(c => Math.floor(c / 10) !== s.planet);
+    if (W.chest && foreign) return W.chest;
     if (s.stack.length >= cap * 0.6 && s.stack.length > 0) return C.dropZone;
     for (const p of W.plots) {
       if (!plotVisible(p)) continue;
-      const ps = s.plots[p.id];
+      const ps = ws.plots[p.id];
       if (!ps.built && s.credits >= Math.min(p.cost - ps.paid, p.cost * 0.5)) return p;
-      if (ps.built && p.kind === 'launch') return { x: p.x, y: p.y + 40 };
+      if (ps.built && p.kind === 'launch' && !SF.atHome()) return { x: p.x, y: p.y + 40 };
     }
     if (s.totalEarned > 0) for (const key in C.upgrades) if (s.lvl[key] < C.upgrades[key].max && s.credits >= SF.upgradeCost(key)) return C.upgradePad;
     return null;
@@ -535,7 +594,9 @@
   }
 
   function start(hotData) {
-    SF.state = SF.Save.normalize(hotData && hotData.credits != null ? hotData : SF.Save.load());
+    // A broken save must never stop the game from starting.
+    try { SF.state = SF.Save.normalize(hotData && hotData.credits != null ? hotData : SF.Save.load()); }
+    catch (e) { console.error(e); SF.state = SF.Save.fresh(); }
     A.setMuted(SF.state.muted);
     canvas = document.getElementById('game');
     ctx = canvas.getContext('2d');
