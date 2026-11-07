@@ -86,6 +86,12 @@ SF.Render = (function () {
       ctx.fillStyle = R.color; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = R.edge; ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(-2.5, 2, 1.6, 2.6, 0.3, 0, TAU); ctx.fill();
     },
+    fruit(ctx, R) {
+      ctx.fillStyle = R.dark; ctx.beginPath(); ctx.arc(0, 1, 7, 0, TAU); ctx.fill();
+      ctx.fillStyle = R.color; ctx.beginPath(); ctx.arc(-1, 0, 6, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(-3, -2, 1.8, 0, TAU); ctx.fill();
+      ctx.fillStyle = R.leafDark || '#2e6a2a'; ctx.beginPath(); ctx.ellipse(3, -6, 4, 2, -0.5, 0, TAU); ctx.fill();
+    },
     bone(ctx, R) {
       ctx.fillStyle = R.color; ctx.strokeStyle = R.edge; ctx.lineWidth = 1.2;
       roundRect(ctx, -6, -2, 12, 4, 2); ctx.fill(); ctx.stroke();
@@ -94,8 +100,11 @@ SF.Render = (function () {
     },
   };
 
-  function item(ctx, res, x, y, s) {
-    const R = SF.World.res(res);
+  // Resource code of a tier on the current planet.
+  const here = tier => SF.state.planet * 10 + tier;
+
+  function item(ctx, code, x, y, s) {
+    const R = SF.res(code);
     ctx.save(); ctx.translate(x, y); ctx.scale(s || 1, s || 1);
     ITEMS[R.item](ctx, R);
     ctx.restore();
@@ -149,7 +158,7 @@ SF.Render = (function () {
       alive(ctx, n, R, t, ov) {
         const bob = Math.sin(t * 2.4 + n.phase) * 3;
         if (!ov) {
-          shell(ctx, n, true);
+          shell(ctx, n, true, R);
           glow(ctx, 0, -20 + bob, 60, rgba(R.color, 0.8), 0.45 + Math.sin(t * 3 + n.phase) * 0.12);
           const gr = ctx.createRadialGradient(-4, -26 + bob, 2, 0, -20 + bob, 13);
           gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.3, R.color); gr.addColorStop(1, R.dark);
@@ -157,14 +166,14 @@ SF.Render = (function () {
         } else ctx.fillStyle = ov;
         ctx.beginPath(); ctx.arc(0, -20 + bob, 13, 0, TAU); ctx.fill();
       },
-      dead(ctx, n) { ctx.scale(0.9, 0.9); shell(ctx, n, false); },
+      dead(ctx, n, R) { ctx.scale(0.9, 0.9); shell(ctx, n, false, R); },
     },
     tree: {
       top: 112,
       alive(ctx, n, R, t, ov) {
         const sway = Math.sin(t * 1.3 + n.phase) * 2;
-        ctx.fillStyle = ov || R.dark; roundRect(ctx, -6, -n.trunk - 4, 12, n.trunk + 4, 4); ctx.fill();
-        if (!ov) { ctx.fillStyle = R.color; ctx.fillRect(-6, -n.trunk, 4, n.trunk - 2); }
+        ctx.fillStyle = ov || R.trunk || R.dark; roundRect(ctx, -6, -n.trunk - 4, 12, n.trunk + 4, 4); ctx.fill();
+        if (!ov) { ctx.fillStyle = R.trunkLight || R.color; ctx.fillRect(-6, -n.trunk, 4, n.trunk - 2); }
         for (const b of n.blobs) {
           ctx.fillStyle = ov || R.leafDark; ctx.beginPath(); ctx.arc(b.x + sway, b.y, b.r, 0, TAU); ctx.fill();
         }
@@ -172,6 +181,10 @@ SF.Render = (function () {
         for (const b of n.blobs) { ctx.fillStyle = R.leaf; ctx.beginPath(); ctx.arc(b.x + sway - b.r * 0.25, b.y - b.r * 0.25, b.r * 0.72, 0, TAU); ctx.fill(); }
         ctx.fillStyle = 'rgba(255,255,255,0.18)';
         for (const b of n.blobs.slice(-2)) { ctx.beginPath(); ctx.arc(b.x + sway - b.r * 0.4, b.y - b.r * 0.45, b.r * 0.3, 0, TAU); ctx.fill(); }
+        if (R.fruit) for (const b of n.blobs) {
+          ctx.fillStyle = R.dark; ctx.beginPath(); ctx.arc(b.x + sway + b.r * 0.35, b.y + b.r * 0.3, 5, 0, TAU); ctx.fill();
+          ctx.fillStyle = R.color; ctx.beginPath(); ctx.arc(b.x + sway + b.r * 0.3, b.y + b.r * 0.25, 4, 0, TAU); ctx.fill();
+        }
       },
       dead(ctx, n, R) {
         ctx.fillStyle = R.dark; roundRect(ctx, -7, -9, 14, 10, 3); ctx.fill();
@@ -264,15 +277,16 @@ SF.Render = (function () {
     },
   };
 
-  function shell(ctx, n, open) {
-    ctx.fillStyle = '#2d1640';
+  function shell(ctx, n, open, R) {
+    const col = R.shell || ['#2d1640', '#4b2468', '#5c2c80'];
+    ctx.fillStyle = col[0];
     ctx.beginPath(); ctx.ellipse(0, -6, n.r, n.r * 0.5, 0, 0, TAU); ctx.fill();
     for (const s of n.spikes) {
       const bx = Math.cos(s.a) * n.r * 0.9, by = Math.sin(s.a) * n.r * 0.45 - 8;
-      ctx.fillStyle = '#4b2468';
+      ctx.fillStyle = col[1];
       poly(ctx, [[bx - 5, by], [bx + Math.cos(s.a) * s.l * 0.5, by + Math.sin(s.a) * s.l], [bx + 5, by]]); ctx.fill();
     }
-    ctx.fillStyle = '#5c2c80'; ctx.beginPath(); ctx.ellipse(0, -10, n.r * 0.8, n.r * 0.34, 0, Math.PI, TAU); ctx.fill();
+    ctx.fillStyle = col[2]; ctx.beginPath(); ctx.ellipse(0, -10, n.r * 0.8, n.r * 0.34, 0, Math.PI, TAU); ctx.fill();
     ctx.fillStyle = '#170a22'; ctx.beginPath(); ctx.ellipse(0, -9, n.r * 0.62, n.r * (open ? 0.2 : 0.08), 0, 0, TAU); ctx.fill();
   }
 
@@ -299,6 +313,31 @@ SF.Render = (function () {
     ctx.restore();
     hpBar(ctx, n, n.y - S.top, R);
   }
+
+  // ---------- tools, drawn in the hand (x along the arm) ----------
+  const TOOLS = {
+    pick(ctx, sw) {
+      ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(26, 0); ctx.stroke();
+      ctx.fillStyle = '#6ff5e8'; poly(ctx, [[24, -9], [31, 0], [24, 9], [27, 0]]); ctx.fill();
+      if (sw > 0.5) glow(ctx, 30, 0, 18, 'rgba(111,245,232,1)', (sw - 0.5) * 1.8);
+    },
+    axe(ctx, sw) {
+      ctx.strokeStyle = '#7a4a26'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(32, 0); ctx.stroke();
+      ctx.fillStyle = '#dfe5ee'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(26, -2); ctx.lineTo(24, -13); ctx.quadraticCurveTo(34, -10, 34, -2); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffab4a'; ctx.fillRect(25, -4, 8, 3);
+      if (sw > 0.5) glow(ctx, 30, -8, 18, 'rgba(255,171,74,1)', (sw - 0.5) * 1.8);
+    },
+    drill(ctx, sw) {
+      ctx.fillStyle = '#ffcf6a'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5;
+      roundRect(ctx, 10, -5, 14, 10, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#c9ced8'; poly(ctx, [[24, -5], [37, 0], [24, 5]]); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1;
+      const k = (Date.now() / 40) % 4;
+      for (let i = 0; i < 3; i++) { const x = 25 + ((i * 4 + k) % 11); ctx.beginPath(); ctx.moveTo(x, -4 + (x - 24) * 0.3); ctx.lineTo(x + 2, 4 - (x - 24) * 0.3); ctx.stroke(); }
+      if (sw > 0.3) glow(ctx, 37, 0, 20, 'rgba(255,207,106,1)', sw);
+    },
+  };
 
   // ---------- astronaut ----------
   const PER_COL = 16;
@@ -334,9 +373,7 @@ SF.Render = (function () {
     const ang = (P.target ? -0.2 : 0.9) + (sw > 0 ? -1.6 * Math.sin(sw * Math.PI) : 0);
     ctx.save(); ctx.translate(f * 9, -32); ctx.scale(f, 1); ctx.rotate(ang);
     ctx.fillStyle = '#f2f0f8'; roundRect(ctx, -3, -3, 16, 7, 3.5); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(26, 0); ctx.stroke();
-    ctx.fillStyle = '#6ff5e8'; poly(ctx, [[24, -9], [31, 0], [24, 9], [27, 0]]); ctx.fill();
-    if (sw > 0.5) glow(ctx, 30, 0, 18, 'rgba(111,245,232,1)', (sw - 0.5) * 1.8);
+    TOOLS[P.tool || 'pick'](ctx, sw);
     ctx.restore();
 
     const hx = f * 2, hy = -52;
@@ -428,7 +465,17 @@ SF.Render = (function () {
     ctx.strokeRect(-s / 2, -s / 2, s, s); ctx.setLineDash([]);
     ctx.restore();
     const left = SF.UI.fmt(Math.ceil(p.cost - st.paid));
-    if (p.kind === 'gate') item(ctx, p.res, p.x, p.y - 56, 1.4);
+    if (p.kind === 'gate' && p.res != null) item(ctx, here(p.res), p.x, p.y - 56, 1.4);
+    // materials still owed, from the chest
+    if (p.needs) {
+      const codes = Object.keys(p.needs);
+      codes.forEach((c, i) => {
+        const x = p.x + (i - (codes.length - 1) / 2) * 62, y = p.y + 52;
+        const got = (st.res && st.res[c]) || 0, done = got >= p.needs[c];
+        item(ctx, +c, x - 16, y, 1.1);
+        label(ctx, `${got}/${p.needs[c]}`, x + 10, y, 12, done ? '#9be36a' : '#fff4e8');
+      });
+    }
     label(ctx, p.name, p.x, p.y - 34, 15, '#fff4e8');
     hexCoin(ctx, p.x - 6 - left.length * 5.5, p.y - 2, 8);
     label(ctx, left, p.x + 6, p.y - 1, 20, '#ffd36b');
@@ -477,8 +524,8 @@ SF.Render = (function () {
   }
 
   // Stock waiting at a producer, stacked in a little pyramid.
-  // The base grows with the stock so any amount fits (4 wide holds 10, 5 wide 15, ...).
   function pile(ctx, res, n, x, y) {
+    // Widen the base so any count fits; the old fixed width of 4 looped forever above 10 items.
     let w = 4;
     while (w * (w + 1) / 2 < n) w++;
     const ox = x - (w - 4) * 7.5;
@@ -488,7 +535,7 @@ SF.Render = (function () {
 
   const BUILDINGS = {
     gate(ctx, p, t) {
-      const x = p.x, y = p.y, R = SF.World.res(p.res);
+      const x = p.x, y = p.y, R = p.res == null ? { color: SF.World.planet.theme.accent } : SF.World.res(p.res);
       shadow(ctx, x, y + 4, 30, 10);
       ctx.fillStyle = '#4c3a5e'; poly(ctx, [[x - 18, y], [x - 6, y - 90], [x + 6, y - 90], [x + 18, y]]); ctx.fill();
       ctx.fillStyle = '#6a5680'; poly(ctx, [[x, y], [x - 2, y - 90], [x + 6, y - 90], [x + 18, y]]); ctx.fill();
@@ -545,7 +592,7 @@ SF.Render = (function () {
         ctx.fillStyle = '#c88a4a'; roundRect(ctx, x + 14, y - 28, 34, 26, 4); ctx.fill();
         ctx.fillStyle = '#3a2414'; ctx.fillRect(x + 20, y - 22, 10, 8);
       }
-      pile(ctx, h.res, st.pile, x - 52, y + 30);
+      pile(ctx, here(h.res), st.pile, x - 52, y + 30);
       const cap = h.pile + 4 * st.lvl;
       label(ctx, `${p.name.toUpperCase()}  ${st.pile}/${cap}`, x, y + 84, 13, acc);
     },
@@ -568,9 +615,82 @@ SF.Render = (function () {
       ctx.fillStyle = '#4c3a5e'; ctx.beginPath(); ctx.ellipse(x, y, 52, 18, 0, 0, TAU); ctx.fill();
       ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); ctx.stroke(); ctx.setLineDash([]);
       rocket(ctx, x, y - lift, t, lift > 0);
-      if (!lift) label(ctx, 'LAUNCH PAD', x, y + 82, 14, '#ffd36b');
+      if (!lift) label(ctx, SF.atHome() ? 'ROCKET' : 'LAUNCH PAD', x, y + 82, 14, '#ffd36b');
+    },
+    factory(ctx, p, t) {
+      const x = p.x, y = p.y;
+      shadow(ctx, x, y + 6, 76, 22);
+      ctx.fillStyle = '#9aa3ad'; ctx.strokeStyle = '#2a2f38'; ctx.lineWidth = 3;
+      // saw-tooth roof hall
+      ctx.beginPath(); ctx.moveTo(x - 66, y); ctx.lineTo(x - 66, y - 50);
+      for (let i = 0; i < 4; i++) { ctx.lineTo(x - 66 + i * 33 + 22, y - 76); ctx.lineTo(x - 66 + i * 33 + 33, y - 50); }
+      ctx.lineTo(x + 66, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#6ff5e8';
+      for (let i = 0; i < 4; i++) ctx.fillRect(x - 60 + i * 33, y - 44, 18, 8);
+      // a belt rolling out of the door
+      ctx.fillStyle = '#3a3f48'; ctx.fillRect(x - 20, y - 28, 40, 28);
+      belt(ctx, x - 20, y + 4, x + 70, y + 4, t, 12);
+      label(ctx, 'BELT FACTORY', x, y + 28, 13, '#dfe5ee');
+    },
+    habitat(ctx, p, t) {
+      const x = p.x, y = p.y;
+      shadow(ctx, x, y + 6, 62, 20);
+      ctx.fillStyle = '#f2f0f8'; ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(x, y, 56, 50, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(58,42,74,0.35)'; ctx.lineWidth = 2;
+      for (const k of [-0.5, 0, 0.5]) { ctx.beginPath(); ctx.ellipse(x, y, 56 * Math.abs(k) + 0.1, 50, 0, Math.PI, TAU); ctx.stroke(); }
+      ctx.fillStyle = '#ffd27a';
+      for (const dx of [-24, 18]) { ctx.beginPath(); ctx.arc(x + dx, y - 26, 7, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#3a2a4a'; roundRect(ctx, x - 9, y - 26, 18, 26, 8); ctx.fill();
+      ctx.fillStyle = '#62d08a'; ctx.beginPath(); ctx.arc(x + 46, y - 4, 9, 0, TAU); ctx.arc(x + 54, y - 8, 7, 0, TAU); ctx.fill();
+      label(ctx, p.name.toUpperCase(), x, y + 22, 13, '#fff4e8');
     },
   };
+
+  // A conveyor belt with moving slats.
+  function belt(ctx, x1, y1, x2, y2, t, w) {
+    const dx = x2 - x1, dy = y2 - y1, l = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    ctx.save(); ctx.translate(x1, y1); ctx.rotate(a);
+    ctx.fillStyle = '#2a2f38'; ctx.fillRect(0, -w / 2 - 2, l, w + 4);
+    ctx.fillStyle = '#4b5260'; ctx.fillRect(0, -w / 2, l, w);
+    ctx.strokeStyle = '#7b8494'; ctx.lineWidth = 2;
+    const off = (t * 40) % 12;
+    for (let i = off; i < l; i += 12) { ctx.beginPath(); ctx.moveTo(i, -w / 2); ctx.lineTo(i, w / 2); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // Belts from producers to the drop zone, with items riding on them.
+  function belts(ctx, list, t) {
+    const z = C.dropZone;
+    for (const b of list) belt(ctx, b.x, b.y, z.x, z.y, t, 14);
+  }
+
+  // The material chest next to the rocket on the home planet.
+  function chest(ctx, c, t, active) {
+    pad(ctx, c.x, c.y + 6, c.r, 'rgba(255,211,107,A)', t, active);
+    shadow(ctx, c.x, c.y + 2, 34, 10);
+    ctx.fillStyle = '#8a5a34'; ctx.strokeStyle = '#3d220f'; ctx.lineWidth = 3;
+    roundRect(ctx, c.x - 28, c.y - 34, 56, 34, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#a8703f'; roundRect(ctx, c.x - 30, c.y - 46, 60, 14, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffd36b'; ctx.fillRect(c.x - 5, c.y - 36, 10, 10);
+    ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 2;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(c.x + s * 20, c.y - 46); ctx.lineTo(c.x + s * 20, c.y); ctx.stroke(); }
+    label(ctx, 'MATERIAL CHEST', c.x, c.y + 26, 13, '#ffd36b');
+  }
+
+  // Hired crew walking around the settlement.
+  function crewmate(ctx, m, t) {
+    const bob = Math.abs(Math.sin(m.walk)) * 2;
+    shadow(ctx, m.x, m.y, 12, 4);
+    ctx.save(); ctx.translate(m.x, m.y - bob); ctx.scale(0.7, 0.7);
+    ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+    ctx.fillStyle = m.suit; roundRect(ctx, -12, -38, 24, 28, 9); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#d9d6e6'; roundRect(ctx, -9, -12, 7, 12, 3); ctx.fill(); roundRect(ctx, 2, -12, 7, 12, 3); ctx.fill();
+    ctx.fillStyle = '#f7f6fc'; ctx.beginPath(); ctx.arc(0, -48, 13, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = m.hungry ? '#8a8f99' : '#ffb35a'; ctx.beginPath(); ctx.ellipse(m.face * 4, -47, 8, 7, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (m.hungry) label(ctx, 'hungry', m.x, m.y - 50, 11, '#ff8f5a', 600);
+  }
 
   function rocket(ctx, x, y, t, firing) {
     if (firing) {
@@ -590,5 +710,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { item, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { item, here, chest, belts, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

@@ -72,15 +72,42 @@ SF.PLANETS = [
       { slot: 'h2', kind: 'producer', style: 'excavator', res: 1, every: 3, pile: 12, name: 'Excavator', desc: 'Digs sandstone on its own' },
     ],
   },
+  {
+    id: 'halcyon', name: 'Halcyon', mult: 2.5, home: true,
+    tagline: 'A warm lagoon world, gentle enough to call home',
+    intro: 'Clear water, sweet fruit and no storms. Build your home base here. The rocket can now fly you back to every planet you know, to fetch materials for new buildings.',
+    theme: {
+      ground: '#69b984', light: 'rgba(175,235,175,0.4)', dark: 'rgba(30,110,85,0.3)',
+      crater: 'rgba(60,160,180,0.5)', rim: 'rgba(205,250,215,0.5)',
+      specks: ['rgba(35,100,70,0.45)', 'rgba(240,255,220,0.5)', 'rgba(255,150,200,0.45)'],
+      detail: 'grass', backdrop: '#0f3b44', fog: 'rgba(10,40,50,0.7)', accent: '#7ff0c8',
+    },
+    regions: [{ angle: 0, dist: 1150, r: 540 }, { angle: 270, dist: 1150, r: 540 }],
+    settlement: { angle: 90, dist: 1260, r: 640, name: 'New Haven' },
+    resources: [
+      { id: 'sunfruit', name: 'Sunfruit', plural: 'Sunfruit', node: 'tree', item: 'fruit', color: '#ffb340', dark: '#d0601a', edge: '#5a2a0a', leaf: '#62d08a', leafDark: '#24835a', trunk: '#7a4a26', trunkLight: '#a8703f', fruit: true },
+      { id: 'coral', name: 'Lagoon coral', plural: 'Lagoon coral', node: 'crystal', item: 'gem', color: '#ff9cc2', dark: '#d0457a', edge: '#5e1533', region: 'Coral Shallows', gate: 'Shallows Pier' },
+      { id: 'skyshell', name: 'Skyshell pearl', plural: 'Skyshell pearls', node: 'clam', item: 'orb', color: '#9af5ff', dark: '#2a9fb8', edge: '#0e4552', shell: ['#123f4a', '#1f6170', '#2a8193'], region: 'Skyshell Reef', gate: 'Reef Bridge' },
+    ],
+    helpers: [],
+    // Buildings of the home base. needs = materials from the chest, by resource code.
+    homePlots: [
+      { id: 'g4', kind: 'gate', name: 'Haven Bridge', desc: 'Opens New Haven', cost: 25000, needs: { 10: 40 }, requires: 'g3' },
+      { id: 'fac', kind: 'factory', name: 'Belt Factory', desc: 'Conveyor belts for producers', cost: 30000, needs: { 12: 40, 22: 20 }, requires: 'g4', at: [-210, -150] },
+      { id: 'hab1', kind: 'habitat', name: 'Habitat', desc: 'Room for 2 crew', cost: 15000, needs: { 10: 50, 21: 30 }, requires: 'g4', at: [210, -150] },
+      { id: 'hab2', kind: 'habitat', name: 'Habitat II', desc: 'Room for 2 more crew', cost: 30000, needs: { 10: 80, 21: 60, 0: 40 }, requires: 'hab1', at: [-210, 170] },
+      { id: 'hab3', kind: 'habitat', name: 'Habitat III', desc: 'Room for 2 more crew', cost: 60000, needs: { 10: 120, 21: 90, 3: 30 }, requires: 'hab2', at: [210, 170] },
+    ],
+  },
 ];
 
 // Balance shared by every planet, by resource tier (0 = home).
 SF.TIERS = [
-  { value: 2,  hp: 3,  drops: 3, regrow: 7,  count: 24, r: 26 },
-  { value: 6,  hp: 7,  drops: 3, regrow: 10, count: 14, r: 30 },
-  { value: 15, hp: 10, drops: 3, regrow: 11, count: 14, r: 28 },
-  { value: 35, hp: 16, drops: 2, regrow: 13, count: 13, r: 26 },
-  { value: 80, hp: 24, drops: 2, regrow: 15, count: 12, r: 28 },
+  { value: 20,  hp: 3,  drops: 3, regrow: 7,  count: 24, r: 26 },
+  { value: 60,  hp: 7,  drops: 3, regrow: 10, count: 14, r: 30 },
+  { value: 150, hp: 10, drops: 3, regrow: 11, count: 14, r: 28 },
+  { value: 350, hp: 16, drops: 2, regrow: 13, count: 13, r: 26 },
+  { value: 800, hp: 24, drops: 2, regrow: 15, count: 12, r: 28 },
 ];
 
 // Fill in tier defaults; a resource can still override any of them.
@@ -88,34 +115,51 @@ SF.PLANETS.forEach(p => p.resources.forEach((r, i) => Object.assign(r, Object.as
 
 // Build the region and plot list for one planet from its data.
 SF.layoutPlanet = function (planet) {
-  const C = SF.CFG, rad = d => d * Math.PI / 180;
+  const C = SF.CFG, rad = d => d * Math.PI / 180, m = planet.mult;
   const regions = [{ id: 'r0', x: C.base.x, y: C.base.y, r: C.base.r, name: 'Landing Site', res: 0 }];
+  const at = (g, k) => [Math.cos(rad(g.angle)) * k, Math.sin(rad(g.angle)) * k];
   planet.regions.forEach((g, i) => {
-    const a = rad(g.angle);
-    regions.push({ id: 'r' + (i + 1), x: Math.cos(a) * g.dist, y: Math.sin(a) * g.dist, r: g.r,
-      name: planet.resources[i + 1].region, res: i + 1, unlock: 'g' + (i + 2) });
+    const [x, y] = at(g, g.dist);
+    regions.push({ id: 'r' + (i + 1), x, y, r: g.r, name: planet.resources[i + 1].region, res: i + 1, unlock: 'g' + (i + 2) });
   });
+  const sett = planet.settlement;
+  if (sett) {
+    const [x, y] = at(sett, sett.dist);
+    regions.push({ id: 'rs', x, y, r: sett.r, name: sett.name, res: null, unlock: 'g' + (planet.regions.length + 2), settlement: true });
+  }
 
   const plots = [];
   const plot = (id, kind, name, desc, x, y, extra) => plots.push(Object.assign({
     id, kind, name, desc, x: Math.round(x), y: Math.round(y),
-    cost: Math.round(C.plotCosts[id] * SF.mult()), requires: C.plotRequires[id],
+    cost: Math.round(C.plotCosts[id] * m), requires: C.plotRequires[id],
   }, extra));
 
   planet.regions.forEach((g, i) => {
-    const a = rad(g.angle), r = planet.resources[i + 1];
-    plot('g' + (i + 2), 'gate', r.gate, 'Opens ' + r.region, Math.cos(a) * C.gateRadius, Math.sin(a) * C.gateRadius, { res: i + 1 });
+    const r = planet.resources[i + 1];
+    plot('g' + (i + 2), 'gate', r.gate, 'Opens ' + r.region, ...at(g, C.gateRadius), { res: i + 1 });
   });
 
-  // Buildings take the spots between the gates, in chain order.
-  const spots = planet.regions.map(g => rad(g.angle + 45)).sort((a, b) => Math.sin(b) - Math.sin(a));
+  // Buildings take the spots between the gates, nearest the start first.
+  const angles = planet.regions.concat(sett ? [sett] : []).map(g => g.angle);
+  const spots = angles.map(a => rad(a + 45)).sort((a, b) => Math.sin(b) - Math.sin(a));
   const spot = () => { const a = spots.shift(); return [Math.cos(a) * C.spotRadius, Math.sin(a) * C.spotRadius]; };
-  const order = ['h1', 'ref', 'h2', 'launch'];
-  for (const id of order) {
-    if (id === 'ref') { plot('ref', 'refinery', 'Refinery', 'Everything sells for +50%', ...spot()); continue; }
-    if (id === 'launch') { plot('launch', 'launch', 'Launch Pad', 'Fly on to a new planet', ...spot()); continue; }
-    const h = planet.helpers.find(x => x.slot === id);
-    if (h) plot(id, h.kind, h.name, h.desc, ...spot(), { helper: h });
+
+  if (planet.home) {
+    plot('ref', 'refinery', 'Refinery', 'Everything sells for +50%', ...spot(), { requires: 'g2' });
+    plot('launch', 'launch', 'Rocket', 'Travel to other planets', ...spot(), { prebuilt: true, requires: null });
+    Object.assign(plots.find(p => p.id === 'g3'), { requires: 'g2', cost: Math.round(5000 * m) });
+    const reg = regions.find(r => r.settlement);
+    for (const h of planet.homePlots) {
+      const [x, y] = h.at ? [reg.x + h.at[0], reg.y + h.at[1]] : at(sett, C.gateRadius);
+      plots.push(Object.assign({}, h, { x: Math.round(x), y: Math.round(y) }));
+    }
+  } else {
+    for (const id of ['h1', 'ref', 'h2', 'launch']) {
+      if (id === 'ref') { plot('ref', 'refinery', 'Refinery', 'Everything sells for +50%', ...spot()); continue; }
+      if (id === 'launch') { plot('launch', 'launch', 'Launch Pad', 'Fly on to a new planet', ...spot()); continue; }
+      const h = planet.helpers.find(x => x.slot === id);
+      if (h) plot(id, h.kind, h.name, h.desc, ...spot(), { helper: h });
+    }
   }
   return { regions, plots };
 };

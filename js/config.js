@@ -12,49 +12,66 @@ SF.CFG = {
   spotRadius: 400,                     // other buildings sit between the gates
 
   upgrades: {
-    cap:   { name: 'Cargo Pack',     base: 20, growth: 1.55, max: 15 },
-    drill: { name: 'Plasma Pick',    base: 30, growth: 1.6,  max: 15 },
-    speed: { name: 'Thruster Boots', base: 25, growth: 1.6,  max: 10 },
+    cap:   { name: 'Cargo Pack',     base: 200, growth: 1.55, max: 15 },
+    drill: { name: 'Tool Power',     base: 300, growth: 1.6,  max: 15 },
+    speed: { name: 'Thruster Boots', base: 250, growth: 1.6,  max: 10 },
   },
 
-  // Base costs before the planet multiplier. The chain is the order plots appear in.
-  plotCosts: { g2: 120, h1: 320, ref: 750, g3: 1500, h2: 2600, g4: 4000, g5: 9000, launch: 20000 },
+  // Campaign planets: base costs before the planet multiplier, and the order plots appear in.
+  plotCosts: { g2: 1200, h1: 3200, ref: 7500, g3: 15000, h2: 26000, g4: 40000, g5: 90000, launch: 200000 },
   plotRequires: { g2: null, h1: 'g2', ref: 'g2', g3: 'h1', h2: 'g3', g4: 'g3', g5: 'g4', launch: 'g5' },
 
-  drone: { cap: 5, speed: 170, hitEvery: 0.6, max: 6, base: 180, growth: 1.75 },
-  producer: { base: 220, growth: 1.7, max: 8 },
+  drone: { cap: 5, speed: 170, hitEvery: 0.6, max: 6, base: 1800, growth: 1.75 },
+  producer: { base: 2200, growth: 1.7, max: 8 },
   refineryMult: 1.5,
-  starBonus: 0.25,                     // permanent +25% sale value per planet completed
+
+  // What every finished campaign planet gives you for good.
+  perks: { sale: 0.25, cap: 10, speed: 15 },
+  tools: {
+    pick:  { name: 'Plasma Pick', mult: 1 },
+    axe:   { name: 'Ion Axe',     mult: 2,   stars: 1, nodes: ['tree', 'bush', 'mushroom', 'cactus'] },
+    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['rock', 'crystal', 'bones', 'clam'] },
+  },
+
+  home: 3,                             // index of the home planet; travel opens there
+  conveyor: { needs: { 12: 10 } },     // 10 iron ore per producer
+  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, eatEvery: 40, food: 30 },
 };
 
-// Planet-wide multiplier for values and prices. Grows every full tour of the planets.
-SF.mult = function () {
-  const n = SF.PLANETS.length, i = SF.state.planet;
-  return SF.PLANETS[i % n].mult * (1 + Math.floor(i / n));
-};
+// Resources are identified everywhere by a code: planet index * 10 + tier.
+SF.res = code => SF.PLANETS[Math.floor(code / 10)].resources[code % 10];
 
-SF.planet = function () { return SF.PLANETS[SF.state.planet % SF.PLANETS.length]; };
+SF.planet = i => SF.PLANETS[i == null ? SF.state.planet : i];
+SF.planetName = i => SF.planet(i).name;
+SF.mult = i => SF.planet(i).mult;
+SF.atHome = () => SF.state.planet >= SF.CFG.home || SF.state.homeReached;
 
-SF.planetName = function (i) {
-  if (i == null) i = SF.state.planet;
-  const n = SF.PLANETS.length, tour = Math.floor(i / n);
-  return SF.PLANETS[i % n].name + (tour ? ' ' + ['II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][Math.min(tour - 1, 8)] : '');
-};
+// The current planet's buildings and drones (each planet keeps its own once you can travel).
+SF.ws = () => SF.state.worlds[SF.state.planet];
 
 SF.stats = function () {
-  const l = SF.state.lvl;
+  const l = SF.state.lvl, s = Math.min(SF.state.stars, 3), k = SF.CFG.perks;
   return {
-    cap: 10 + 5 * l.cap,
+    cap: 10 + k.cap * s + 5 * l.cap,
     dmg: 1 + 0.5 * l.drill,
     hitEvery: Math.max(0.16, 0.4 - 0.02 * l.drill),
-    speed: 210 + 20 * l.speed,
+    speed: 210 + k.speed * s + 20 * l.speed,
   };
 };
 
-const priced = (base, growth, lvl) => Math.round(base * SF.mult() * Math.pow(growth, lvl));
+// The best tool you own for a node shape.
+SF.toolFor = function (shape) {
+  const T = SF.CFG.tools;
+  for (const key of ['axe', 'drill']) if (SF.state.stars >= T[key].stars && T[key].nodes.includes(shape)) return key;
+  return 'pick';
+};
+
+// Prices follow the planet you are on; once you can travel, they follow the home planet.
+const priced = (base, growth, lvl) => Math.round(base * SF.mult(SF.atHome() ? SF.CFG.home : SF.state.planet) * Math.pow(growth, lvl));
 
 SF.upgradeCost = key => { const u = SF.CFG.upgrades[key]; return priced(u.base, u.growth, SF.state.lvl[key]); };
-SF.droneCost = () => { const d = SF.CFG.drone; return priced(d.base, d.growth, Math.max(0, SF.state.drones - 1)); };
+SF.droneCost = () => { const d = SF.CFG.drone; return priced(d.base, d.growth, Math.max(0, SF.ws().drones - 1)); };
 SF.producerCost = st => priced(SF.CFG.producer.base, SF.CFG.producer.growth, st.lvl);
-SF.resValue = r => r.value * SF.mult();
-SF.sellMult = () => (SF.state.plots.ref && SF.state.plots.ref.built ? SF.CFG.refineryMult : 1) * (1 + SF.CFG.starBonus * SF.state.stars);
+SF.hireCost = () => { const c = SF.CFG.crew; return Math.round(c.hire * Math.pow(c.growth, SF.state.crew.length)); };
+SF.resValue = code => SF.res(code).value * SF.mult(Math.floor(code / 10));
+SF.sellMult = () => (SF.ws().plots.ref && SF.ws().plots.ref.built ? SF.CFG.refineryMult : 1) * (1 + SF.CFG.perks.sale * SF.state.stars);
