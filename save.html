@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shardfall save</title>
+<style>
+  body { font: 16px system-ui, sans-serif; background: #14101f; color: #eee; margin: 0; padding: 16px; }
+  textarea { width: 100%; height: 40vh; box-sizing: border-box; font: 13px monospace; background: #221a33; color: #eee; border: 1px solid #554; border-radius: 8px; padding: 8px; }
+  button { font: inherit; padding: 10px 16px; margin: 8px 8px 0 0; border-radius: 8px; border: 0; background: #ffd36b; color: #222; }
+  button.warn { background: #e0605a; color: #fff; }
+  p { color: #bbb; }
+</style>
+</head>
+<body>
+<h2>Shardfall save</h2>
+<p>Shows the save stored in this browser for this address. The game itself does not run on this page.</p>
+<textarea id="t" readonly></textarea>
+<div>
+  <button id="copy">Copy</button>
+  <a href="./"><button>Back to game</button></a>
+  <button id="del" class="warn">Delete save</button>
+</div>
+<p id="msg"></p>
+<script>
+  const KEY = 'shardfall-outpost-v1';
+  const t = document.getElementById('t'), msg = document.getElementById('msg');
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { msg.textContent = 'Storage blocked: ' + e; }
+  t.value = raw || '(no save)';
+  document.getElementById('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(t.value); msg.textContent = 'Copied.'; }
+    catch (e) { t.select(); document.execCommand('copy'); msg.textContent = 'Copied.'; }
+  };
+  document.getElementById('del').onclick = () => {
+    if (!confirm('Really delete the save in this browser?')) return;
+    try { localStorage.removeItem(KEY); t.value = '(no save)'; msg.textContent = 'Deleted.'; } catch (e) { msg.textContent = String(e); }
+  };
+</script>
+</body>
+</html>
