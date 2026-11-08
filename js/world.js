@@ -39,6 +39,8 @@
       const rocket = W.plot('launch'), H = C.hub.hallAt;
       W.chest = SF.hubActive() ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;
       W.hall = W.planet.home ? { x: H.x, y: H.y, r: 62, padY: H.y + 70 } : null;
+      const B = C.contracts.at;
+      W.board = W.planet.home ? { x: B.x, y: B.y, r: C.contracts.r, padY: B.y + 50 } : null;
       const S = C.smelter;
       W.smelter = W.planet.home ? { x: S.at.x, y: S.at.y, r: 58, padY: S.at.y + 80 } : null;
       W.pickup = W.planet.home ? { x: S.pickup.x, y: S.pickup.y, r: 46 } : null;
@@ -80,6 +82,7 @@
       W.nodes = [];
       if (W.chest) avoid.push({ x: W.chest.x, y: W.chest.y, r: 110 });
       if (W.hall) avoid.push({ x: W.hall.x, y: W.hall.y - 60, r: 260 });
+      if (W.board) avoid.push({ x: W.board.x, y: W.board.y, r: 110 });
       // keep every possible conveyor route clear of nodes
       for (const p of W.plots) if (p.kind === 'producer') {
         const pts = SF.Render.beltRoute(p);

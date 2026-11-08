@@ -22,7 +22,7 @@ SF.Save = {
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
       worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
       smelt: { q: {}, out: {}, hauler: false, hand: 0, driver: false, heat: 0, t: 0 },
-      research: {}, charted: {}, fuel: 0, fuelUse: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
+      research: {}, charted: {}, contracts: { list: [], done: 0, swap: 0 }, demand: {}, sellAt: {}, fuel: 0, fuelUse: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -75,6 +75,11 @@ SF.Save = {
       const f = fl.frame ? num(fl.frame[id], 0) | 0 : 0;
       if (f > 0) s.fleet.frame[id] = Math.min(SF.CFG.rockets.frame.max, f);
     }
+    const ct = data.contracts || {};
+    s.contracts = { list: (Array.isArray(ct.list) ? ct.list : []).filter(o => o && valid(o.code) && o.n > 0 && o.pay > 0).slice(0, SF.CFG.contracts.slots).map(o => ({ code: o.code, n: o.n | 0, pay: Math.round(num(o.pay, 0)) })),
+      done: Math.max(0, num(ct.done, 0) | 0), swap: Math.max(0, Math.min(SF.CFG.contracts.swap, num(ct.swap, 0))) };
+    s.demand = {}; if (data.demand) for (const c in data.demand) { const d = num(data.demand[c], 0); if (valid(+c) && d > 0) s.demand[c] = Math.min(SF.CFG.demand.max, d); }
+    s.sellAt = {}; if (data.sellAt) for (const c in data.sellAt) { const k = num(data.sellAt[c], 0) | 0; if (valid(+c) && k > 0 && k < SF.CFG.hub.sellAt.length) s.sellAt[c] = k; }
     const kt = data.kitchen || {};
     s.kitchen = { meal: Math.max(0, num(kt.meal, 0) | 0), drink: Math.max(0, num(kt.drink, 0) | 0), feast: Math.max(0, num(kt.feast, 0) | 0), elixir: Math.max(0, num(kt.elixir, 0) | 0), drivers: Math.max(0, num(kt.drivers, 0) | 0), t: 0 };
     if (Array.isArray(data.inbound)) s.inbound = data.inbound.filter(f => f && f.items).map(f => ({ t: num(f.t, 0), items: counts(f.items), from: num(f.from, 0) | 0 }));
@@ -161,6 +166,8 @@ SF.Save = {
       worlds, smelt: { q: s.smelt.q, out: s.smelt.out, hauler: s.smelt.hauler || undefined, hand: s.smelt.hand || undefined, driver: s.smelt.driver || undefined, heat: s.smelt.heat || undefined },
       crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 100) / 100, water: Math.round((w.water == null ? 1 : w.water) * 100) / 100 })),
       kitchen: { meal: s.kitchen.meal, drink: s.kitchen.drink, feast: s.kitchen.feast || undefined, elixir: s.kitchen.elixir || undefined, drivers: s.kitchen.drivers || undefined },
+      demand: Object.fromEntries(Object.entries(s.demand || {}).map(([c, d]) => [c, Math.round(d * 1000) / 1000])),
+      contracts: Object.assign({}, s.contracts, { swap: Math.round((s.contracts && s.contracts.swap) || 0) }),
       inbound: s.inbound.map(f => ({ t: Math.round(f.t * 10) / 10, items: f.items, from: f.from })),
     });
   },

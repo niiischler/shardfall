@@ -135,7 +135,8 @@ SF.UI = (function () {
     if (SF.hubActive() && s.stack.length >= st.cap) return 'Pack full. Unload at the WAREHOUSE (cargo rocket) or the chest';
     if (s.totalEarned === 0 && s.stack.length === 0) return `Stand next to a ${NOUNS[home.node]} to harvest ${home.plural.toLowerCase()}`;
     if (s.totalEarned === 0) return s.stack.length >= st.cap ? 'Pack full. Carry it to the DROP OFF pad' : 'Harvest more, then carry it to the DROP OFF pad';
-    if (s.stack.length >= st.cap) return 'Pack full. Head to the DROP OFF pad';
+    if (s.stack.length >= st.cap) return SF.World.hall ? 'Pack full. Sell at the SELL pad or store it in the HALL' : 'Pack full. Head to the DROP OFF pad';
+    if (SF.World.board && SF.Contracts.list().some(SF.Contracts.ready)) return 'A contract is ready: hand it in at the CONTRACTS board beside the hall';
     if (!SF.atHome() && ws.plots.launch.built) return 'The rocket is ready. Stand on the launch pad to fly on';
     const next = SF.World.plots.filter(p => SF.plotVisible(p) && !ws.plots[p.id].built && p.kind !== 'lot').sort((a, b) => a.cost - b.cost)[0];
     if (next) {
@@ -173,6 +174,7 @@ SF.UI = (function () {
     if (zone === 'upgrade') return { title: 'Upgrade terminal', eyebrow: 'Suit and tools', cards: upgradeCards };
     if (zone === 'chest') return { title: 'Material chest', eyebrow: 'Travels with you', cards: chestCards };
     if (zone === 'hall') return { title: 'Halcyon Hall', eyebrow: 'Home storage', cards: hallCards };
+    if (zone === 'board') return { title: 'Contract board', eyebrow: 'Orders from the colony', cards: contractCards };
     if (zone === 'smelter') return { title: 'Smelter', eyebrow: 'Ore to ingots', cards: smelterCards };
     if (zone === 'drop' && SF.hubActive()) return { title: pl + ' warehouse', eyebrow: 'Cargo to Halcyon', cards: warehouseCards };
     if (zone.startsWith('plot:') && SF.World.plot(zone.slice(5)).lot) {
@@ -361,7 +363,7 @@ SF.UI = (function () {
     return (icons[code] = cv.toDataURL());
   }
   const tile = c => { const R = SF.res(c); return `<div class="tile" data-code="${c}" style="--tint:${R.color}"><img alt="" src="${icon(c)}">` +
-    `<span class="t-name">${R.plural}</span><span class="t-num"><b>0</b><small></small></span><span class="bar"><i></i></span></div>`; };
+    `<span class="t-name">${R.plural}</span><span class="t-num"><b>0</b><small></small></span><span class="bar"><i></i></span><span class="t-tag"></span></div>`; };
   const known = pi => !SF.PLANETS[pi].far || !!SF.state.worlds[pi];
   const planetGroups = (filter) => SF.PLANETS.map((pl, pi) => ({ name: pl.name, tint: pl.theme.accent, codes: known(pi) ? pl.resources.map(r => pi * 10 + r.tier).filter(filter) : [] }))
     .concat([{ name: 'Smelted', tint: '#dfe5ee', codes: Object.keys(SF.INGOTS).map(Number).filter(filter) }]);
@@ -379,6 +381,7 @@ SF.UI = (function () {
           key = k;
           st.innerHTML = groups.length ? groups.map(g => `<section class="store-group"><h3 style="--tint:${g.tint}">${g.name}</h3><div class="tiles">${g.codes.map(tile).join('')}</div></section>`).join('')
             : `<p class="store-empty">${opts.empty || 'Nothing here yet.'}</p>`;
+          if (opts.tap) st.querySelectorAll('.tile').forEach(t => { t.classList.add('tap'); t.addEventListener('click', () => { SF.Audio.init(); opts.tap(+t.dataset.code); }); });
         }
         st.querySelectorAll('.tile').forEach(t => {
           const c = +t.dataset.code, n = opts.count(c), cap = opts.cap ? opts.cap(c) : null;
@@ -388,6 +391,8 @@ SF.UI = (function () {
           if (cap) t.querySelector('.bar i').style.width = Math.min(100, n / cap * 100) + '%';
           t.classList.toggle('empty', !n);
           t.classList.toggle('full', !!cap && n >= cap);
+          if (opts.tag) t.querySelector('.t-tag').textContent = opts.tag(c);
+          if (opts.warn) t.classList.toggle('selling', opts.warn(c));
         });
         div.querySelector('.card-lvl').textContent = opts.lvl ? opts.lvl() : '';
         div.querySelector('.card-eff').textContent = opts.text ? opts.text() : '';
@@ -444,10 +449,15 @@ SF.UI = (function () {
     return [
       storeCard('hall-info', {
         title: 'Stored in the hall',
-        groups: () => planetGroups(c => true),
-        count: c => SF.state.hold[c] || 0, cap: () => Hb.hallCap(),
+        groups: () => planetGroups(c => (SF.state.hold[c] || 0) > 0 || Hb.sellStep(c) > 0),
+        empty: 'The hall is empty. Rockets and your pack fill it.',
+        count: c => SF.state.hold[c] || 0, cap: c => Hb.keepCap(c),
+        tap: c => Hb.cycleSell(c),
+        tag: c => { const d = Math.round((1 - SF.demandMult(c)) * 100), k = Hb.sellStep(c); return [Hb.isSelling(c) ? 'selling' : '', k ? 'keeps ' + Math.round(C.hub.sellAt[k] * 100) + '%' : '', d >= 5 ? 'price −' + d + '%' : ''].filter(Boolean).join(' · '); },
+        warn: c => Hb.isSelling(c),
         lvl: () => `${Object.values(SF.state.hold).reduce((a, b) => a + b, 0)} items`,
-        text: () => `Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.`,
+        text: () => `Each material fills up to ${Hb.hallCap()}; anything over that is sold, and selling the same thing a lot lowers its price for a while. Tap a material to keep less of it and sell the rest earlier. Buildings take their materials from here.` +
+          (Object.keys(SF.state.hold).some(c => Hb.isSelling(+c) && Hb.wanted(+c)) ? ' Careful: a building under construction still needs something that is being sold.' : ''),
       }),
       htmlCard('hall-rockets', 'Cargo rockets', () => ({ html: (SF.Fuel.has() ? meter('Rocket fuel', Math.floor(SF.Fuel.tank()), SF.Fuel.cap(), '#ffcf4a') : '') + rocketMeters(), text: 'Each rocket flies by itself when full. Bigger and faster models come from the Rocket Workshop in New Haven.' })),
       {
@@ -458,6 +468,36 @@ SF.UI = (function () {
         },
       },
     ];
+  }
+
+  // ---------- contract board (Halcyon) ----------
+  function contractCards() {
+    const Ct = SF.Contracts, K = C.contracts, cards = [];
+    cards.push({ btn: info('ct-info', `<span class="card-name">Orders</span><span class="card-eff">Hand in materials from the hall and get ${K.pay}× their sale price. A new order takes the place of every one you finish.</span>`), update() {} });
+    for (let i = 0; i < K.slots; i++) {
+      const div = info('ct-' + i, `<div class="contract"><img alt=""><span class="card-name"></span><span class="card-eff"></span>` +
+        `<div class="c-row"><button type="button" class="job-chip c-swap">Swap</button><button type="button" class="job-chip on c-hand">Hand in <span class="c-pay"></span></button></div></div>`);
+      div.querySelector('.c-hand').addEventListener('click', () => { SF.Audio.init(); if (Ct.hand(i)) flash(div); else shakeEl(div); });
+      div.querySelector('.c-swap').addEventListener('click', () => { SF.Audio.init(); if (!Ct.swap(i)) shakeEl(div); });
+      let shown = -1;
+      cards.push({
+        btn: div,
+        update() {
+          const o = Ct.list()[i];
+          div.hidden = !o;
+          if (!o) return;
+          const R = SF.res(o.code), have = SF.state.hold[o.code] || 0, ok = Ct.ready(o), sw = Ct.swapIn();
+          if (shown !== o.code) { shown = o.code; div.querySelector('img').src = icon(o.code); div.style.setProperty('--tint', R.color); }
+          div.querySelector('.card-name').textContent = `${o.n} ${R.plural}`;
+          div.querySelector('.card-eff').textContent = ok ? `Ready: the hall has ${have}.` : `The hall has ${have} of ${o.n}.`;
+          div.querySelector('.c-pay').textContent = fmt(o.pay);
+          const h = div.querySelector('.c-hand'); h.disabled = !ok;
+          const s = div.querySelector('.c-swap'); s.disabled = sw > 0; s.textContent = sw > 0 ? `Swap in ${Math.ceil(sw)}s` : 'Swap';
+        },
+      });
+    }
+    cards.push({ btn: info('ct-done', `<span class="card-name">Finished</span><span class="card-eff"></span>`), update(r) { r.btn.querySelector('.card-eff').textContent = `${Ct.done()} contracts handed in so far. Orders grow a little with every one.`; } });
+    return cards;
   }
 
   // ---------- New Haven build menu ----------

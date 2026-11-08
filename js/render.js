@@ -934,7 +934,7 @@ SF.Render = (function () {
       ctx.beginPath(); ctx.moveTo(z.x - 14, yy + 6); ctx.lineTo(z.x, yy - 2); ctx.lineTo(z.x + 14, yy + 6); ctx.stroke();
     }
     ctx.globalAlpha = 1; ctx.lineCap = 'butt';
-    label(ctx, hub ? 'TO WAREHOUSE' : 'DROP OFF', z.x, z.y + z.r * 0.55 + 16, 14, '#6ff5e8');
+    label(ctx, hub ? 'TO WAREHOUSE' : SF.atHome() ? 'SELL' : 'DROP OFF', z.x, z.y + z.r * 0.55 + 16, 14, '#6ff5e8');
   }
 
   function plotMarking(ctx, p, st, t, active) {
@@ -2123,10 +2123,38 @@ SF.Render = (function () {
       const gx = x - 50 + i * 20, k = Math.min(1, SF.state.hold[c] / cap);
       ctx.fillStyle = 'rgba(28,10,40,0.6)'; ctx.fillRect(gx - 4, y - 92, 8, 26);
       ctx.fillStyle = SF.res(+c).color; ctx.fillRect(gx - 3, y - 67 - 24 * k, 6, 24 * k);
+      // this one is being sold right now: a blinking red frame
+      if (SF.Hub.isSelling(+c) && Math.sin(t * 10) > -0.2) { ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 2; ctx.strokeRect(gx - 5, y - 93, 10, 28); }
     });
     label(ctx, 'HALCYON HALL', x, y + 120, 15, '#ffd36b');
     label(ctx, 'Rockets land here · unload your pack', x, y + 138, 11, 'rgba(255,244,232,0.85)', 600);
   }
+
+  // Contract board beside the hall: a notice board with one slip per order.
+  function board(ctx, b, t, active) {
+    const x = b.x, y = b.y, list = SF.Contracts.list();
+    shadow(ctx, x, y + 4, 70, 16);
+    ctx.strokeStyle = '#2a1f33'; ctx.lineWidth = 3;
+    ctx.fillStyle = '#7a5a46';
+    for (const dx of [-52, 46]) { roundRect(ctx, x + dx, y - 70, 8, 72, 3); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = '#a0765a'; roundRect(ctx, x - 62, y - 118, 124, 66, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#5a3f32'; roundRect(ctx, x - 66, y - 124, 132, 12, 4); ctx.fill(); ctx.stroke();
+    list.forEach((o, i) => {
+      const sx = x - 40 + i * 40, sy = y - 104 + (i % 2) * 4, ok = SF.Contracts.ready(o);
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate((i - 1) * 0.06);
+      if (ok) { ctx.shadowColor = '#9be36a'; ctx.shadowBlur = 10 + Math.sin(t * 4) * 4; }
+      ctx.fillStyle = ok ? '#f2ffe0' : '#fff4e8'; ctx.fillRect(-15, -2, 30, 40); ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(42,31,51,0.5)'; ctx.lineWidth = 1.5; ctx.strokeRect(-15, -2, 30, 40);
+      ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(0, 1, 3, 0, TAU); ctx.fill();
+      item(ctx, o.code, 0, 18, 0.55);
+      ctx.fillStyle = '#2a1f33'; ctx.font = `700 9px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(o.n, 0, 32);
+      ctx.restore();
+    });
+    const n = list.filter(SF.Contracts.ready).length;
+    label(ctx, 'CONTRACTS', x, y + 92, 14, active ? '#fff4e8' : '#ffd36b');
+    label(ctx, n ? `${n} ready to hand in` : 'Orders pay 3× the sale price', x, y + 108, 11, n ? '#9be36a' : 'rgba(255,244,232,0.85)', 600);
+  }
+  const boardPad = (ctx, b, t) => pad(ctx, b.x, b.padY, b.r, 'rgba(255,211,107,A)', t, SF.player.zone === 'board');
 
   // A cargo rocket coming down onto its hall pad, unloading, then lifting off again.
   function landing(ctx, p, a, t) {
@@ -2205,5 +2233,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { item, here, trail, foodCar, vehicle, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { board, boardPad, item, here, trail, foodCar, vehicle, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

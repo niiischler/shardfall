@@ -122,7 +122,13 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
 
 - From now on nothing resets. The rocket flies you to any planet and back; finished planets stay fully built.
 - Your cargo comes with you. Unload materials at the **Halcyon Hall** (behind the lander). It holds 150 of each
-  material (more with upgrades); anything beyond that is sold for credits.
+  material (more with upgrades); anything beyond that is sold for credits. When it sells, the material's gauge on the
+  hall blinks red, a note says so (in red if a building under construction still needs it), and its tile in the hall
+  panel turns red. Tap a tile to keep less of it (100 %, 75 %, 50 %, 25 %, 0 %) and sell the rest sooner.
+- Selling the same material again and again lowers its price for a while (up to −40 %); it recovers by itself.
+  The drop off on Halcyon is now called **SELL**.
+- The **contract board** beside the hall (Halcyon only) shows three orders, e.g. 40 iron ingots. Hand one in from the
+  hall for 3× the sale price; a new order takes its place. Swap an order you do not want (then wait 90 s for the next swap).
 - On the other planets the drop off becomes a **warehouse** with a **cargo rocket**. Drop offs, drones and belts fill it;
   when 50 items are loaded it flies to the hall by itself (or launch it early from the warehouse panel).
   A warehouse holds 200 items (expand it in the warehouse panel); when it is full, drones, belts, drivers, crew
@@ -187,6 +193,7 @@ js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, prod
 js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
 js/home.js        New Haven lots, crew (working on the current planet) and conveyor belts
 js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall, the portable chest
+js/contracts.js   contract board on Halcyon: orders paid from the hall
 js/smelter.js     smelter on Halcyon: ore to ingots, ore pickup, tractor driver, ingot hauler
 js/food.js        canteen, crew meals and drinks, delivery cars, pantry supply runs
 js/research.js    research lab trees and their effects

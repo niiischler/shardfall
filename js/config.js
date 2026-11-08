@@ -67,7 +67,14 @@ SF.CFG = {
     hall:  { base: 150, step: 150, cost: 20000, growth: 1.9, max: 8 },  // Halcyon hall, per resource
     wh:    { base: 200, step: 150, cost: 15000, growth: 1.9, max: 8 },  // warehouse on each other planet, total items (cost x planet multiplier)
     hallAt: { x: 300, y: -290 },
+    sellAt: [1, 0.75, 0.5, 0.25, 0],            // hall: tap a material to sell everything over this share of the hall
   },
+
+  // Contract board beside the hall (Halcyon only): orders paid at `pay` times the sale price.
+  contracts: { at: { x: 520, y: -195 }, r: 50, slots: 3, min: 20, max: 60, growth: 0.1, growMax: 40, pay: 3, swap: 90 },
+
+  // Selling the same material again and again lowers its price for a while (after Halcyon only).
+  demand: { step: 0.003, max: 0.4, recover: 0.012 },
 
   // Rocket Workshop (New Haven): rocket models for the cargo routes. cap and flight multiply the normal rocket.
   // A model is built once; then any route can fly it. Its cargo frame upgrades add `frame.step` capacity per level.
@@ -161,6 +168,17 @@ SF.upgradeBelt = (pi, id) => {
 };
 SF.producerMax = st => SF.CFG.producer.max + (st.mk ? SF.CFG.producer.mk2.levels : 0);
 SF.hireCost = () => { const c = SF.CFG.crew; return Math.round(c.hire * Math.pow(c.growth, SF.state.crew.length)); };
+// Demand: after Halcyon, every sale of a material lowers its price a little; it recovers over time.
+SF.demandMult = code => (SF.state.homeReached ? 1 - ((SF.state.demand || {})[code] || 0) : 1);
+SF.demandHit = (code, n) => {
+  if (!SF.state.homeReached) return;
+  const d = SF.state.demand || (SF.state.demand = {}), D = SF.CFG.demand;
+  d[code] = Math.min(D.max, (d[code] || 0) + D.step * n);
+};
+SF.demandUpdate = dt => {
+  const d = SF.state.demand; if (!d) return;
+  for (const c in d) { d[c] -= SF.CFG.demand.recover * dt; if (d[c] <= 0) delete d[c]; }
+};
 SF.resValue = code => SF.INGOTS[code] ? SF.resValue(SF.INGOTS[code].ore) * 1.6 : SF.res(code).value * SF.mult(Math.floor(code / 10));
 SF.sellMult = () => (SF.ws().plots.ref && SF.ws().plots.ref.built ? SF.CFG.refineryMult : 1) * (1 + SF.CFG.perks.sale * SF.state.stars);
 

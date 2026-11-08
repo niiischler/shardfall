@@ -145,6 +145,18 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
 .tile.empty { opacity: 0.4; filter: saturate(0.4); }
 .tile.full { border-color: var(--credit); }
 .tile.full .t-num b { color: var(--credit); }
+.t-tag { grid-column: 2; margin-top: 4px; font: 700 0.62rem/1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: #ffb340; }
+.t-tag:empty { display: none; }
+.tile.tap { cursor: pointer; }
+.tile.tap:hover { border-color: color-mix(in srgb, var(--tint) 70%, transparent); }
+.tile.selling { border-color: #ff5a5a; box-shadow: 0 0 0 1px #ff5a5a inset; animation: sell-blink 1s ease-in-out infinite; }
+.tile.selling .t-tag { color: #ff6b6b; }
+@keyframes sell-blink { 50% { box-shadow: 0 0 10px 1px rgba(255, 90, 90, 0.45) inset; } }
+.contract { display: grid; grid-template-columns: 44px 1fr auto; gap: 4px 10px; align-items: center; }
+.contract img { width: 44px; height: 44px; grid-row: 1 / 3; }
+.contract .c-pay { font: 700 1.05rem/1 var(--display); color: var(--credit); }
+.contract .job-chip:disabled { opacity: 0.5; cursor: default; }
+.contract .c-row { display: flex; gap: 6px; grid-column: 3; grid-row: 1 / 3; }
 .store-empty { margin: 4px 0; opacity: 0.7; font-size: 0.85rem; }
 .meters { display: grid; gap: 10px; margin: 6px 0 4px; }
 .meter { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; }
