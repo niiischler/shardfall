@@ -34,10 +34,26 @@
     </div>
   </header>
 
-  <section id="panel" hidden aria-live="polite">
-    <h2 id="panel-title">Upgrade terminal</h2>
-    <div id="panel-body"></div>
-    <p class="panel-hint">Tap a card, or press its number. Walk away to close.</p>
+  <button id="prompt" type="button" hidden>
+    <span class="prompt-dot" aria-hidden="true"></span>
+    <span class="prompt-text"><small>Open</small><b id="prompt-title"></b></span>
+    <kbd>E</kbd>
+  </button>
+
+  <section id="panel" class="sheet station" hidden aria-labelledby="panel-title">
+    <div class="station-card">
+      <header class="station-head">
+        <div>
+          <p class="eyebrow" id="panel-eyebrow"></p>
+          <h2 id="panel-title"></h2>
+        </div>
+        <button id="btn-close-panel" class="icon-btn" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none"/></svg>
+        </button>
+      </header>
+      <div id="panel-body"></div>
+      <p class="panel-hint">Tap a card or press its number. Esc or walking away closes this.</p>
+    </div>
   </section>
 
   <section id="menu" class="sheet" hidden>

@@ -2,7 +2,7 @@
 SF.UI = (function () {
   const C = SF.CFG;
   const $ = id => document.getElementById(id);
-  let els = {}, shown = 0, refs = [], bumpT = 0, introGone = false;
+  let els = {}, shown = 0, refs = [], keyed = [], bumpT = 0, introGone = false, curZone = null, curDef = null;
 
   // Compact numbers: 12, 2.5, 1.2k, 34k, 1.5M.
   function fmt(n) {
@@ -45,7 +45,7 @@ SF.UI = (function () {
   function init() {
     els = {
       credits: $('credits'), creditBox: $('credit-box'), goal: $('goal'), planet: $('planet-chip'),
-      panel: $('panel'), panelTitle: $('panel-title'), panelBody: $('panel-body'),
+      panel: $('panel'), panelTitle: $('panel-title'), panelEyebrow: $('panel-eyebrow'), panelBody: $('panel-body'), prompt: $('prompt'), promptTitle: $('prompt-title'),
       sound: $('btn-sound'), menuBtn: $('btn-menu'), menu: $('menu'), intro: $('intro'),
       reset: $('btn-reset'), resetConfirm: $('reset-confirm'), resetYes: $('btn-reset-yes'), resetNo: $('btn-reset-no'),
       closeMenu: $('btn-close-menu'), stats: $('menu-stats'), arrive: $('arrive'),
@@ -62,9 +62,15 @@ SF.UI = (function () {
     els.resetYes.addEventListener('click', () => { SF.resetProgress(); openMenu(false); });
     $('btn-start').addEventListener('click', () => { SF.Audio.init(); dismissIntro(); });
     $('btn-arrive').addEventListener('click', () => { els.arrive.hidden = true; });
+    els.prompt.addEventListener('click', () => { SF.Audio.init(); openStation(); });
+    $('btn-close-panel').addEventListener('click', () => closePanel());
+    els.panel.addEventListener('pointerdown', e => { if (e.target === els.panel) closePanel(); });
     window.addEventListener('keydown', e => {
-      const n = parseInt(e.key, 10);
-      if (n >= 1 && n <= refs.length && refs[n - 1].btn.tagName === 'BUTTON' && !els.panel.hidden) refs[n - 1].btn.click();
+      if (!els.panel.hidden) {
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= keyed.length) keyed[n - 1].btn.click();
+        else if (e.key === 'Escape') closePanel();
+      } else if ((e.code === 'KeyE' || e.key === 'Enter') && !els.prompt.hidden && e.target === document.body) { e.preventDefault(); openStation(); }
     });
     const pl = SF.planet(), back = SF.state.totalEarned > 0 || SF.state.stars > 0;
     $('intro-eyebrow').textContent = 'Planet ' + pl.name + ' · ' + pl.tagline;
@@ -156,20 +162,39 @@ SF.UI = (function () {
   };
   const hasPanel = p => !!PANELS[p.kind];
 
-  function setZone(zone) {
-    if (zone === 'upgrade') openPanel('Upgrade terminal', upgradeCards());
-    else if (zone === 'chest') openPanel('Material chest', chestCards());
-    else if (zone === 'hall') openPanel('Halcyon hall', hallCards());
-    else if (zone === 'smelter') openPanel('Smelter', smelterCards());
-    else if (zone === 'drop' && SF.hubActive()) openPanel('Warehouse', warehouseCards());
-    else if (zone && zone.startsWith('plot:') && SF.World.plot(zone.slice(5)).lot) {
+  // What standing in a zone offers: a title for the "Open" button and the cards of its popup.
+  function zoneDef(zone) {
+    if (!zone) return null;
+    const pl = SF.planetName();
+    if (zone === 'upgrade') return { title: 'Upgrade terminal', eyebrow: 'Suit and tools', cards: upgradeCards };
+    if (zone === 'chest') return { title: 'Material chest', eyebrow: 'Travels with you', cards: chestCards };
+    if (zone === 'hall') return { title: 'Halcyon Hall', eyebrow: 'Home storage', cards: hallCards };
+    if (zone === 'smelter') return { title: 'Smelter', eyebrow: 'Ore to ingots', cards: smelterCards };
+    if (zone === 'drop' && SF.hubActive()) return { title: pl + ' warehouse', eyebrow: 'Cargo to Halcyon', cards: warehouseCards };
+    if (zone.startsWith('plot:') && SF.World.plot(zone.slice(5)).lot) {
       const p = SF.World.plot(zone.slice(5));
-      if (p.kind === 'lot') openPanel('Build on this lot', buildCards(p));
-      else openPanel(p.name + ' under construction', [cancelCard(p)]);
-    } else if (zone && zone.startsWith('bld:')) {
+      return p.kind === 'lot' ? { title: 'Building lot', eyebrow: 'New Haven', cards: () => buildCards(p) }
+        : { title: p.name, eyebrow: 'Under construction', cards: () => [cancelCard(p)] };
+    }
+    if (zone.startsWith('bld:')) {
       const p = SF.World.plot(zone.slice(4));
-      openPanel(p.kind === 'launch' ? (SF.atHome() ? 'Rocket: choose a planet' : 'Launch pad') : p.name, PANELS[p.kind](p));
-    } else closePanel();
+      if (p.kind === 'launch') return { title: SF.atHome() ? 'Rocket' : 'Launch pad', eyebrow: SF.atHome() ? 'Choose a planet' : 'Leave ' + pl, cards: () => PANELS.launch(p) };
+      return { title: p.name, eyebrow: pl, cards: () => PANELS[p.kind](p) };
+    }
+    return null;
+  }
+
+  // Standing in a zone only shows a small "Open" button; the full popup opens on a tap or E.
+  function setZone(zone) {
+    const same = zone === curZone && !els.panel.hidden;
+    curZone = zone; curDef = zoneDef(zone);
+    if (same && curDef) { openStation(); return; }
+    closePanel();
+  }
+
+  function openStation() {
+    if (!curDef) return;
+    openPanel(curDef.title, curDef.cards(), curDef.eyebrow);
   }
 
   function card(id, name, onClick, wide) {
@@ -240,23 +265,81 @@ SF.UI = (function () {
     };
   }
 
-  const resList = (o, cap) => {
-    const codes = Object.keys(o).filter(c => o[c] > 0).sort((a, b) => a - b);
-    return codes.length ? codes.map(c => `<li><i style="background:${SF.res(+c).color}"></i>${o[c]}${cap ? '/' + cap : ''} ${SF.res(+c).plural}</li>`).join('') : '<li>Empty</li>';
-  };
+  // ---------- storage overview ----------
+  // Every material as a tile: its picture, how many, and a fill bar when there is a limit.
+  const icons = {};
+  function icon(code) {
+    if (icons[code]) return icons[code];
+    const cv = document.createElement('canvas'); cv.width = cv.height = 96;
+    const g = cv.getContext('2d');
+    try { g.scale(2, 2); SF.Render.item(g, code, 24, 30, 1.5); } catch (_) {}
+    return (icons[code] = cv.toDataURL());
+  }
+  const tile = c => { const R = SF.res(c); return `<div class="tile" data-code="${c}" style="--tint:${R.color}"><img alt="" src="${icon(c)}">` +
+    `<span class="t-name">${R.plural}</span><span class="t-num"><b>0</b><small></small></span><span class="bar"><i></i></span></div>`; };
+  const planetGroups = (filter) => SF.PLANETS.map((pl, pi) => ({ name: pl.name, tint: pl.theme.accent, codes: pl.resources.map(r => pi * 10 + r.tier).filter(filter) }))
+    .concat([{ name: 'Smelted', tint: '#dfe5ee', codes: Object.keys(SF.INGOTS).map(Number).filter(filter) }]);
 
-  function listCard(id, title, text, get) {
-    const div = info(id, `<span class="card-name">${title}</span><ul class="res-list"></ul><span class="card-eff"></span>`);
-    return { btn: div, update() { const r = get(); div.querySelector('ul').innerHTML = r.list; div.querySelector('.card-eff').textContent = r.text || text; } };
+  function storeCard(id, opts) {
+    const div = info(id, `<div class="store-top"><span class="card-name">${opts.title}</span><span class="card-lvl"></span></div><span class="card-eff"></span><div class="store"></div>`);
+    div.classList.add('storage');
+    let key = '';
+    return {
+      btn: div,
+      update() {
+        const groups = opts.groups().filter(g => g.codes.length), st = div.querySelector('.store');
+        const k = groups.map(g => g.name + ':' + g.codes.join(',')).join('|');
+        if (k !== key) {
+          key = k;
+          st.innerHTML = groups.length ? groups.map(g => `<section class="store-group"><h3 style="--tint:${g.tint}">${g.name}</h3><div class="tiles">${g.codes.map(tile).join('')}</div></section>`).join('')
+            : `<p class="store-empty">${opts.empty || 'Nothing here yet.'}</p>`;
+        }
+        st.querySelectorAll('.tile').forEach(t => {
+          const c = +t.dataset.code, n = opts.count(c), cap = opts.cap ? opts.cap(c) : null;
+          t.querySelector('b').textContent = n;
+          t.querySelector('small').textContent = cap ? '/' + cap : '';
+          t.querySelector('.bar').hidden = !cap;
+          if (cap) t.querySelector('.bar i').style.width = Math.min(100, n / cap * 100) + '%';
+          t.classList.toggle('empty', !n);
+          t.classList.toggle('full', !!cap && n >= cap);
+        });
+        div.querySelector('.card-lvl').textContent = opts.lvl ? opts.lvl() : '';
+        div.querySelector('.card-eff').textContent = opts.text ? opts.text() : '';
+      },
+    };
+  }
+
+  // A labelled progress bar.
+  const meter = (label, now, max, color, note) => `<div class="meter"><span class="m-label">${label}</span><span class="m-val">${note || now + ' / ' + max}</span>` +
+    `<span class="bar"><i style="width:${Math.min(100, max ? now / max * 100 : 0)}%;background:${color}"></i></span></div>`;
+
+  function htmlCard(id, title, get) {
+    const div = info(id, `<span class="card-name">${title}</span><div class="meters"></div><span class="card-eff"></span>`);
+    return { btn: div, update() { const r = get(); div.querySelector('.meters').innerHTML = r.html; div.querySelector('.card-eff').textContent = r.text || ''; } };
+  }
+
+  // Where every cargo rocket is right now.
+  function rocketMeters(only) {
+    const Hb = SF.Hub;
+    return SF.PLANETS.map((pl, pi) => ({ pl, pi })).filter(o => o.pi !== C.home && (only == null || o.pi === only)).map(({ pl, pi }) => {
+      const ws = SF.state.worlds[pi];
+      if (!ws) return meter(pl.name, 0, 1, pl.theme.accent, 'not visited yet');
+      const r = Hb.rk(ws), lab = Hb.padLabel(pi)[1];
+      if (r.away > 0) return meter(pl.name, (r.total || r.away) - r.away, r.total || r.away, pl.theme.accent, lab);
+      return meter(pl.name, r.n, SF.rocketCap(), pl.theme.accent, lab);
+    }).join('');
   }
 
   function chestCards() {
     const H = C.hub, Hb = SF.Hub;
     return [
-      listCard('chest-info', 'Material chest', '', () => ({
-        list: resList(SF.state.chest),
-        text: `${Hb.chestCount()} / ${Hb.chestCap()} items. Unload here; it flies home with you and empties into the hall on Halcyon.`,
-      })),
+      storeCard('chest-info', {
+        title: 'In the chest', empty: 'The chest is empty. Unload here to fill it.',
+        groups: () => planetGroups(c => (SF.state.chest[c] || 0) > 0),
+        count: c => SF.state.chest[c] || 0,
+        lvl: () => `${Hb.chestCount()} / ${Hb.chestCap()} items`,
+        text: () => 'Unload here; the chest flies home with you and empties into the hall on Halcyon.',
+      }),
       {
         btn: card('up-chest', 'Bigger chest', () => Hb.upgradeChest(), true),
         update(r) {
@@ -270,11 +353,14 @@ SF.UI = (function () {
   function hallCards() {
     const H = C.hub, Hb = SF.Hub;
     return [
-      listCard('hall-info', 'Stored in the hall', '', () => ({
-        list: resList(SF.state.hold, Hb.hallCap()),
-        text: `Cargo rockets land here. Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.` +
-          (Hb.inFlight() ? ` ${Hb.inFlight()} cargo rocket${Hb.inFlight() > 1 ? 's' : ''} flying.` : ''),
-      })),
+      storeCard('hall-info', {
+        title: 'Stored in the hall',
+        groups: () => planetGroups(c => true),
+        count: c => SF.state.hold[c] || 0, cap: () => Hb.hallCap(),
+        lvl: () => `${Object.values(SF.state.hold).reduce((a, b) => a + b, 0)} items`,
+        text: () => `Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.`,
+      }),
+      htmlCard('hall-rockets', 'Cargo rockets', () => ({ html: rocketMeters(), text: `Each rocket carries up to ${SF.rocketCap()} items and flies by itself when full.` })),
       {
         btn: card('up-hall', 'Expand the hall', () => Hb.upgradeHall(), true),
         update(r) {
@@ -353,13 +439,14 @@ SF.UI = (function () {
   function canteenCards() {
     const F = C.food;
     return [
-      listCard('canteen-info', 'Kitchen', '', () => {
-        const k = SF.state.kitchen, h = SF.state.hold, per = F.per + SF.R('recipes');
+      htmlCard('canteen-info', 'Kitchen', () => {
+        const k = SF.state.kitchen, h = SF.state.hold, per = F.per + SF.R('recipes'), cap = SF.Hub.hallCap();
         const fed = SF.state.crew.filter(w => SF.Food.canWork(w)).length;
         return {
-          list: `<li><i style="background:#ffb340"></i>${k.meal}/${F.cap} meals</li><li><i style="background:#7fd8ff"></i>${k.drink}/${F.cap} drinks</li>`,
-          text: `Cooks 1 sunfruit into ${per} meals and 1 cactus water into ${per} drinks from the hall (${h[F.meal] || 0} sunfruit, ${h[F.drink] || 0} cactus water there). ` +
-            `${fed} of ${SF.state.crew.length} crew fed and working. Crew on other planets get food from their warehouse; their cargo rocket brings it.`,
+          html: meter('Meals ready', k.meal, F.cap, '#ffb340') + meter('Drinks ready', k.drink, F.cap, '#7fd8ff') +
+            meter(SF.res(F.meal).plural + ' in the hall', h[F.meal] || 0, cap, SF.res(F.meal).color) + meter(SF.res(F.drink).name + ' in the hall', h[F.drink] || 0, cap, SF.res(F.drink).color) +
+            meter('Crew fed and working', fed, SF.state.crew.length || 1, '#9be36a', `${fed} / ${SF.state.crew.length}`),
+          text: `Cooks 1 ${SF.res(F.meal).name.toLowerCase()} into ${per} meals and 1 ${SF.res(F.drink).name.toLowerCase()} into ${per} drinks. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
         };
       }),
       {
@@ -376,12 +463,14 @@ SF.UI = (function () {
   function smelterCards() {
     const K = C.smelter, Sm = SF.Smelter;
     return [
-      listCard('smelt-info', 'In the furnace', '', () => ({
-        list: resList(SF.state.smelt.q, K.queue),
-        text: `1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s and lands on the tray (${Sm.ready()} / ${K.outCap} ready). ` +
-          `Hall: ${SF.state.hold[112] || 0} iron ingots, ${SF.state.hold[122] || 0} copper ingots. ` +
-          `Pick ore up at the ORE PICKUP pad beside the hall and bring it here.`,
-      })),
+      storeCard('smelt-info', {
+        title: 'Furnace',
+        groups: () => [{ name: 'Ore waiting', tint: '#ff8f5a', codes: K.ores }, { name: 'Ingots in the hall', tint: '#dfe5ee', codes: K.ores.map(c => c + 100) }],
+        count: c => (c > 100 ? SF.state.hold[c] : SF.state.smelt.q[c]) || 0,
+        cap: c => (c > 100 ? SF.Hub.hallCap() : K.queue),
+        lvl: () => `${Sm.ready()} / ${K.outCap} on the tray`,
+        text: () => `1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s and lands on the tray. Pick ore up at the ORE PICKUP pad beside the hall and bring it here.`,
+      }),
       {
         btn: card('hire-driver', 'Tractor driver', () => Sm.hireDriver(), true),
         update(r) {
@@ -417,13 +506,18 @@ SF.UI = (function () {
     const btn = card('launch-cargo', 'Launch cargo rocket now', () => Hb.launchCargo(), true);
     btn.querySelector('.card-cost').innerHTML = '<b></b>';
     return [
-      listCard('wh-info', 'Warehouse', '', () => {
-        const ws = SF.ws(), r = Hb.rk(ws);
+      storeCard('wh-info', {
+        title: 'Waiting in the warehouse', empty: 'Nothing waiting. Drop your haul on the pad to fill the rocket.',
+        groups: () => { const wh = SF.ws().wh || {}, pi = SF.state.planet; return planetGroups(c => Math.floor(c / 10) === pi && c < 100 || (wh[c] || 0) > 0); },
+        count: c => (SF.ws().wh || {})[c] || 0,
+        lvl: () => `${Object.values(SF.ws().wh || {}).reduce((a, b) => a + b, 0)} items`,
+        text: () => 'Stock waits here while the rocket is away and loads up again when it lands.',
+      }),
+      htmlCard('wh-rocket', 'Cargo rocket', () => {
+        const pi = SF.state.planet, n = SF.Food.crewOn(pi), pan = SF.Food.pantry(pi);
         return {
-          list: resList(Object.assign({}, ws.wh || {})),
-          text: (SF.Food.crewOn(SF.state.planet) ? `Crew pantry: ${SF.Food.pantry(SF.state.planet).meal} meals, ${SF.Food.pantry(SF.state.planet).drink} drinks. ` : '') +
-            (r.away > 0 ? `Rocket is away, back in ${Math.ceil(r.away)}s. Stock waits here.` :
-            `Rocket loaded ${r.n} / ${SF.rocketCap()}. It flies to Halcyon by itself when full.`),
+          html: rocketMeters(pi) + (n ? meter('Crew meals', pan.meal, Math.max(pan.meal, C.food.pantry * n), '#ffb340') + meter('Crew drinks', pan.drink, Math.max(pan.drink, C.food.pantry * n), '#7fd8ff') : ''),
+          text: 'It flies to Halcyon by itself when full' + (n ? ' and brings the crew food from the canteen on the way back.' : '.'),
         };
       }),
       {
@@ -501,21 +595,29 @@ SF.UI = (function () {
     btn.classList.toggle('poor', cost != null && SF.state.credits < cost);
   }
 
-  function openPanel(title, cards) {
+  function openPanel(title, cards, eyebrow) {
     refs = cards;
+    keyed = cards.filter(c => c.btn.tagName === 'BUTTON');
     els.panelTitle.textContent = title;
+    els.panelEyebrow.textContent = eyebrow || '';
+    const keepScroll = !els.panel.hidden && els.panelBody.dataset.title === title ? els.panelBody.scrollTop : 0;
+    els.panelBody.dataset.title = title;
     els.panelBody.innerHTML = '';
     els.panelBody.classList.toggle('single', cards.length === 1);
-    cards.forEach((c, i) => { c.btn.querySelector('.card-key').textContent = i + 1; els.panelBody.appendChild(c.btn); });
+    cards.forEach(c => { const k = c.btn.querySelector('.card-key'); if (k) k.textContent = keyed.indexOf(c) + 1 || ''; els.panelBody.appendChild(c.btn); });
+    els.prompt.hidden = true;
     els.panel.hidden = false;
+    els.panelBody.scrollTop = keepScroll;
     requestAnimationFrame(() => els.panel.classList.add('open'));
     refresh();
   }
 
   function closePanel() {
-    refs = [];
+    refs = []; keyed = [];
     els.panel.classList.remove('open');
     els.panel.hidden = true;
+    els.prompt.hidden = !curDef;
+    if (curDef) els.promptTitle.textContent = curDef.title;
   }
 
   function flash(el) { el.classList.remove('bought'); void el.offsetWidth; el.classList.add('bought'); }
