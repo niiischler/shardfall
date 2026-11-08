@@ -93,10 +93,20 @@ SF.Hub = (function () {
     }
   }
 
-  // Producers with a belt keep shipping to their warehouse while you are on another planet.
+  // While you are on another planet, belted producers and drones keep filling the warehouse.
   const layouts = {};
-  function offlineBelts(pi, ws, dt) {
+  function offlineWork(pi, ws, dt) {
     const L = layouts[pi] || (layouts[pi] = SF.layoutPlanet(SF.PLANETS[pi]));
+    if (ws.drones > 0) {
+      // Drones take turns between the resources of every open region.
+      const tiers = L.regions.filter(r => r.res != null && (!r.unlock || (ws.plots[r.unlock] && ws.plots[r.unlock].built))).map(r => r.res);
+      ws.droneT = (ws.droneT || 0) + dt * ws.drones;
+      while (ws.droneT >= C.drone.awayEvery) {
+        ws.droneT -= C.drone.awayEvery;
+        ws.droneTurn = ((ws.droneTurn || 0) + 1) % tiers.length;
+        toWarehouse(pi * 10 + tiers[ws.droneTurn], ws);
+      }
+    }
     for (const p of L.plots) {
       const st = ws.plots[p.id];
       if (p.kind !== 'producer' || !st || !st.built || !st.belt) continue;
@@ -169,7 +179,7 @@ SF.Hub = (function () {
       const pi = +k, ws = s.worlds[k];
       if (pi === C.home) continue;
       const r = rk(ws), here = pi === s.planet;
-      if (!here) offlineBelts(pi, ws, dt);
+      if (!here) offlineWork(pi, ws, dt);
       if (r.away > 0) {
         const before = phase(r);
         r.away = Math.max(0, r.away - dt);
