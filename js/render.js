@@ -1220,6 +1220,11 @@ SF.Render = (function () {
       ctx.fillStyle = '#ffd36b'; ctx.font = `700 14px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', p.x, p.y + 1);
       for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; ctx.fillStyle = Math.sin(t * 3 + i) > 0 ? '#9be36a' : '#3a5a2a'; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * 42, p.y + Math.sin(a) * 15, 2.5, 0, TAU); ctx.fill(); }
     }
+    pads.forEach((p, i) => {
+      if (!SF.state.homeReached || i === C.home) return;
+      const [a, b] = SF.Hub.padLabel(i);
+      label(ctx, a, p.x, p.y + 26, 11, '#ffd36b'); label(ctx, b, p.x, p.y + 40, 10, 'rgba(255,244,232,0.9)', 600);
+    });
     pad(ctx, h.x, h.padY, h.r, 'rgba(255,211,107,A)', t, SF.player.zone === 'hall');
   }
 
@@ -1254,13 +1259,10 @@ SF.Render = (function () {
     label(ctx, 'Rockets land here · unload your pack', x, y + 138, 11, 'rgba(255,244,232,0.85)', 600);
   }
 
-  // A cargo rocket coming down onto a hall pad, standing, then lifting off again.
-  function landing(ctx, p, l, t) {
-    let h = 0, fire = false;
-    if (l.t < 2.4) { h = Math.pow(2.4 - l.t, 2) * 90; fire = true; }
-    else if (l.t > 3.6) { h = Math.pow(l.t - 3.6, 2) * 120; fire = true; }
-    if (fire && Math.random() < 0.6) FX.smoke(p.x + (Math.random() - 0.5) * 30, p.y, 3);
-    cargoRocket(ctx, p.x, p.y - h, t, fire, 0.8);
+  // A cargo rocket coming down onto its hall pad, unloading, then lifting off again.
+  function landing(ctx, p, a, t) {
+    if (a.fire && Math.random() < 0.6) FX.smoke(p.x + (Math.random() - 0.5) * 30, p.y, 3);
+    cargoRocket(ctx, p.x, p.y - a.h, t, a.fire, 0.8);
   }
 
   // The portable material chest, standing next to the rocket on other planets.

@@ -277,12 +277,38 @@ SF.Biomes = (function () {
       for (const [x, y, r, c] of [[-20, -66, 22, '#c0601a'], [18, -70, 22, '#d0801a'], [0, -88, 26, '#e09a30'], [-6, -72, 18, '#ffb340']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + s, y, r, 0, TAU); ctx.fill(); }
     },
     butte(ctx, d) {
-      shadow(ctx, 0, 2, 40, 10);
-      const w = 30 + d.h * 20, h = 50 + d.h * 40;
-      const bands = ['#8a3a20', '#c86a3a', '#e8a070', '#a04a28'];
-      for (let i = 0; i < 4; i++) { ctx.fillStyle = bands[i]; const y0 = -h * i / 4, y1 = -h * (i + 1) / 4; poly(ctx, [[-w - 6 + i, y0], [-w - 4 + i, y1], [w + 4 - i, y1], [w + 6 - i, y0]]); ctx.fill(); }
-      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(w * 0.3, -h, w * 0.75, h);
-      ctx.fillStyle = '#f0b080'; ctx.beginPath(); ctx.ellipse(0, -h, w + 2, 5, 0, 0, TAU); ctx.fill();
+      // eroded rock tower: jagged sides, wavy strata, a sunlit flank and scree at its foot
+      const w = 26 + d.h * 18, h = 46 + d.h * 36, R = SF.rng((d.p * 1e6) | 0);
+      const left = [], right = [];
+      for (let i = 0; i <= 6; i++) {
+        const k = i / 6, y = -h * k, flare = (1 - k) * (1 - k) * 14;
+        left.push([-w - flare + (R() - 0.5) * 7, y]); right.push([w + flare + (R() - 0.5) * 7, y]);
+      }
+      const top = [[-w * 0.7, -h - 4 - R() * 4], [-w * 0.1, -h - 6 - R() * 5], [w * 0.5, -h - 3 - R() * 4]];
+      const outline = left.concat(top, right.reverse());
+      ctx.fillStyle = 'rgba(90,30,15,0.28)'; ctx.beginPath(); ctx.ellipse(6, 1, w + 22, 9, 0, 0, TAU); ctx.fill();
+      ctx.save(); poly(ctx, outline);
+      const g = ctx.createLinearGradient(-w, 0, w, 0);
+      g.addColorStop(0, '#e08a58'); g.addColorStop(0.45, '#c4683c'); g.addColorStop(1, '#8a3c22');
+      ctx.fillStyle = g; ctx.fill(); ctx.clip();
+      // wavy rock layers
+      for (let i = 1; i < 6; i++) {
+        const y = -h * i / 6;
+        ctx.strokeStyle = i % 2 ? 'rgba(255,215,170,0.45)' : 'rgba(90,30,15,0.45)'; ctx.lineWidth = 3 + (i % 3);
+        ctx.beginPath(); ctx.moveTo(-w - 20, y); for (let x = -w - 20; x <= w + 20; x += 8) ctx.lineTo(x, y + Math.sin(x * 0.12 + i + d.p) * 2.5); ctx.stroke();
+      }
+      // vertical erosion grooves
+      ctx.strokeStyle = 'rgba(70,22,10,0.35)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 5; i++) { const x = -w * 0.8 + i * w * 0.4 + (R() - 0.5) * 6; ctx.beginPath(); ctx.moveTo(x, -h * (0.5 + R() * 0.4)); ctx.quadraticCurveTo(x + 3, -h * 0.3, x - 1, 2); ctx.stroke(); }
+      // the base fades into the ground colour so it sits in the sand
+      const base = ctx.createLinearGradient(0, -14, 0, 2); base.addColorStop(0, 'rgba(184,96,58,0)'); base.addColorStop(1, 'rgba(184,96,58,0.9)');
+      ctx.fillStyle = base; ctx.fillRect(-w - 30, -14, w * 2 + 60, 18);
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(70,22,10,0.55)'; ctx.lineWidth = 1.5; poly(ctx, outline); ctx.stroke();
+      // sunlit cap
+      ctx.fillStyle = 'rgba(255,215,170,0.55)'; poly(ctx, [top[0], top[1], top[2], [w * 0.4, -h + 3], [-w * 0.6, -h + 4]]); ctx.fill();
+      // scree around the foot
+      for (let i = 0; i < 7; i++) { const x = (R() - 0.5) * (w * 2 + 30), y = R() * 6; ctx.fillStyle = R() > 0.5 ? '#a04a28' : '#d88a5a'; ctx.beginPath(); ctx.ellipse(x, y, 2 + R() * 4, 1.5 + R() * 2, 0, 0, TAU); ctx.fill(); }
     },
     deadbush(ctx) {
       ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 1.6;
