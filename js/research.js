@@ -31,8 +31,9 @@ SF.Research = (function () {
 // Research effects, read wherever the numbers are used.
 // Each route flies the rocket model chosen in the Rocket Workshop (js/fleet.js); pi defaults to the planet you are on.
 SF.rocketBase = () => SF.CFG.hub.rocketCap + 25 * SF.R('bay');
-SF.rocketCap = pi => SF.Fleet.cap(SF.Fleet.modelOf(pi == null ? SF.state.planet : pi));
-SF.rocketFlight = pi => SF.CFG.hub.flight * (1 - 0.15 * SF.R('engines')) * SF.Fleet.model(SF.Fleet.modelOf(pi == null ? SF.state.planet : pi)).flight;
+// r picks one rocket of the route; without it, the route's first rocket.
+SF.rocketCap = (pi, r) => SF.Fleet.cap(SF.Fleet.modelOf(pi == null ? SF.state.planet : pi, r));
+SF.rocketFlight = (pi, r) => SF.CFG.hub.flight * (1 - 0.15 * SF.R('engines')) * SF.Fleet.model(SF.Fleet.modelOf(pi == null ? SF.state.planet : pi, r)).flight;
 SF.droneSpeed = () => SF.CFG.drone.speed * (1 + 0.2 * SF.R('motors'));
 SF.droneCap = () => SF.CFG.drone.cap + 2 * SF.R('pods');
 SF.dronePower = () => 1 + 0.5 * SF.R('beams');

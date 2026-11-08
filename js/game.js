@@ -611,7 +611,7 @@
     } else list.push({ y: C.depot.y, fn: () => Rn.lander(ctx, t, depotGlow) });
     if (W.hall) {
       list.push({ y: W.hall.y, fn: () => Rn.hall(ctx, W.hall, t, P.zone === 'hall') });
-      SF.Hub.arrivals().forEach(a => { if (a.h == null) return; const pd = SF.Hub.pads()[a.pad]; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, a, t) }); });
+      SF.Hub.arrivals().forEach(a => { if (a.h == null) return; const p0 = SF.Hub.pads()[a.pad], pd = { x: p0.x + (a.i ? (a.i % 2 ? 1 : -1) * Math.ceil(a.i / 2) * 26 : 0), y: p0.y + (a.i ? 4 : 0) }; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, a, t) }); });
     }
     list.push({ y: C.upgradePad.y, fn: () => Rn.upgradePad(ctx, t, P.zone === 'upgrade') });
     if (W.chest) list.push({ y: W.chest.y, fn: () => Rn.chest(ctx, W.chest, t, P.zone === 'chest') });

@@ -410,9 +410,12 @@ SF.UI = (function () {
     return SF.PLANETS.map((pl, pi) => ({ pl, pi })).filter(o => o.pi !== C.home && known(o.pi) && (only == null || o.pi === only)).map(({ pl, pi }) => {
       const ws = SF.state.worlds[pi];
       if (!ws) return meter(pl.name, 0, 1, pl.theme.accent, 'not visited yet');
-      const r = Hb.rk(ws), lab = Hb.padLabel(pi)[1];
-      if (r.away > 0) return meter(pl.name, (r.total || r.away) - r.away, r.total || r.away, pl.theme.accent, lab);
-      return meter(pl.name, r.n, SF.rocketCap(pi), pl.theme.accent, lab);
+      const all = Hb.rockets(ws);
+      return all.map((r, i) => {
+        const name = pl.name + (all.length > 1 ? ` · rocket ${i + 1}` : ''), lab = Hb.padLabel(pi, r)[1];
+        if (r.away > 0) return meter(name, (r.total || r.away) - r.away, r.total || r.away, pl.theme.accent, lab);
+        return meter(name, r.n, SF.rocketCap(pi, r), pl.theme.accent, lab);
+      }).join('');
     }).join('');
   }
 
@@ -561,7 +564,7 @@ SF.UI = (function () {
           r.btn.querySelector('.card-name').textContent = pl.name + (pi === C.home ? ' · home' : '');
           r.btn.querySelector('.card-lvl').textContent = here ? 'You are here' : !ch ? 'Uncharted' : o ? `${o.gates} of 5 regions open` : 'Not visited yet';
           r.btn.querySelector('.meters').innerHTML = !o ? '' : (o.stock != null ? meter('Warehouse', o.stock, o.cap, th.accent) : '') +
-            (pi !== C.home ? meter('Cargo rocket', SF.Hub.rk(SF.state.worlds[pi]).n, SF.rocketCap(pi), th.accent, SF.Hub.padLabel(pi)[1] + ' · ' + SF.Fleet.model(SF.Fleet.modelOf(pi)).name) : '') +
+            (pi !== C.home ? meter('Cargo rocket', SF.Hub.rk(SF.state.worlds[pi]).n, SF.rocketCap(pi, SF.Hub.rk(SF.state.worlds[pi])), th.accent, SF.Hub.padLabel(pi)[1] + ' · ' + SF.Hub.rockets(SF.state.worlds[pi]).map(q => SF.Fleet.model(SF.Fleet.kindOf(q, SF.state.worlds[pi])).name).join(' + ')) : '') +
             `<div class="map-stats"><span>${o.crew} crew</span><span>${o.machines} machines</span></div>`;
           go.hidden = here;
           go.textContent = ch ? `Fly to ${pl.name}` + (pl.far ? ` · ${C.fuel.trip} fuel` : '') : `Chart a course · ${fmt(pl.chart)}`;
@@ -575,23 +578,33 @@ SF.UI = (function () {
   // ---------- rocket workshop ----------
   function workshopCards() {
     const Fl = SF.Fleet, M = C.rockets.models, cards = [];
-    // Which model flies each route: one row per planet, a chip per model you own.
+    // Which model each rocket flies: one row per rocket, a chip per model you own. The route's first row also
+    // offers one more rocket.
     const routes = info('ws-routes', `<span class="card-name">Cargo routes</span><span class="card-eff"></span><div class="jobs"></div>`);
     let key = '';
     cards.push({
       btn: routes,
       update(r) {
         const list = Fl.routes(), own = Object.keys(M).filter(Fl.owned);
-        r.btn.querySelector('.card-eff').textContent = list.length ? `Tap a model to fly it on that route. A rocket in the air switches when it is back. Fuel in the tank: ${Math.floor(SF.Fuel.tank())} / ${SF.Fuel.cap()}${SF.Fuel.has() ? '' : ' (build a Fuel Plant in New Haven)'}.` : 'Visit another planet first: each one gets its own cargo route.';
-        const k = list.join(',') + '|' + own.join(',') + '|' + own.map(Fl.cap).join(',');
+        r.btn.querySelector('.card-eff').textContent = list.length ? `Each rocket flies its own model: tap one per row. Tankers carry only liquids and gases, the others only solid goods. A rocket in the air switches when it is back. Fuel in the tank: ${Math.floor(SF.Fuel.tank())} / ${SF.Fuel.cap()}${SF.Fuel.has() ? '' : ' (build a Fuel Plant in New Haven)'}.` : 'Visit another planet first: each one gets its own cargo route.';
+        const k = list.map(pi => pi + ':' + Fl.extra(pi)).join(',') + '|' + own.join(',') + '|' + own.map(Fl.cap).join(',');
         if (k !== key) {
           key = k;
           const box = r.btn.querySelector('.jobs');
-          box.innerHTML = list.map(pi => `<div class="job-row"><span class="job-planet">${SF.planetName(pi)}</span>` +
-            own.map(id => `<button type="button" class="job-chip" data-pi="${pi}" data-m="${id}"><i style="background:${M[id].trim}"></i>${M[id].name} <small>${Fl.cap(id)} · ${Math.round(C.hub.flight * (1 - 0.15 * SF.R('engines')) * M[id].flight)}s</small></button>`).join('') + '</div>').join('');
-          box.querySelectorAll('.job-chip').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); Fl.assign(+b.dataset.pi, b.dataset.m); }));
+          box.innerHTML = list.map(pi => SF.Hub.rockets(SF.state.worlds[pi]).map((q, i, all) => `<div class="job-row"><span class="job-planet">${SF.planetName(pi)}${all.length > 1 ? ' ' + (i + 1) : ''}</span>` +
+            own.map(id => `<button type="button" class="job-chip" data-pi="${pi}" data-i="${i}" data-m="${id}"><i style="background:${M[id].trim}"></i>${M[id].name} <small>${Fl.cap(id)} · ${Math.round(C.hub.flight * (1 - 0.15 * SF.R('engines')) * M[id].flight)}s</small></button>`).join('') +
+            (i === 0 ? `<button type="button" class="job-chip add-rk" data-add="${pi}"></button>` : '') + '</div>').join('')).join('');
+          box.querySelectorAll('.job-chip[data-m]').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); Fl.assign(+b.dataset.pi, +b.dataset.i, b.dataset.m); }));
+          box.querySelectorAll('.add-rk').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); if (Fl.addRocket(+b.dataset.add)) flash(b); else shakeEl(b); }));
         }
-        r.btn.querySelectorAll('.job-chip').forEach(b => b.classList.toggle('on', Fl.modelOf(+b.dataset.pi) === b.dataset.m));
+        r.btn.querySelectorAll('.job-chip[data-m]').forEach(b => { const ws = SF.state.worlds[+b.dataset.pi]; b.classList.toggle('on', Fl.kindOf(SF.Hub.rockets(ws)[+b.dataset.i], ws) === b.dataset.m); });
+        // One more rocket on this route: shows how many fly now and what the next one costs.
+        r.btn.querySelectorAll('.add-rk').forEach(b => {
+          const pi = +b.dataset.add, n = Fl.extra(pi) + 1, max = n > C.rockets.extra.max, c = Fl.extraCost(pi);
+          const short = SF.state.credits < c.credits || Object.keys(c.mats).some(k => (SF.state.hold[k] || 0) < c.mats[k]);
+          b.innerHTML = max ? `${n} rockets <small>max</small>` : `+ Rocket <small>${n} → ${n + 1} · ${fmt(c.credits)} · ${Object.keys(c.mats).map(k => c.mats[k] + ' ' + SF.res(+k).name.toLowerCase()).join(', ')}</small>`;
+          b.disabled = max; b.classList.toggle('short', !max && short);
+        });
       },
     });
     for (const id in M) {
@@ -698,9 +711,11 @@ SF.UI = (function () {
         count: c => (SF.ws().wh || {})[c] || 0,
         lvl: () => `${Object.values(SF.ws().wh || {}).reduce((a, b) => a + b, 0)} / ${SF.Hub.whCap()} items`,
         text: () => {
-          const wh = SF.ws().wh || {}, wet = Object.keys(wh).some(c => wh[c] > 0 && SF.res(+c).liquid) && !SF.Fleet.model(SF.Fleet.modelOf(SF.state.planet)).liquid;
+          const wh = SF.ws().wh || {}, ws = SF.ws(), wet = Object.keys(wh).some(c => wh[c] > 0 && SF.res(+c).liquid) && !SF.Hub.rockets(ws).some(q => SF.Fleet.model(SF.Fleet.kindOf(q, ws)).liquid),
+            dry = Object.keys(wh).some(c => wh[c] > 0 && !SF.res(+c).liquid) && SF.Hub.rockets(ws).every(q => SF.Fleet.model(SF.Fleet.kindOf(q, ws)).liquid);
           return (SF.Hub.whFull() ? 'Full! Crew, drones, belts and you all wait until the rocket takes a load. Expand it below.' : 'Stock waits here while the rocket is away and loads up again when it lands.') +
-            (wet ? ' Liquids and gases wait for a Tanker: build one in the Rocket Workshop and pick it for this route.' : '');
+            (wet ? ' Liquids and gases wait for a Tanker: build one in the Rocket Workshop and pick it for a rocket on this route.' : '') +
+            (dry ? ' Tankers carry only liquids and gases: give a rocket on this route another model for the solid goods.' : '');
         },
       }),
       {
@@ -721,8 +736,8 @@ SF.UI = (function () {
         btn,
         update(b) {
           const r = Hb.rk(SF.ws());
-          b.btn.querySelector('.card-lvl').textContent = r.away > 0 ? 'Away' : `${r.n} / ${SF.rocketCap()} loaded`;
-          const need = SF.Fuel.perTrip(SF.state.planet);
+          b.btn.querySelector('.card-lvl').textContent = r.away > 0 ? 'Away' : `${r.n} / ${SF.rocketCap(SF.state.planet, r)} loaded`;
+          const need = SF.Fuel.perTrip(SF.state.planet, r);
           b.btn.querySelector('.card-eff').textContent = 'Send what is loaded now instead of waiting for a full rocket.' + (need ? ` Burns ${need} fuel (${Math.floor(SF.Fuel.tank())} in the tank).` : '');
           b.btn.querySelector('.card-cost b').textContent = '';
           b.btn.disabled = r.away > 0 || !r.n;

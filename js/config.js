@@ -82,6 +82,7 @@ SF.CFG = {
         cost: 400000, needs: { 112: 300, 122: 400, 24: 60 }, locked: 'Needs a planet with liquids or gases. Find one on the star map.' },
     },
     frame: { cost: 40000, growth: 1.8, max: 10, step: 0.25, mats: { 112: 40, 122: 20 } },
+    extra: { cost: 120000, growth: 2.2, max: 3, mats: { 112: 120, 122: 80 } },   // more rockets on one route: up to 4 in all
   },
 
   // Smelter on Halcyon: iron and copper ore from the hall become ingots for building.

@@ -101,7 +101,10 @@ SF.Save = {
           w.plots[lot] = Object.assign({}, o, { kind, cost, needs });
         }
       }
-      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, model: SF.CFG.rockets.models[w.rk.model] ? w.rk.model : undefined, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0, fl: num(w.rk.fl, 0) || undefined, total: num(w.rk.total, 0) || undefined, food: w.rk.food && { meal: num(w.rk.food.meal, 0) | 0, drink: num(w.rk.food.drink, 0) | 0, feast: num(w.rk.food.feast, 0) | 0, elixir: num(w.rk.food.elixir, 0) | 0 } }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
+      const rocket = q => { const load = counts(q.load), r = { load, model: SF.CFG.rockets.models[q.model] ? q.model : undefined, kind: SF.CFG.rockets.models[q.kind] ? q.kind : undefined, n: num(q.n, 0) | 0, away: Math.max(0, num(q.away, 0)), out: num(q.out, 0) | 0, fl: num(q.fl, 0) || undefined, total: num(q.total, 0) || undefined, food: q.food && { meal: num(q.food.meal, 0) | 0, drink: num(q.food.drink, 0) | 0, feast: num(q.food.feast, 0) | 0, elixir: num(q.food.elixir, 0) | 0 } }; if (!r.n) r.n = Object.values(load).reduce((a, b) => a + b, 0); return r; };
+      if (w.rk) into.rk = rocket(w.rk);
+      into.extra = Math.max(0, Math.min(SF.CFG.rockets.extra.max, num(w.extra, 0) | 0));
+      if (into.extra) into.more = Array.from({ length: into.extra }, (_, i) => (Array.isArray(w.more) && w.more[i] ? rocket(w.more[i]) : { load: {}, n: 0, away: 0, out: 0 }));
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
         if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, mk: p.mk ? 1 : 0, driver: !!p.driver, beltLvl: Math.max(0, Math.min(3, num(p.beltLvl, 0) | 0)), res: p.res || {} });
@@ -148,9 +151,10 @@ SF.Save = {
         if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, mk: p.mk || undefined, driver: p.driver || undefined, beltLvl: p.beltLvl || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined };
       }
       const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
-      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined, fl: w.rk.fl, total: w.rk.total, model: w.rk.away ? w.rk.model : undefined, food: w.rk.food || undefined } : undefined;
+      const pack = q => (q && (q.n || q.away || q.kind) ? { load: q.load, kind: q.kind || undefined, n: q.n, out: q.out || undefined, away: Math.round(q.away * 10) / 10 || undefined, fl: q.fl, total: q.total, model: q.away ? q.model : undefined, food: q.food || undefined } : undefined);
+      const rk = pack(w.rk), more = w.extra ? (w.more || []).map(q => pack(q) || {}) : undefined;
       const pantry = w.pantry && (w.pantry.meal || w.pantry.drink || w.pantry.feast || w.pantry.elixir) ? w.pantry : undefined;
-      worlds[k] = { plots, drones: w.drones || undefined, wh, whLvl: w.whLvl || undefined, model: w.model && w.model !== 'std' ? w.model : undefined, rk, pantry };
+      worlds[k] = { plots, drones: w.drones || undefined, wh, whLvl: w.whLvl || undefined, model: w.model && w.model !== 'std' ? w.model : undefined, rk, extra: w.extra || undefined, more, pantry };
     }
     return Object.assign({}, s, {
       credits: Math.round(s.credits * 100) / 100, totalEarned: Math.round(s.totalEarned), lifetime: Math.round(s.lifetime),

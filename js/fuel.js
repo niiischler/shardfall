@@ -9,7 +9,7 @@ SF.Fuel = (function () {
   const cap = () => F.cap;
   const uses = () => SF.state.fuelUse || (SF.state.fuelUse = {});
   const allowed = code => uses()[code] !== false;            // every input is on until you switch it off
-  const perTrip = pi => SF.Fleet.model(SF.Fleet.modelOf(pi)).fuel || 0;
+  const perTrip = (pi, r) => SF.Fleet.model(SF.Fleet.modelOf(pi, r)).fuel || 0;
   // Flying out to a far planet burns fuel; the way back is always free, so you never get stuck out there.
   const tripFuel = (from, to) => (SF.PLANETS[to].far ? F.trip : 0);
 
