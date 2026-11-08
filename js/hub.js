@@ -114,11 +114,16 @@ SF.Hub = (function () {
     }
     for (const p of L.plots) {
       const st = ws.plots[p.id];
-      if (p.kind !== 'producer' || !st || !st.built || !st.belt) continue;
+      if (p.kind !== 'producer' || !st || !st.built) continue;
       const ps = SF.producerStats(p, st);
       st.t = (st.t || 0) + dt;
-      while (st.t >= ps.every) { st.t -= ps.every; toWarehouse(pi * 10 + p.helper.res, ws); }
-      if (st.pile > 0) { toWarehouse(pi * 10 + p.helper.res, ws); st.pile--; }
+      if (st.belt) {
+        while (st.t >= ps.every) { st.t -= ps.every; toWarehouse(pi * 10 + p.helper.res, ws); }
+        if (st.pile > 0) { toWarehouse(pi * 10 + p.helper.res, ws); st.pile--; }
+        continue;
+      }
+      while (st.t >= ps.every) { st.t -= ps.every; if (st.pile < ps.cap) st.pile++; }
+      if (st.driver) SF.Haul.away(pi, p, st, dt, c => toWarehouse(c, ws));
     }
   }
 
@@ -180,7 +185,7 @@ SF.Hub = (function () {
     if (s.inbound.length) { for (const f of s.inbound) deliverAll(f.items); s.inbound.length = 0; }
     if (!s.homeReached) return;
     loadT -= dt;
-    // Machines on Halcyon keep filling the hall while you are away.
+    // Machines on Halcyon keep working while you are away; their drivers bring the stock to the hall.
     const hw = s.worlds[C.home];
     if (hw && s.planet !== C.home) {
       const L = layouts[C.home] || (layouts[C.home] = SF.layoutPlanet(SF.PLANETS[C.home]));
@@ -189,8 +194,8 @@ SF.Hub = (function () {
         if (p.kind !== 'producer' || !st || !st.built) continue;
         const ps = SF.producerStats(p, st);
         st.t = (st.t || 0) + dt;
-        while (st.t >= ps.every) { st.t -= ps.every; deliver(C.home * 10 + p.helper.res, 1); }
-        if (st.pile > 0) { deliver(C.home * 10 + p.helper.res, st.pile); st.pile = 0; }
+        while (st.t >= ps.every) { st.t -= ps.every; if (st.pile < ps.cap) st.pile++; }
+        if (st.driver) SF.Haul.away(C.home, p, st, dt, c => deliver(c, 1));
       }
     }
     for (const k in s.worlds) {

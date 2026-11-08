@@ -12,6 +12,14 @@ SF.Food = (function () {
   const source = pi => (pi === C.home ? kitchen() : pantry(pi));
   const jobPlanet = w => Math.floor(w.job / 10);
   const crewOn = pi => SF.state.crew.filter(w => jobPlanet(w) === pi).length;
+  // Machine drivers (and the smelter's two on Halcyon) eat from the same larder as the crew.
+  function driversOn(pi) {
+    const ws = SF.state.worlds[pi];
+    let n = ws ? Object.values(ws.plots).filter(st => st.driver && st.built).length : 0;
+    if (pi === C.home && SF.state.smelt) n += (SF.state.smelt.driver ? 1 : 0) + (SF.state.smelt.hauler ? 1 : 0);
+    return n;
+  }
+  const eaters = pi => crewOn(pi) + driversOn(pi);
   const low = w => w.food < F.low || w.water < F.low;
   const served = pi => pi === C.home && kitchen().drivers > 0;   // delivery cars bring it
 
@@ -77,12 +85,15 @@ SF.Food = (function () {
 
   // ---------- canteen ----------
   function cook(dt) {
-    const k = kitchen(), h = SF.state.hold, per = F.per + SF.R('recipes');
+    // Every cooking step uses one item; a serving is done once enough items went in (3, fewer with better recipes).
+    const k = kitchen(), h = SF.state.hold, need = SF.foodPer();
     k.t = (k.t || 0) + dt;
     while (k.t >= F.cookEvery) {
       k.t -= F.cookEvery;
-      if (k.meal < F.cap && (h[F.meal] || 0) > 0) { h[F.meal]--; if (!h[F.meal]) delete h[F.meal]; k.meal = Math.min(F.cap, k.meal + per); }
-      if (k.drink < F.cap && (h[F.drink] || 0) > 0) { h[F.drink]--; if (!h[F.drink]) delete h[F.drink]; k.drink = Math.min(F.cap, k.drink + per); }
+      if (k.meal < F.cap && (h[F.meal] || 0) > 0) { h[F.meal]--; if (!h[F.meal]) delete h[F.meal]; k.mealIn = (k.mealIn || 0) + 1; }
+      if (k.drink < F.cap && (h[F.drink] || 0) > 0) { h[F.drink]--; if (!h[F.drink]) delete h[F.drink]; k.drinkIn = (k.drinkIn || 0) + 1; }
+      while (k.mealIn >= need) { k.mealIn -= need; k.meal = Math.min(F.cap, k.meal + 1); }
+      while (k.drinkIn >= need) { k.drinkIn -= need; k.drink = Math.min(F.cap, k.drink + 1); }
     }
   }
 
@@ -141,15 +152,15 @@ SF.Food = (function () {
   // ---------- supply runs to the other planets ----------
   // A rocket should fly even when its warehouse is nearly empty, if its crew is running out of food.
   function needsSupply(pi) {
-    if (!on() || !crewOn(pi)) return false;
-    const p = pantry(pi), k = kitchen(), n = crewOn(pi);
+    if (!on() || !eaters(pi)) return false;
+    const p = pantry(pi), k = kitchen(), n = eaters(pi);
     return (p.meal < n && k.meal > 0) || (p.drink < n && k.drink > 0);
   }
 
   // Food loaded when the rocket leaves Halcyon for home.
   function pack(pi) {
     if (!on()) return null;
-    const p = pantry(pi), k = kitchen(), want = F.pantry * crewOn(pi);
+    const p = pantry(pi), k = kitchen(), want = F.pantry * eaters(pi);
     const meal = Math.min(k.meal, Math.max(0, want - p.meal)), drink = Math.min(k.drink, Math.max(0, want - p.drink));
     k.meal -= meal; k.drink -= drink;
     return meal || drink ? { meal, drink } : null;
@@ -162,7 +173,30 @@ SF.Food = (function () {
     if (pi === SF.state.planet) SF.FX.pop(C.hub.pad.x, C.hub.pad.y - 120, `+${food.meal} meals, +${food.drink} drinks for the crew`, '#9be36a', 16, { life: 1.6 });
   }
 
+  // Drivers keep their meters here (not saved: a reload finds them fed). They eat like crew you cannot see:
+  // a meal takes them off the job for a while unless delivery cars serve Halcyon. Returns true while they can drive.
+  const drv = {};
+  function tickDriver(key, pi, dt) {
+    if (!SF.state.homeReached) return true;
+    const m = drv[key] || (drv[key] = { food: 1, water: 1, away: 0 });
+    if (!on()) {
+      m.water = 1; m.away = 0;
+      m.food -= dt / C.crew.eatEvery;
+      if (m.food < 0) {
+        if ((SF.state.hold[C.crew.food] || 0) > 0) { SF.state.hold[C.crew.food]--; m.food += 1; }
+        else m.food = 0;
+      }
+      return m.food > 0;
+    }
+    m.food = Math.max(0, m.food - dt / F.eatEvery);
+    m.water = Math.max(0, m.water - dt / F.drinkEvery);
+    if (m.away > 0) m.away -= dt;
+    if (low(m) && hasFood(m, pi)) { refill(m, pi); if (!served(pi)) m.away = pi === C.home ? F.walkHome : F.walkAway; }
+    return !(m.away > 0) && m.food > 0 && m.water > 0;
+  }
+  const driverStatus = key => (drv[key] ? status(drv[key]) : '');
+
   function enter() { cars.length = 0; }
 
-  return { cars, on, pantry, crewOn, hasFood, refill, tick, canWork, wantsWalk, eatSpot, status, driverCost, hireDriver, needsSupply, pack, unpack, update, enter };
+  return { cars, on, pantry, crewOn, driversOn, eaters, tickDriver, driverStatus, hasFood, refill, tick, canWork, wantsWalk, eatSpot, status, driverCost, hireDriver, needsSupply, pack, unpack, update, enter };
 })();

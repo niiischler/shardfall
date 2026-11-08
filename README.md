@@ -146,8 +146,9 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
     producers, faster crew and better recipes.
   - **Machines** (research tree): unlock producers for the three common resources of each planet, a second copy of
     every machine, and Mk2 rebuilds with five more levels. Rare resources are crew work only; drones skip them too.
-    Halcyon machines put their stock straight into the hall.
-  - **Canteen**: cooks sunfruit into meals and cactus water into drinks. Crew then need both. On Halcyon they walk to
+    Every machine can hire a driver with its planet's vehicle (hover sled, tractor, dune buggy, beach cart) who
+    brings the stock to the warehouse or the hall. Drivers, like crew, need meals and drinks.
+  - **Canteen**: cooks 3 sunfruit into 1 meal (better recipes need fewer) and cactus water into drinks. Crew then need both. On Halcyon they walk to
     the canteen to eat (and stop working meanwhile) unless you hire **delivery drivers**, whose cars bring the food
     out to them. Crew on other planets eat from their warehouse's pantry, which the cargo rocket fills on its way back
     from Halcyon (it also flies a supply run when the pantry runs low). Crew without food stop working. Until a
@@ -171,6 +172,7 @@ js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall, t
 js/smelter.js     smelter on Halcyon: ore to ingots, ore pickup, tractor driver, ingot hauler
 js/food.js        canteen, crew meals and drinks, delivery cars, pantry supply runs
 js/research.js    research lab trees and their effects
+js/haulers.js     machine drivers and their vehicles
 js/audio.js       WebAudio synth sound effects, one sound set per material (no audio files)
 js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults

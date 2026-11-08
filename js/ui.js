@@ -154,7 +154,7 @@ SF.UI = (function () {
   // ---------- panels ----------
   const PANELS = {
     drones: p => [droneCard(p)],
-    producer: p => [producerCard(p), SF.World.hall ? null : beltCard(p), mk2Card(p)].filter(Boolean),
+    producer: p => [producerCard(p), driverCard(p), SF.World.hall ? null : beltCard(p), mk2Card(p)].filter(Boolean),
     launch: () => (SF.atHome() ? travelCards() : [launchCard()]),
     habitat: () => crewCards(),
     lab: () => researchCards(),
@@ -245,6 +245,24 @@ SF.UI = (function () {
           `1 ${res.name.toLowerCase()} every ${now.every.toFixed(1)}s, holds ${now.cap}` + (maxed ? '' : ` → ${next.every.toFixed(1)}s, ${next.cap}`) +
           `. Stock: ${st.pile}.` + (SF.World.hall ? ' It goes straight into the hall.' : st.belt ? ' The belt sells it for you.' : ' Standing here loads it onto your back.'), maxed ? null : SF.producerCost(st));
         r.btn.querySelector('.card-name').textContent = 'Faster ' + p.name.toLowerCase() + (st.mk ? ' Mk2' : '');
+      },
+    };
+  }
+
+  // A driver with this planet's vehicle brings the stock to the warehouse (the hall on Halcyon).
+  function driverCard(p) {
+    const veh = SF.Haul.vehicleName();
+    return {
+      btn: card('driver-' + p.id, veh + ' driver', () => SF.Haul.hire(p.id), true),
+      update(r) {
+        const st = SF.ws().plots[p.id], to = SF.World.hall ? 'the hall' : 'the warehouse';
+        if (st.driver) {
+          const need = SF.Food.driverStatus('m' + SF.state.planet + ':' + p.id);
+          fill(r.btn, 'Hired', `Drives the stock to ${to} by ${veh.toLowerCase()}, also while you are away. ` + (need ? `Right now: ${need}.` : 'Needs meals and drinks like the crew.'), null);
+          r.btn.querySelector('.card-cost b').textContent = '';
+          return;
+        }
+        fill(r.btn, 'Not hired', `Brings the stock to ${to} by ${veh.toLowerCase()}. Eats and drinks like the crew; a hungry driver parks.`, SF.Haul.cost());
       },
     };
   }
@@ -460,13 +478,13 @@ SF.UI = (function () {
     const F = C.food;
     return [
       htmlCard('canteen-info', 'Kitchen', () => {
-        const k = SF.state.kitchen, h = SF.state.hold, per = F.per + SF.R('recipes'), cap = SF.Hub.hallCap();
+        const k = SF.state.kitchen, h = SF.state.hold, per = SF.foodPer(), cap = SF.Hub.hallCap();
         const fed = SF.state.crew.filter(w => SF.Food.canWork(w)).length;
         return {
           html: meter('Meals ready', k.meal, F.cap, '#ffb340') + meter('Drinks ready', k.drink, F.cap, '#7fd8ff') +
             meter(SF.res(F.meal).plural + ' in the hall', h[F.meal] || 0, cap, SF.res(F.meal).color) + meter(SF.res(F.drink).name + ' in the hall', h[F.drink] || 0, cap, SF.res(F.drink).color) +
             meter('Crew fed and working', fed, SF.state.crew.length || 1, '#9be36a', `${fed} / ${SF.state.crew.length}`),
-          text: `Cooks 1 ${SF.res(F.meal).name.toLowerCase()} into ${per} meals and 1 ${SF.res(F.drink).name.toLowerCase()} into ${per} drinks. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
+          text: `Cooks ${per} ${SF.res(F.meal).plural.toLowerCase()} into 1 meal and ${per} ${SF.res(F.drink).plural.toLowerCase()} into 1 drink. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
         };
       }),
       {

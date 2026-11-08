@@ -23,7 +23,7 @@ SF.CFG = {
   plotRequires: { g2: null, h1: 'g2', ref: 'g2', g3: 'g2', h2: 'g3', g4: 'g3', g5: 'g4', launch: 'g5' },
 
   drone: { cap: 5, speed: 170, hitEvery: 0.6, max: 6, base: 1800, growth: 1.75, awayEvery: 3 },  // awayEvery: s per item while you are elsewhere
-  producer: { base: 5000, growth: 1.85, max: 8,
+  producer: { base: 5000, growth: 1.85, max: 8, driver: 9000,   // driver: hire cost before the planet multiplier
     mk2: { levels: 5, boost: 1.6, credits: 90000, needs: { 112: 60, 122: 30 } },   // research 'mk2': rebuild a maxed producer for 5 more levels
   },
   refineryMult: 1.5,
@@ -44,7 +44,7 @@ SF.CFG = {
 
   // Crew food once a canteen stands: sunfruit becomes meals, cactus water becomes drinks.
   food: {
-    meal: 30, drink: 20, per: 3, cookEvery: 2, cap: 60,     // input codes, servings per item, seconds per item, stock cap
+    meal: 30, drink: 20, per: 3, cookEvery: 2, cap: 60,     // input codes, items per serving, seconds per item cooked, stock cap
     eatEvery: 70, drinkEvery: 55, low: 0.25,                // a full meter lasts this long; below `low` they go for more
     walkHome: 30, walkAway: 8,                              // work lost walking to the canteen / warehouse while you are elsewhere
     driver: 12000, drivers: 2, carSpeed: 230,               // delivery car drivers at the canteen
@@ -149,7 +149,7 @@ SF.RESEARCH = [
   { id: 'industry', name: 'Industry', color: '#ffd36b', nodes: [
     { id: 'presses', name: 'Faster producers', max: 3, eff: l => `Sawmills, mines and excavators work ${Math.round(20 * l)}% faster`, mats: { 112: 80, 23: 60 } },
     { id: 'training', name: 'Crew training', max: 3, after: 'presses', eff: l => `Crew work ${Math.round(25 * l)}% faster`, mats: { 11: 120, 31: 80 } },
-    { id: 'recipes', name: 'Better recipes', max: 3, after: 'training', eff: l => `${SF.CFG.food.per + l} servings per sunfruit or cactus water`, mats: { 2: 100, 32: 40 } },
+    { id: 'recipes', name: 'Better recipes', max: 3, after: 'training', eff: l => `${SF.foodPer(l)} sunfruit or cactus water per serving`, mats: { 2: 100, 32: 40 } },
   ] },
   // Machines only ever work the three common resources of a planet; the rare ones stay crew work.
   { id: 'machines', name: 'Machines', color: '#9be36a', nodes: [
@@ -164,6 +164,8 @@ SF.RESEARCH = [
 SF.RESEARCH_NODES = SF.RESEARCH.flatMap(t => t.nodes.map(n => Object.assign({ tree: t }, n)));
 // Current level of a research node.
 SF.R = id => (SF.state && SF.state.research && SF.state.research[id]) || 0;
+// Items the canteen needs for one meal or drink; better recipes need less.
+SF.foodPer = l => [3, 2.5, 2, 1.5][Math.min(3, l == null ? SF.R('recipes') : l)];
 SF.researchCost = (node, l) => ({
   credits: Math.round((node.credits || 25000) * Math.pow(1.8, l)),
   mats: Object.fromEntries(Object.entries(node.mats).map(([c, n]) => [c, n * (l + 1)])),
