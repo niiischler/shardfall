@@ -48,7 +48,7 @@ SF.CFG = {
     driver: 12000, drivers: 2, carSpeed: 230,               // delivery car drivers at the canteen
     pantry: 3,                                              // servings per crew member each supply run brings out
   },
-  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
+  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, rareSlow: [1, 1, 1, 2, 3], eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
 
   // Once Halcyon is reached, other planets ship by cargo rocket instead of selling.
   hub: {
