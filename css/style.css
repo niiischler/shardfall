@@ -22,7 +22,7 @@ body {
   background: var(--night); color: var(--sand);
   font-family: var(--body);
   -webkit-tap-highlight-color: transparent;
-  touch-action: none; user-select: none; -webkit-user-select: none;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
 }
 
 #app { position: fixed; inset: 0; }
@@ -102,10 +102,13 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
 @keyframes prompt-in { from { opacity: 0; transform: translate(-50%, 16px); } }
 @keyframes pulse { 50% { opacity: 0.45; } }
 
-#panel.station { z-index: 5; }
+#panel.station { z-index: 5; grid-template-rows: minmax(0, 1fr); }
+#panel { touch-action: pan-y; }
+#panel-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .station-card {
   position: relative; display: flex; flex-direction: column;
-  width: min(940px, 100%); max-height: 100%; padding: 20px 20px 12px; border-radius: 22px;
+  width: min(940px, 100%); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  padding: 20px 20px 12px; border-radius: 22px;
   background: linear-gradient(180deg, rgba(255, 244, 232, 0.05), transparent 120px), var(--dusk);
   border: 1px solid var(--line); border-top: 3px solid var(--accent);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);

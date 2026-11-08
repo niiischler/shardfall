@@ -25,6 +25,11 @@ SF.PLANETS = [
     helpers: [
       { slot: 'h1', kind: 'drones', name: 'Drone Bay', unit: 'Drone', desc: 'Drones harvest for you' },
     ],
+    machines: [
+      { res: 0, style: 'excavator', name: 'Crystal Drill', desc: 'Drills shards on its own', research: 'autoKelvos' },
+      { res: 1, style: 'excavator', name: 'Magma Pump', desc: 'Pumps ember ore on its own', research: 'autoKelvos' },
+      { res: 2, style: 'sawmill', name: 'Glowcap Farm', desc: 'Grows glowcaps on its own', research: 'autoKelvos' },
+    ],
   },
   {
     id: 'verdra', name: 'Verdra', mult: 1.5, hard: 0.25,
@@ -47,6 +52,9 @@ SF.PLANETS = [
     helpers: [
       { slot: 'h1', kind: 'producer', style: 'sawmill', res: 0, every: 2.2, pile: 12, name: 'Sawmill', desc: 'Cuts logs on its own' },
       { slot: 'h2', kind: 'producer', style: 'mine', res: 2, every: 3.5, pile: 10, name: 'Iron Mine', desc: 'Digs iron ore on its own' },
+    ],
+    machines: [
+      { res: 1, style: 'sawmill', name: 'Berry Picker', desc: 'Picks fire berries on its own', research: 'autoVerdra' },
     ],
   },
   {
@@ -71,6 +79,10 @@ SF.PLANETS = [
       { slot: 'h1', kind: 'drones', name: 'Skimmer Bay', unit: 'Skimmer', desc: 'Skimmers harvest for you' },
       { slot: 'h2', kind: 'producer', style: 'excavator', res: 1, every: 3, pile: 12, name: 'Excavator', desc: 'Digs sandstone on its own' },
     ],
+    machines: [
+      { res: 0, style: 'excavator', name: 'Cactus Condenser', desc: 'Draws cactus water on its own', research: 'autoDune' },
+      { res: 2, style: 'mine', name: 'Copper Mine', desc: 'Digs copper ore on its own', research: 'autoDune' },
+    ],
   },
   {
     id: 'halcyon', name: 'Halcyon', mult: 2.5, home: true, hard: 0.3,
@@ -91,9 +103,16 @@ SF.PLANETS = [
       { id: 'skyshell', name: 'Skyshell pearl', plural: 'Skyshell pearls', node: 'conch', item: 'shell', snd: 'shell', color: '#9af5ff', dark: '#2a9fb8', edge: '#0e4552', shell: ['#123f4a', '#1f6170', '#2a8193'], region: 'Skyshell Reef', biome: 'reef', gate: 'Reef Bridge' },
     ],
     helpers: [],
+    machines: [
+      { res: 0, style: 'sawmill', name: 'Sunfruit Orchard', desc: 'Picks sunfruit into the hall', research: 'autoHalcyon' },
+      { res: 1, style: 'excavator', name: 'Coral Farm', desc: 'Grows coral into the hall', research: 'autoHalcyon' },
+      { res: 2, style: 'mine', name: 'Pearl Diver', desc: 'Dives for skyshell pearls into the hall', research: 'autoHalcyon' },
+    ],
+    // Where the machines stand on Halcyon: [first, second] per resource tier.
+    machineSpots: [[[-560, 120], [-520, 380]], [[520, 250], [470, 460]], [[-170, -590], [-430, -500]]],
     // Buildings of the home base. needs = materials from the hall, by resource code (ingots: 112 iron, 122 copper).
     homePlots: [
-      { id: 'g4', kind: 'gate', name: 'Haven Bridge', desc: 'Opens New Haven', cost: 25000, needs: { 10: 40 }, requires: 'g3' },
+      { id: 'g4', kind: 'gate', name: 'Haven Bridge', desc: 'Opens New Haven', cost: 25000, needs: { 10: 200 }, requires: 'g3' },
     ],
   },
 ];
@@ -167,6 +186,30 @@ SF.layoutPlanet = function (planet) {
       const h = planet.helpers.find(x => x.slot === id);
       if (h) plot(id, h.kind, h.name, h.desc, ...spot(), { helper: h });
     }
+  }
+  // Machines for the three common resources: one per resource (the planet's own producer, or one unlocked by
+  // research), plus a second copy once 'twin' is researched. They stand beside the gates, clear of the trails.
+  const MACH = [{ every: 2.4, pile: 12 }, { every: 3.2, pile: 10 }, { every: 4, pile: 10 }];
+  for (let t = 0; t < 3; t++) {
+    let place;
+    if (planet.machineSpots) place = k => planet.machineSpots[t][k];
+    else {
+      const a = planet.regions[(t + 3) % planet.regions.length].angle;
+      place = k => at({ angle: a + (k ? -28 : 28) }, 580);
+    }
+    const own = plots.find(p => p.kind === 'producer' && p.helper.res === t);
+    const mc = (planet.machines || []).find(x => x.res === t);
+    let first = own;
+    if (!own && mc) {
+      const [x, y] = place(0);
+      first = { id: 'm' + t + 'a', kind: 'producer', name: mc.name, desc: mc.desc, x: Math.round(x), y: Math.round(y), research: mc.research,
+        cost: Math.round(30000 * (1 + 0.6 * t) * m), requires: t ? 'g' + (t + 1) : null, helper: Object.assign({ res: t, style: mc.style }, MACH[t]) };
+      plots.push(first);
+    }
+    if (!first) continue;
+    const [x, y] = place(own ? 0 : 1);
+    plots.push({ id: 'm' + t + 'b', kind: 'producer', name: first.name + ' II', desc: first.desc, x: Math.round(x), y: Math.round(y), research: 'twin',
+      cost: Math.round(Math.max(first.cost * 2, 60000 * m)), requires: first.id, helper: Object.assign({}, first.helper) });
   }
   return { regions, plots };
 };

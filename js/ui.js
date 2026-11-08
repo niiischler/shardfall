@@ -154,7 +154,7 @@ SF.UI = (function () {
   // ---------- panels ----------
   const PANELS = {
     drones: p => [droneCard(p)],
-    producer: p => [producerCard(p), beltCard(p)],
+    producer: p => [producerCard(p), SF.World.hall ? null : beltCard(p), mk2Card(p)].filter(Boolean),
     launch: () => (SF.atHome() ? travelCards() : [launchCard()]),
     habitat: () => crewCards(),
     lab: () => researchCards(),
@@ -239,11 +239,31 @@ SF.UI = (function () {
     return {
       btn: card('up-producer', 'Faster ' + p.name.toLowerCase(), () => SF.upgradeProducer(p.id), true),
       update(r) {
-        const st = SF.ws().plots[p.id], now = SF.producerStats(p, st), maxed = st.lvl >= C.producer.max;
-        const next = maxed ? now : SF.producerStats(p, { lvl: st.lvl + 1 });
+        const st = SF.ws().plots[p.id], now = SF.producerStats(p, st), maxed = st.lvl >= SF.producerMax(st);
+        const next = maxed ? now : SF.producerStats(p, { lvl: st.lvl + 1, mk: st.mk });
         fill(r.btn, maxed ? 'MAX' : `Lv ${st.lvl} → ${st.lvl + 1}`,
           `1 ${res.name.toLowerCase()} every ${now.every.toFixed(1)}s, holds ${now.cap}` + (maxed ? '' : ` → ${next.every.toFixed(1)}s, ${next.cap}`) +
-          `. Stock: ${st.pile}.` + (st.belt ? ' The belt sells it for you.' : ' Standing here loads it onto your back.'), maxed ? null : SF.producerCost(st));
+          `. Stock: ${st.pile}.` + (SF.World.hall ? ' It goes straight into the hall.' : st.belt ? ' The belt sells it for you.' : ' Standing here loads it onto your back.'), maxed ? null : SF.producerCost(st));
+        r.btn.querySelector('.card-name').textContent = 'Faster ' + p.name.toLowerCase() + (st.mk ? ' Mk2' : '');
+      },
+    };
+  }
+
+  // Research 'mk2': a maxed machine can be rebuilt for more levels.
+  function mk2Card(p) {
+    if (!SF.R('mk2')) return null;
+    const K = C.producer.mk2;
+    const btn = card('mk2-' + p.id, p.name + ' Mk2', () => SF.upgradeMk2(p.id), true);
+    btn.insertAdjacentHTML('beforeend', '<ul class="res-list mats"></ul>');
+    return {
+      btn,
+      update(r) {
+        const st = SF.ws().plots[p.id], ready = st.lvl >= C.producer.max;
+        if (st.mk) { fill(r.btn, 'Built', `Mk2 works ${K.boost}× as fast and goes up to level ${SF.producerMax(st)}.`, null); r.btn.querySelector('.card-cost b').textContent = ''; r.btn.querySelector('.mats').innerHTML = ''; return; }
+        fill(r.btn, ready ? 'Ready' : `Max out first: Lv ${st.lvl} / ${C.producer.max}`, `Rebuild it as Mk2: ${K.boost}× as fast and ${K.levels} more levels.`, ready ? K.credits : null);
+        if (!ready) { r.btn.querySelector('.card-cost b').textContent = SF.UI.fmt(K.credits); r.btn.classList.add('poor'); }
+        r.btn.querySelector('.mats').innerHTML = Object.keys(K.needs).map(c => { const have = SF.Home.available(+c), ok = have >= K.needs[c];
+          return `<li class="${ok ? '' : 'short'}"><i style="background:${SF.res(+c).color}"></i>${have}/${K.needs[c]} ${SF.res(+c).plural}</li>`; }).join('');
       },
     };
   }
@@ -375,7 +395,7 @@ SF.UI = (function () {
   const matList = needs => Object.keys(needs).map(c => `${needs[c]} ${SF.res(+c).plural.toLowerCase()}`).join(', ');
   const matHave = needs => Object.keys(needs).map(c => {
     const have = SF.state.hold[c] || 0, ok = have >= needs[c];
-    return `<li class="${ok ? '' : 'short'}"><i style="background:${SF.res(+c).color}"></i>${Math.min(have, needs[c])}/${needs[c]} ${SF.res(+c).plural}</li>`;
+    return `<li class="${ok ? '' : 'short'}"><i style="background:${SF.res(+c).color}"></i>${have}/${needs[c]} ${SF.res(+c).plural}</li>`;
   }).join('');
 
   function buildCards(p) {

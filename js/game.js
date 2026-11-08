@@ -144,7 +144,7 @@
           d.target = null;
           let best = null, bd = Infinity;
           for (const n of W.nodes) {
-            if (!n.alive || n.claimed || !W.nodeOpen(n)) continue;
+            if (!n.alive || n.claimed || !W.nodeOpen(n) || n.res > 2) continue;   // machines leave the rare resources to people
             // Prefer valuable nodes a little, and leave the player's node alone.
             const dd = Math.hypot(n.x - d.x, n.y - d.y) - n.res * 60 + (n === P.target ? 400 : 0);
             if (dd < bd) { bd = dd; best = n; }
@@ -199,7 +199,8 @@
   // ---------- producers (sawmill, mine, excavator) ----------
   SF.producerStats = function (p, st) {
     const h = p.helper;
-    return { every: h.every / (1 + 0.35 * st.lvl) / SF.producerBoost(), cap: h.pile + 4 * st.lvl };
+    const mk = st.mk ? C.producer.mk2.boost : 1;
+    return { every: h.every / (1 + 0.35 * st.lvl) / SF.producerBoost() / mk, cap: h.pile + 4 * st.lvl };
   };
 
   function updateProducer(p, st, dt) {
@@ -211,6 +212,12 @@
         FX.burst(p.x - 20, p.y - 30, [SF.res(code).color, '#fff4e8'], 4, { z: 40, speed: 80, size: 3, life: 0.5 });
       }
     } else st.t = 0;
+    // On Halcyon machines carry their stock straight into the hall.
+    if (W.hall && st.pile > 0) {
+      st.beltT = (st.beltT || 0) - dt;
+      if (st.beltT <= 0) { st.beltT = 0.8; st.pile--; SF.Hub.storeHall(code, p.x - 20, p.y - 30); }
+      return;
+    }
     // A conveyor belt carries the stock to the depot by itself.
     if (st.belt && st.pile > 0) {
       st.beltT = (st.beltT || 0) - dt;
@@ -229,7 +236,7 @@
   }
 
   // ---------- building ----------
-  function plotVisible(p) { return !p.requires || SF.ws().plots[p.requires].built; }
+  function plotVisible(p) { return (!p.requires || SF.ws().plots[p.requires].built) && (!p.research || SF.R(p.research) > 0); }
   SF.plotVisible = plotVisible;
 
   // Paid off in credits and, for home buildings, in materials from the chest.
@@ -278,9 +285,23 @@
     return true;
   };
 
+  // Research 'mk2': a fully upgraded machine is rebuilt as Mk2, faster and with more levels to go.
+  SF.upgradeMk2 = function (id) {
+    const p = W.plot(id), st = SF.ws().plots[id], K = C.producer.mk2;
+    const ok = SF.R('mk2') > 0 && !st.mk && st.lvl >= C.producer.max && Object.keys(K.needs).every(c => SF.Home.available(c) >= K.needs[c]);
+    if (!ok || !spend(K.credits)) { A.nope(); return false; }
+    for (const c in K.needs) SF.Home.spendMaterial(c, K.needs[c]);
+    st.mk = 1;
+    A.build(); FX.shake(0.3);
+    FX.burst(p.x, p.y - 30, ['#9be36a', '#ffd36b', '#fff4e8'], 40, { z: 30, speed: 260, size: 5 });
+    FX.pop(p.x, p.y - 110, p.name + ' Mk2', '#9be36a', 22);
+    save(); SF.UI.refresh();
+    return true;
+  };
+
   SF.upgradeProducer = function (id) {
     const p = W.plot(id), st = SF.ws().plots[id];
-    if (st.lvl >= C.producer.max || !spend(SF.producerCost(st))) return false;
+    if (st.lvl >= SF.producerMax(st) || !spend(SF.producerCost(st))) return false;
     st.lvl++;
     FX.burst(p.x, p.y - 20, ['#ffd36b', '#fff4e8'], 24, { z: 30, speed: 200, size: 4 });
     FX.pop(p.x, p.y - 90, p.name + ' Lv ' + st.lvl, '#ffd36b', 18);
@@ -573,7 +594,6 @@
     Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
     if (W.smelter) {
-      Rn.road(ctx, { x: C.smelter.road[0].x - 20, y: C.smelter.road[0].y + C.smelter.haulLane / 2 }, { x: C.smelter.road[1].x + 30, y: C.smelter.road[1].y + C.smelter.haulLane / 2 });
       Rn.pickupPad(ctx, W.pickup, t, P.zone === 'pickup', SF.Smelter.oreInHall());
     }
     Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt), t);

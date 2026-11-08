@@ -104,7 +104,7 @@ SF.Hub = (function () {
     const L = layouts[pi] || (layouts[pi] = SF.layoutPlanet(SF.PLANETS[pi]));
     if (ws.drones > 0) {
       // Drones take turns between the resources of every open region.
-      const tiers = L.regions.filter(r => r.res != null && (!r.unlock || (ws.plots[r.unlock] && ws.plots[r.unlock].built))).map(r => r.res);
+      const tiers = L.regions.filter(r => r.res != null && r.res <= 2 && (!r.unlock || (ws.plots[r.unlock] && ws.plots[r.unlock].built))).map(r => r.res);
       ws.droneT = (ws.droneT || 0) + dt * ws.drones * (SF.droneSpeed() / C.drone.speed) * (0.5 + 0.5 * SF.dronePower()) * (SF.droneCap() / C.drone.cap);
       while (ws.droneT >= C.drone.awayEvery) {
         ws.droneT -= C.drone.awayEvery;
@@ -180,6 +180,19 @@ SF.Hub = (function () {
     if (s.inbound.length) { for (const f of s.inbound) deliverAll(f.items); s.inbound.length = 0; }
     if (!s.homeReached) return;
     loadT -= dt;
+    // Machines on Halcyon keep filling the hall while you are away.
+    const hw = s.worlds[C.home];
+    if (hw && s.planet !== C.home) {
+      const L = layouts[C.home] || (layouts[C.home] = SF.layoutPlanet(SF.PLANETS[C.home]));
+      for (const p of L.plots) {
+        const st = hw.plots[p.id];
+        if (p.kind !== 'producer' || !st || !st.built) continue;
+        const ps = SF.producerStats(p, st);
+        st.t = (st.t || 0) + dt;
+        while (st.t >= ps.every) { st.t -= ps.every; deliver(C.home * 10 + p.helper.res, 1); }
+        if (st.pile > 0) { deliver(C.home * 10 + p.helper.res, st.pile); st.pile = 0; }
+      }
+    }
     for (const k in s.worlds) {
       const pi = +k, ws = s.worlds[k];
       if (pi === C.home) continue;

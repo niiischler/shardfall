@@ -1146,7 +1146,7 @@ SF.Render = (function () {
       }
       pile(ctx, here(h.res), st.pile, x - 52, y + 30);
       const cap = h.pile + 4 * st.lvl;
-      label(ctx, `${p.name.toUpperCase()}  ${st.pile}/${cap}`, x, y + 84, 13, acc);
+      label(ctx, `${p.name.toUpperCase()}${st.mk ? " MK2" : ""}  ${st.pile}/${cap}`, x, y + 84, 13, st.mk ? "#9be36a" : acc);
     },
     refinery(ctx, p, t) {
       const x = p.x, y = p.y;
@@ -1336,12 +1336,19 @@ SF.Render = (function () {
   // ---------- conveyor belts ----------
   // A belt runs from the producer's outlet along straight runs and corner drums into a side port of the warehouse.
   const BELT_W = 18, BELT_SPEED = 70;
+  // Out of the producer, along a vertical lane to the warehouse's row, then into its side port. The lane is
+  // the first one whose path stays clear of the other buildings and pads.
   function beltRoute(p) {
-    const s = p.x > 0 ? 1 : -1, Y = C.depot.y - 12, o = { x: p.x, y: p.y + 40 }, pts = [o];
-    if (Math.abs(o.x) < 170) { pts.push({ x: s * 170, y: o.y }); pts.push({ x: s * 170, y: Y }); }
-    else pts.push({ x: o.x, y: Y });
-    pts.push({ x: s * 92, y: Y });
-    return pts;
+    const s = p.x > 0 ? 1 : -1, Y = C.depot.y - 12, o = { x: p.x, y: p.y + 40 };
+    const make = lx => (lx === o.x ? [o, { x: lx, y: Y }, { x: s * 92, y: Y }] : [o, { x: lx, y: o.y }, { x: lx, y: Y }, { x: s * 92, y: Y }]);
+    const obstacles = (SF.World.plots || []).filter(q => q !== p).flatMap(q => [{ x: q.x, y: q.y - 20 }, { x: q.x, y: q.y + 40 }])
+      .concat([C.upgradePad, C.hub.pad, { x: C.hub.pad.x + 120, y: C.hub.pad.y + 30 }]);
+    const segDist = (q, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, l = dx * dx + dy * dy || 1, k = Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / l)); return Math.hypot(q.x - a.x - dx * k, q.y - a.y - dy * k); };
+    const hits = pts => obstacles.filter(q => pts.slice(1).some((b, i) => segDist(q, pts[i], b) < 80)).length;
+    const lanes = (Math.abs(o.x) >= 170 ? [o.x] : []).concat([170, 300, 430, 560, 660].map(v => s * v));
+    let best = null, bh = Infinity;
+    for (const lx of lanes) { const pts = make(lx), h = hits(pts); if (h < bh) { bh = h; best = pts; } if (!h) break; }
+    return best;
   }
   const routeLen = pts => pts.reduce((a, q, i) => (i ? a + Math.hypot(q.x - pts[i - 1].x, q.y - pts[i - 1].y) : 0), 0);
   // Point at distance d along a route.
