@@ -281,3 +281,5 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
 .card.info.tree-head .card-key { display: none; }
 .card-key:empty { display: none; }
 #panel-body .card.wide:not(.info) { grid-column: auto; }
+.job-chip small { font: 600 0.62rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.job-chip.locked { opacity: 0.35; cursor: not-allowed; }

@@ -561,14 +561,14 @@ SF.UI = (function () {
       update(r) {
         const n = SF.state.crew.length, cap = SF.Home.crewCap(), full = n >= cap;
         fill(r.btn, `${n} / ${cap} beds`, full ? 'All beds are taken. Build another habitat for more crew.' :
-          `Crew harvest their job's resource. On the planet you are on you see them at work; elsewhere they fill that planet's warehouse (1 every ${C.crew.workEvery}s). ` +
+          `Crew harvest their job's resource. On the planet you are on you see them at work; elsewhere they fill that planet's warehouse (1 every ${C.crew.workEvery}s, rare ones slower). ` +
           (SF.Food.on() ? 'They eat meals and drink from the canteen.' : `Each eats 1 ${SF.res(C.crew.food).name.toLowerCase()} from the hall every ${C.crew.eatEvery}s until you build a canteen.`), full ? null : SF.hireCost());
       },
     }];
     // Each crew member: a status line and every job at a glance, grouped by planet. One tap picks it.
     SF.state.crew.forEach((w, i) => {
       const rows = SF.PLANETS.map((pl, pi) => `<div class="job-row"><span class="job-planet">${pl.name}</span>` +
-        pl.resources.slice(0, 3).map(r => `<button type="button" class="job-chip" data-job="${pi * 10 + r.tier}"><i style="background:${r.color}"></i>${r.plural}</button>`).join('') + '</div>').join('');
+        pl.resources.map(r => `<button type="button" class="job-chip${r.tier > 2 ? ' rare' : ''}" data-job="${pi * 10 + r.tier}" title="1 every ${SF.Home.workTime(pi * 10 + r.tier)}s while you are elsewhere"><i style="background:${r.color}"></i>${r.plural}${r.tier > 2 ? ' <small>slow</small>' : ''}</button>`).join('') + '</div>').join('');
       const div = info('crew-' + i, `<span class="card-name">Crew ${i + 1}</span><span class="card-lvl"></span><span class="card-eff"></span><div class="jobs">${rows}</div>`);
       div.querySelectorAll('.job-chip').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); if (SF.Home.setJob(i, +b.dataset.job)) SF.Audio.pick(3); }));
       cards.push({
@@ -578,9 +578,9 @@ SF.UI = (function () {
           r.btn.querySelector('.card-lvl').textContent = `${R.plural} · ${pl.name}`;
           r.btn.querySelector('.card-eff').textContent = need === 'eating' ? 'Gone to eat and drink' : need ? `${need[0].toUpperCase() + need.slice(1)}! ` +
             (SF.Food.on() ? (Math.floor(w.job / 10) === C.home ? 'The canteen needs sunfruit and cactus water in the hall.' : `Their cargo rocket brings food from the canteen to the ${pl.name} warehouse.`) :
-              `Bring ${SF.res(C.crew.food).name.toLowerCase()} to the hall.`) : 'Working';
+              `Bring ${SF.res(C.crew.food).name.toLowerCase()} to the hall.`) : SF.Home.jobOpen(w.job) ? 'Working' : `Waiting: open ${R.region || 'that region'} on ${pl.name} first`;
           r.btn.classList.toggle('poor', !!need && need !== 'eating');
-          r.btn.querySelectorAll('.job-chip').forEach(b => b.classList.toggle('on', +b.dataset.job === w.job));
+          r.btn.querySelectorAll('.job-chip').forEach(b => { b.classList.toggle('on', +b.dataset.job === w.job); b.classList.toggle('locked', !SF.Home.jobOpen(+b.dataset.job)); });
         },
       });
     });

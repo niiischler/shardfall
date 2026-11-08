@@ -6,7 +6,14 @@ SF.Home = (function () {
   const workers = [];           // crew working on the planet you are on, drawn and simulated
 
   // Jobs a crew member can take: the three cheapest resources of every planet.
-  const jobs = () => SF.PLANETS.flatMap((p, pi) => p.resources.slice(0, 3).map(r => pi * 10 + r.tier));
+  // Every resource can be a job; the two rarest of each planet take longer to gather away from you.
+  const jobs = () => SF.PLANETS.flatMap((p, pi) => p.resources.map(r => pi * 10 + r.tier));
+  // A job needs its region open on that planet (the gate built), like the nodes do for you.
+  function jobOpen(code) {
+    const t = code % 10, ws = SF.state.worlds[Math.floor(code / 10)];
+    return t === 0 || !!(ws && ws.plots && ws.plots['g' + (t + 1)] && ws.plots['g' + (t + 1)].built);
+  }
+  const workTime = code => C.crew.workEvery * (C.crew.rareSlow[code % 10] || 1);
   const jobPlanet = w => Math.floor(w.job / 10);
 
   function crewCap() { return SF.homeCount('habitat', true) * C.crew.perHabitat; }
@@ -57,7 +64,7 @@ SF.Home = (function () {
 
   function setJob(i, code) {
     const w = SF.state.crew[i];
-    if (!w || !jobs().includes(code)) return false;
+    if (!w || !jobs().includes(code) || !jobOpen(code)) { SF.Audio.nope(); return false; }
     w.job = code; w.away = 0;
     SF.save(); SF.UI.refresh();
     return true;
@@ -177,10 +184,10 @@ SF.Home = (function () {
     const s = SF.state, k = C.crew, here = s.planet;
     s.crew.forEach((w, i) => {
       SF.Food.tick(w, dt, jobPlanet(w) === here);
-      if (jobPlanet(w) === here || !SF.Food.canWork(w)) return;
+      if (jobPlanet(w) === here || !SF.Food.canWork(w) || !jobOpen(w.job)) return;
       w.work = (w.work || 0) + dt * (1 + 0.25 * SF.R('training'));
-      if (w.work >= k.workEvery) {
-        w.work -= k.workEvery;
+      if (w.work >= workTime(w.job)) {
+        w.work -= workTime(w.job);
         const pi = jobPlanet(w), ws = s.worlds[pi];
         if (pi !== C.home && ws) SF.Hub.toWarehouse(w.job, ws); else SF.Hub.deliver(w.job, 1);
       }
@@ -205,5 +212,5 @@ SF.Home = (function () {
 
   function enter() { workers.length = 0; }
 
-  return { workers, jobs, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
+  return { workers, jobs, jobOpen, workTime, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
 })();
