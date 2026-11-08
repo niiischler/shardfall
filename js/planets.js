@@ -16,18 +16,18 @@ SF.PLANETS = [
     },
     regions: [{ angle: 0, dist: 1150, r: 540 }, { angle: 180, dist: 1150, r: 520 }, { angle: 270, dist: 1120, r: 520 }, { angle: 90, dist: 1180, r: 560 }],
     resources: [
-      { id: 'shard', name: 'Shard', plural: 'Shards', node: 'crystal', item: 'gem', color: '#6ff5e8', dark: '#1e9aa3', edge: '#0d5a66' },
-      { id: 'ember', name: 'Ember ore', plural: 'Ember ore', node: 'rock', item: 'chunk', color: '#ffab4a', dark: '#c4521f', edge: '#5a2410', stone: '#4a3040', region: 'Ember Ridge', gate: 'Ridge Pylon' },
-      { id: 'glowcap', name: 'Glowcap', plural: 'Glowcaps', node: 'mushroom', item: 'cap', color: '#b6ff6a', dark: '#4f9a2a', edge: '#23461a', stem: '#efe6f5', region: 'Glowcap Hollow', gate: 'Hollow Pylon' },
-      { id: 'frost', name: 'Frost spar', plural: 'Frost spars', node: 'crystal', item: 'gem', color: '#d6ecff', dark: '#5d8fd6', edge: '#24406e', region: 'Frost Shelf', gate: 'Shelf Pylon' },
-      { id: 'pearl', name: 'Void pearl', plural: 'Void pearls', node: 'clam', item: 'orb', color: '#e0a6ff', dark: '#7a36c0', edge: '#3b1466', region: 'Void Basin', gate: 'Basin Gate' },
+      { id: 'shard', name: 'Shard', plural: 'Shards', node: 'crystal', item: 'gem', snd: 'glass', color: '#6ff5e8', dark: '#1e9aa3', edge: '#0d5a66' },
+      { id: 'ember', name: 'Ember ore', plural: 'Ember ore', node: 'magma', item: 'ember', snd: 'magma', color: '#ffab4a', dark: '#c4521f', edge: '#5a2410', stone: '#3a2634', region: 'Ember Ridge', gate: 'Ridge Pylon' },
+      { id: 'glowcap', name: 'Glowcap', plural: 'Glowcaps', node: 'mushroom', item: 'cap', snd: 'squish', color: '#b6ff6a', dark: '#4f9a2a', edge: '#23461a', stem: '#efe6f5', region: 'Glowcap Hollow', gate: 'Hollow Pylon' },
+      { id: 'frost', name: 'Frost spar', plural: 'Frost spars', node: 'icespire', item: 'icicle', snd: 'ice', color: '#d6ecff', dark: '#5d8fd6', edge: '#24406e', region: 'Frost Shelf', gate: 'Shelf Pylon' },
+      { id: 'pearl', name: 'Void pearl', plural: 'Void pearls', node: 'clam', item: 'orb', snd: 'shell', color: '#e0a6ff', dark: '#7a36c0', edge: '#3b1466', region: 'Void Basin', gate: 'Basin Gate' },
     ],
     helpers: [
       { slot: 'h1', kind: 'drones', name: 'Drone Bay', unit: 'Drone', desc: 'Drones harvest for you' },
     ],
   },
   {
-    id: 'verdra', name: 'Verdra', mult: 1.5,
+    id: 'verdra', name: 'Verdra', mult: 1.5, hard: 0.25,
     tagline: 'A warm forest moon full of timber and ore',
     intro: 'Tall woods, berry thickets and iron in the gullies. Build a sawmill and a mine to keep the logs and ore coming.',
     theme: {
@@ -38,11 +38,11 @@ SF.PLANETS = [
     },
     regions: [{ angle: 45, dist: 1150, r: 540 }, { angle: 225, dist: 1180, r: 540 }, { angle: 315, dist: 1150, r: 520 }, { angle: 135, dist: 1150, r: 560 }],
     resources: [
-      { id: 'wood', name: 'Log', plural: 'Logs', node: 'tree', item: 'log', color: '#d39a5c', dark: '#7a4a26', edge: '#3d220f', leaf: '#5fb244', leafDark: '#2e6a2a' },
-      { id: 'berry', name: 'Fire berry', plural: 'Fire berries', node: 'bush', item: 'orb', color: '#ff5f7a', dark: '#a3243e', edge: '#4d0f1d', leaf: '#3e8a3a', leafDark: '#1f4f22', region: 'Berry Thicket', gate: 'Thicket Path' },
-      { id: 'iron', name: 'Iron ore', plural: 'Iron ore', node: 'rock', item: 'chunk', color: '#dfe5ee', dark: '#6b7280', edge: '#2a2f38', stone: '#4b4a4f', region: 'Iron Gully', gate: 'Gully Bridge' },
-      { id: 'amber', name: 'Amber', plural: 'Amber', node: 'crystal', item: 'gem', color: '#ffc23d', dark: '#c06a12', edge: '#5a2c06', region: 'Amber Grove', gate: 'Grove Gate' },
-      { id: 'gold', name: 'Gold ore', plural: 'Gold ore', node: 'rock', item: 'chunk', color: '#ffe066', dark: '#c79a14', edge: '#5a4306', stone: '#3a3530', region: 'Gold Ravine', gate: 'Ravine Lift' },
+      { id: 'wood', name: 'Log', plural: 'Logs', node: 'tree', item: 'log', snd: 'wood', color: '#d39a5c', dark: '#7a4a26', edge: '#3d220f', leaf: '#5fb244', leafDark: '#2e6a2a' },
+      { id: 'berry', name: 'Fire berry', plural: 'Fire berries', node: 'bush', item: 'berries', snd: 'squish', color: '#ff5f7a', dark: '#a3243e', edge: '#4d0f1d', leaf: '#3e8a3a', leafDark: '#1f4f22', region: 'Berry Thicket', gate: 'Thicket Path' },
+      { id: 'iron', name: 'Iron ore', plural: 'Iron ore', node: 'ironrock', item: 'ironore', snd: 'metal', color: '#dfe5ee', dark: '#6b7280', edge: '#2a2f38', stone: '#5a5660', rust: '#b5592a', region: 'Iron Gully', gate: 'Gully Bridge' },
+      { id: 'amber', name: 'Amber', plural: 'Amber', node: 'resin', item: 'amber', snd: 'resin', color: '#ffc23d', dark: '#c06a12', edge: '#5a2c06', region: 'Amber Grove', gate: 'Grove Gate' },
+      { id: 'gold', name: 'Gold ore', plural: 'Gold ore', node: 'goldvein', item: 'nugget', snd: 'gold', color: '#ffe066', dark: '#c79a14', edge: '#5a4306', stone: '#34303a', region: 'Gold Ravine', gate: 'Ravine Lift' },
     ],
     helpers: [
       { slot: 'h1', kind: 'producer', style: 'sawmill', res: 0, every: 2.2, pile: 12, name: 'Sawmill', desc: 'Cuts logs on its own' },
@@ -50,7 +50,7 @@ SF.PLANETS = [
     ],
   },
   {
-    id: 'duneveil', name: 'Duneveil', mult: 2.2,
+    id: 'duneveil', name: 'Duneveil', mult: 2.2, hard: 0.6, pace: 1.7,
     tagline: 'Copper dunes and buried giants',
     intro: 'Hot sand, hidden water in the cacti and fossils of things that once walked here. Skimmers and an excavator will help.',
     theme: {
@@ -61,11 +61,11 @@ SF.PLANETS = [
     },
     regions: [{ angle: 270, dist: 1150, r: 540 }, { angle: 90, dist: 1150, r: 540 }, { angle: 0, dist: 1170, r: 540 }, { angle: 180, dist: 1150, r: 560 }],
     resources: [
-      { id: 'water', name: 'Cactus water', plural: 'Cactus water', node: 'cactus', item: 'drop', color: '#7fd8ff', dark: '#2a7fb8', edge: '#123f5e', plant: '#5f9a4a', plantDark: '#2f5f2a' },
-      { id: 'sandstone', name: 'Sandstone', plural: 'Sandstone', node: 'rock', item: 'chunk', color: '#ffe2b0', dark: '#c88a4a', edge: '#5e3a18', stone: '#a06a3a', region: 'Red Mesa', gate: 'Mesa Ramp' },
-      { id: 'copper', name: 'Copper ore', plural: 'Copper ore', node: 'rock', item: 'chunk', color: '#4fe0b0', dark: '#b8662e', edge: '#4a230c', stone: '#6a4a3a', region: 'Copper Flats', gate: 'Flats Gate' },
-      { id: 'fossil', name: 'Fossil', plural: 'Fossils', node: 'bones', item: 'bone', color: '#f3ead6', dark: '#b5a383', edge: '#5e4f35', region: 'Bone Dunes', gate: 'Dune Crawler' },
-      { id: 'sunstone', name: 'Sunstone', plural: 'Sunstones', node: 'crystal', item: 'gem', color: '#ff7a55', dark: '#b0201e', edge: '#4f0a0a', region: 'Sunstone Rift', gate: 'Rift Bridge' },
+      { id: 'water', name: 'Cactus water', plural: 'Cactus water', node: 'cactus', item: 'drop', snd: 'water', color: '#7fd8ff', dark: '#2a7fb8', edge: '#123f5e', plant: '#5f9a4a', plantDark: '#2f5f2a' },
+      { id: 'sandstone', name: 'Sandstone', plural: 'Sandstone', node: 'mesa', item: 'brick', snd: 'stone', color: '#ffe2b0', dark: '#c88a4a', edge: '#5e3a18', stone: '#a06a3a', region: 'Red Mesa', gate: 'Mesa Ramp' },
+      { id: 'copper', name: 'Copper ore', plural: 'Copper ore', node: 'malachite', item: 'malachite', snd: 'metal', color: '#4fe0b0', dark: '#1f8a66', edge: '#0c3a2a', stone: '#8a4a26', copper: '#d98a4e', region: 'Copper Flats', gate: 'Flats Gate' },
+      { id: 'fossil', name: 'Fossil', plural: 'Fossils', node: 'bones', item: 'bone', snd: 'bone', color: '#f3ead6', dark: '#b5a383', edge: '#5e4f35', region: 'Bone Dunes', gate: 'Dune Crawler' },
+      { id: 'sunstone', name: 'Sunstone', plural: 'Sunstones', node: 'geode', item: 'sungem', snd: 'sun', color: '#ff7a55', dark: '#b0201e', edge: '#4f0a0a', region: 'Sunstone Rift', gate: 'Rift Bridge' },
     ],
     helpers: [
       { slot: 'h1', kind: 'drones', name: 'Skimmer Bay', unit: 'Skimmer', desc: 'Skimmers harvest for you' },
@@ -73,7 +73,7 @@ SF.PLANETS = [
     ],
   },
   {
-    id: 'halcyon', name: 'Halcyon', mult: 2.5, home: true,
+    id: 'halcyon', name: 'Halcyon', mult: 2.5, home: true, hard: 0.3,
     tagline: 'A warm lagoon world, gentle enough to call home',
     intro: 'Clear water, sweet fruit and no storms. Build your home base here. The rocket can now fly you back to every planet you know, to fetch materials for new buildings.',
     theme: {
@@ -85,9 +85,9 @@ SF.PLANETS = [
     regions: [{ angle: 0, dist: 1150, r: 540 }, { angle: 270, dist: 1150, r: 540 }],
     settlement: { angle: 90, dist: 1260, r: 640, name: 'New Haven' },
     resources: [
-      { id: 'sunfruit', name: 'Sunfruit', plural: 'Sunfruit', node: 'tree', item: 'fruit', color: '#ffb340', dark: '#d0601a', edge: '#5a2a0a', leaf: '#62d08a', leafDark: '#24835a', trunk: '#7a4a26', trunkLight: '#a8703f', fruit: true },
-      { id: 'coral', name: 'Lagoon coral', plural: 'Lagoon coral', node: 'crystal', item: 'gem', color: '#ff9cc2', dark: '#d0457a', edge: '#5e1533', region: 'Coral Shallows', gate: 'Shallows Pier' },
-      { id: 'skyshell', name: 'Skyshell pearl', plural: 'Skyshell pearls', node: 'clam', item: 'orb', color: '#9af5ff', dark: '#2a9fb8', edge: '#0e4552', shell: ['#123f4a', '#1f6170', '#2a8193'], region: 'Skyshell Reef', gate: 'Reef Bridge' },
+      { id: 'sunfruit', name: 'Sunfruit', plural: 'Sunfruit', node: 'palm', item: 'fruit', snd: 'palm', color: '#ffb340', dark: '#d0601a', edge: '#5a2a0a', leaf: '#62d08a', leafDark: '#24835a', trunk: '#7a4a26', trunkLight: '#a8703f', fruit: true },
+      { id: 'coral', name: 'Lagoon coral', plural: 'Lagoon coral', node: 'coral', item: 'coralbit', snd: 'coral', color: '#ff9cc2', dark: '#d0457a', edge: '#5e1533', region: 'Coral Shallows', gate: 'Shallows Pier' },
+      { id: 'skyshell', name: 'Skyshell pearl', plural: 'Skyshell pearls', node: 'conch', item: 'shell', snd: 'shell', color: '#9af5ff', dark: '#2a9fb8', edge: '#0e4552', shell: ['#123f4a', '#1f6170', '#2a8193'], region: 'Skyshell Reef', gate: 'Reef Bridge' },
     ],
     helpers: [],
     // Buildings of the home base. needs = materials from the chest, by resource code.
@@ -111,7 +111,12 @@ SF.TIERS = [
 ];
 
 // Fill in tier defaults; a resource can still override any of them.
-SF.PLANETS.forEach(p => p.resources.forEach((r, i) => Object.assign(r, Object.assign({ tier: i }, SF.TIERS[i], r))));
+// `hard` makes the higher tiers of a planet tougher, so ores feel different to mine.
+SF.PLANETS.forEach(p => p.resources.forEach((r, i) => {
+  const own = r.hp;
+  Object.assign(r, Object.assign({ tier: i }, SF.TIERS[i], r));
+  if (own == null) r.hp = Math.round(r.hp * (1 + (p.hard || 0) * i));
+}));
 
 // Build the region and plot list for one planet from its data.
 SF.layoutPlanet = function (planet) {
@@ -131,7 +136,7 @@ SF.layoutPlanet = function (planet) {
   const plots = [];
   const plot = (id, kind, name, desc, x, y, extra) => plots.push(Object.assign({
     id, kind, name, desc, x: Math.round(x), y: Math.round(y),
-    cost: Math.round(C.plotCosts[id] * m), requires: C.plotRequires[id],
+    cost: Math.round(C.plotCosts[id] * m * (planet.pace || 1)), requires: C.plotRequires[id],
   }, extra));
 
   planet.regions.forEach((g, i) => {
