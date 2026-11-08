@@ -375,5 +375,5 @@ SF.Biomes = (function () {
     ctx.globalAlpha = 1;
   }
 
-  return { BIOMES, texture, scatter, draw, ambient };
+  return { BIOMES, MARKS, DECOR, texture, scatter, draw, ambient };
 })();

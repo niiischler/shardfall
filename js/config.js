@@ -32,8 +32,8 @@ SF.CFG = {
   perks: { sale: 0.25, cap: 10, speed: 15 },
   tools: {
     pick:  { name: 'Plasma Pick', mult: 1 },
-    axe:   { name: 'Ion Axe',     mult: 2,   stars: 1, nodes: ['tree', 'palm', 'resin', 'bush', 'mushroom', 'cactus'] },
-    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['crystal', 'magma', 'icespire', 'ironrock', 'goldvein', 'mesa', 'malachite', 'geode', 'bones', 'clam', 'coral', 'conch', 'oilseep', 'gasvent'] },
+    axe:   { name: 'Ion Axe',     mult: 2,   stars: 1, nodes: ['tree', 'palm', 'resin', 'bush', 'mushroom', 'cactus', 'melon', 'bloom', 'spicebush', 'hive', 'truffle'] },
+    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['crystal', 'magma', 'icespire', 'ironrock', 'goldvein', 'mesa', 'malachite', 'geode', 'bones', 'clam', 'coral', 'conch', 'oilseep', 'gasvent', 'fumarole', 'obsidian', 'opalnest'] },
   },
 
   home: 3,                             // index of the home planet; travel opens there
@@ -71,7 +71,7 @@ SF.CFG = {
   },
 
   // Contract board beside the hall (Halcyon only): orders paid at `pay` times the sale price.
-  contracts: { at: { x: 520, y: -195 }, r: 50, slots: 3, min: 20, max: 60, growth: 0.1, growMax: 40, pay: 3, swap: 90 },
+  contracts: { at: { x: 610, y: -175 }, r: 50, slots: 3, min: 20, max: 60, growth: 0.1, growMax: 40, pay: 3, swap: 90 },
 
   // Selling the same material again and again lowers its price for a while (after Halcyon only).
   demand: { step: 0.003, max: 0.4, recover: 0.012 },

@@ -109,6 +109,47 @@ SF.Audio = (function () {
       hit(k) { noise(0.05, 0.2 * k, 3500, 0, 'bandpass', 4); tone(rnd(1200, 1400), 0.06, 'triangle', 0.05 * k); },
       brk(k) { for (let i = 0; i < 4; i++) noise(0.03, 0.14 * k, rnd(3000, 5000), i * 0.04, 'bandpass', 4); for (let i = 0; i < 3; i++) tone(rnd(500, 800), 0.07, 'sine', 0.07 * k, 2.2, 0.15 + i * 0.07); },
     },
+    // far planets
+    melon: {
+      hit(k) { tone(rnd(150, 180), 0.12, 'sine', 0.18 * k, 0.7); noise(0.05, 0.12 * k, 900, 0, 'lowpass'); },
+      brk(k) { tone(140, 0.2, 'sine', 0.2 * k, 0.6); tone(520, 0.14, 'sine', 0.08 * k, 1.8, 0.05); noise(0.2, 0.18 * k, 1600, 0.04, 'lowpass'); },
+    },
+    chime: {
+      hit(k) { const f = rnd(1300, 1500); tone(f, 0.3, 'sine', 0.06 * k); tone(f * 1.5, 0.25, 'sine', 0.03 * k, 1, 0.02); },
+      brk(k) { [0, 5, 9, 12, 17].forEach((s, i) => tone(semis(1046, s), 0.5, 'sine', 0.05 * k, 1, i * 0.06)); tone(rnd(500, 600), 0.15, 'sine', 0.06 * k, 2.2, 0.1); },
+    },
+    rustle: {
+      hit(k) { noise(0.1, 0.18 * k, 3200, 0, 'bandpass', 0.9); tone(rnd(300, 360), 0.05, 'triangle', 0.06 * k); },
+      brk(k) { noise(0.35, 0.18 * k, 2800, 0, 'bandpass', 0.7); for (let i = 0; i < 4; i++) noise(0.03, 0.12 * k, rnd(1500, 2500), 0.1 + i * 0.05, 'bandpass', 5); },
+    },
+    buzz: {
+      hit(k) { tone(rnd(210, 240), 0.18, 'sawtooth', 0.03 * k, 1.05); tone(rnd(800, 900), 0.08, 'sine', 0.04 * k, 0.8); },
+      brk(k) { tone(220, 0.6, 'sawtooth', 0.035 * k, 1.3); tone(330, 0.5, 'sawtooth', 0.02 * k, 0.8, 0.1); tone(880, 0.3, 'sine', 0.05 * k, 1, 0.2); },
+    },
+    dig: {
+      hit(k) { noise(0.08, 0.28 * k, 500, 0, 'lowpass'); noise(0.04, 0.1 * k, 2200, 0.02, 'bandpass', 2); },
+      brk(k) { noise(0.3, 0.28 * k, 400, 0, 'lowpass'); [0, 7, 12].forEach((s, i) => tone(semis(1320, s), 0.2, 'sine', 0.05 * k, 1, 0.12 + i * 0.06)); },
+    },
+    oil: {
+      hit(k) { tone(rnd(120, 150), 0.14, 'sine', 0.14 * k, 1.9); noise(0.08, 0.08 * k, 500, 0, 'lowpass'); },
+      brk(k) { for (let i = 0; i < 4; i++) tone(rnd(110, 200), 0.12, 'sine', 0.12 * k, 2, i * 0.07); noise(0.4, 0.12 * k, 400, 0, 'lowpass'); },
+    },
+    gas: {
+      hit(k) { noise(0.18, 0.12 * k, 6000, 0, 'highpass'); tone(rnd(400, 460), 0.06, 'triangle', 0.04 * k); },
+      brk(k) { noise(0.7, 0.16 * k, 5000, 0, 'highpass'); tone(300, 0.5, 'sine', 0.04 * k, 0.5); },
+    },
+    sulfur: {
+      hit(k) { noise(0.05, 0.22 * k, 2600, 0, 'bandpass', 3); noise(0.12, 0.06 * k, 6000, 0.02, 'highpass'); },
+      brk(k) { for (let i = 0; i < 6; i++) noise(0.03, 0.16 * k, rnd(1800, 3600), i * 0.04, 'bandpass', 4); noise(0.4, 0.1 * k, 6000, 0.1, 'highpass'); },
+    },
+    obsidian: {
+      hit(k) { const f = rnd(2500, 2900); tone(f, 0.1, 'triangle', 0.05 * k, 0.9); noise(0.03, 0.2 * k, 5000, 0, 'bandpass', 6); },
+      brk(k) { for (let i = 0; i < 5; i++) { tone(rnd(2000, 3400), 0.15, 'triangle', 0.04 * k, 0.8, i * 0.04); noise(0.04, 0.12 * k, rnd(4000, 7000), i * 0.04, 'bandpass', 6); } },
+    },
+    opal: {
+      hit(k) { const f = rnd(1100, 1250); tone(f, 0.22, 'sine', 0.06 * k); tone(f * 1.26, 0.18, 'sine', 0.04 * k, 1, 0.03); noise(0.03, 0.08 * k, 4000, 0, 'bandpass', 3); },
+      brk(k) { [0, 4, 7, 11, 14, 19].forEach((s, i) => tone(semis(784, s), 0.4, 'sine', 0.05 * k, 1, i * 0.045)); noise(0.3, 0.1 * k, 3000, 0, 'lowpass'); },
+    },
   };
 
   return {

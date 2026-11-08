@@ -2,8 +2,8 @@
 // Halcyon). Each planet has its own vehicle. Drivers eat and drink like crew (see SF.Food.tickDriver).
 SF.Haul = (function () {
   const C = SF.CFG, K = C.smelter.tractor;
-  const VEH = ['hover', 'tractor', 'buggy', 'cart'];
-  const NAMES = { hover: 'Hover sled', tractor: 'Tractor', buggy: 'Dune buggy', cart: 'Beach cart' };
+  const VEH = ['hover', 'tractor', 'buggy', 'cart', 'crawler', 'petal'];
+  const NAMES = { hover: 'Hover sled', tractor: 'Tractor', buggy: 'Dune buggy', cart: 'Beach cart', crawler: 'Tank crawler', petal: 'Petal glider' };
   const live = {};
 
   const vehicle = pi => VEH[pi == null ? SF.state.planet : pi] || 'tractor';
@@ -36,7 +36,7 @@ SF.Haul = (function () {
     const sp = Math.min(K.speed * (tr.kind === 'hover' ? 1.2 : 1), l * 3 + 20);
     tr.x += dx / l * sp * dt; tr.y += dy / l * sp * dt; tr.walk += sp * dt / 12;
     if (Math.abs(dx) > 2) tr.face = dx > 0 ? 1 : -1;
-    if ((tr.kind === 'tractor' || tr.kind === 'buggy') && Math.random() < dt * 4) SF.FX.smoke(tr.x - tr.face * 20, tr.y, tr.kind === 'buggy' ? 8 : 52);
+    if ((tr.kind === 'tractor' || tr.kind === 'buggy' || tr.kind === 'crawler') && Math.random() < dt * 4) SF.FX.smoke(tr.x - tr.face * 20, tr.y, tr.kind === 'buggy' ? 8 : 52);
   }
 
   function update(dt) {

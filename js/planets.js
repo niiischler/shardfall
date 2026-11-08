@@ -130,18 +130,18 @@ SF.PLANETS = [
     },
     regions: [{ angle: 0, dist: 1150, r: 540 }, { angle: 270, dist: 1150, r: 540 }, { angle: 180, dist: 1150, r: 520 }, { angle: 90, dist: 1180, r: 560 }],
     resources: [
-      { id: 'oil', name: 'Crude oil', plural: 'Crude oil', node: 'oilseep', item: 'canister', snd: 'water', color: '#5a4a6e', dark: '#221a2c', edge: '#0c0812', liquid: true },
-      { id: 'gas', name: 'Natural gas', plural: 'Natural gas', node: 'gasvent', item: 'gastank', snd: 'water', color: '#bfe8ff', dark: '#4a8ab0', edge: '#1a3a52', stone: '#4a4440', liquid: true, region: 'Gas Fields', biome: 'gasfield', gate: 'Field Valve' },
-      { id: 'sulfur', name: 'Sulfur', plural: 'Sulfur', node: 'crystal', item: 'gem', snd: 'glass', color: '#ffe14a', dark: '#b59a10', edge: '#4a3d05', region: 'Sulfur Springs', biome: 'sulfur', gate: 'Springs Ramp' },
-      { id: 'obsidian', name: 'Obsidian', plural: 'Obsidian', node: 'icespire', item: 'icicle', snd: 'ice', color: '#8a78b0', dark: '#2a2040', edge: '#0e0a18', region: 'Glass Plains', biome: 'glassplain', gate: 'Plains Bridge' },
-      { id: 'opal', name: 'Fire opal', plural: 'Fire opals', node: 'geode', item: 'sungem', snd: 'sun', color: '#ff5fa2', dark: '#a01e5a', edge: '#4a0a26', region: 'Opal Caldera', biome: 'volcanic', gate: 'Caldera Lift' },
+      { id: 'oil', name: 'Crude oil', plural: 'Crude oil', node: 'oilseep', item: 'canister', snd: 'oil', color: '#5a4a6e', dark: '#221a2c', edge: '#0c0812', liquid: true },
+      { id: 'gas', name: 'Natural gas', plural: 'Natural gas', node: 'gasvent', item: 'gastank', snd: 'gas', color: '#bfe8ff', dark: '#4a8ab0', edge: '#1a3a52', stone: '#4a4440', liquid: true, region: 'Gas Fields', biome: 'gasfield', gate: 'Field Valve' },
+      { id: 'sulfur', name: 'Sulfur', plural: 'Sulfur', node: 'fumarole', item: 'sulfurlump', snd: 'sulfur', color: '#ffe14a', dark: '#b59a10', edge: '#4a3d05', region: 'Sulfur Springs', biome: 'sulfur', gate: 'Springs Ramp' },
+      { id: 'obsidian', name: 'Obsidian', plural: 'Obsidian', node: 'obsidian', item: 'blade', snd: 'obsidian', color: '#8a78b0', dark: '#2a2040', edge: '#0e0a18', region: 'Glass Plains', biome: 'glassplain', gate: 'Plains Bridge' },
+      { id: 'opal', name: 'Fire opal', plural: 'Fire opals', node: 'opalnest', item: 'opal', snd: 'opal', color: '#ff5fa2', dark: '#a01e5a', edge: '#4a0a26', region: 'Opal Caldera', biome: 'caldera', gate: 'Caldera Lift' },
     ],
     helpers: [
       { slot: 'h1', kind: 'producer', style: 'derrick', res: 0, every: 2.6, pile: 12, pipe: true, name: 'Oil Derrick', desc: 'Pumps crude oil on its own' },
       { slot: 'h2', kind: 'producer', style: 'gaswell', res: 1, every: 3.2, pile: 12, pipe: true, name: 'Gas Well', desc: 'Taps natural gas on its own' },
     ],
     machines: [
-      { res: 2, style: 'crystaldrill', name: 'Sulfur Drill', desc: 'Drills sulfur on its own', research: 'autoPetra' },
+      { res: 2, style: 'sulfurdrill', name: 'Sulfur Drill', desc: 'Drills sulfur on its own', research: 'autoPetra' },
     ],
   },
   {
@@ -156,19 +156,19 @@ SF.PLANETS = [
     },
     regions: [{ angle: 315, dist: 1150, r: 540 }, { angle: 135, dist: 1150, r: 540 }, { angle: 45, dist: 1160, r: 520 }, { angle: 225, dist: 1170, r: 560 }],
     resources: [
-      { id: 'melon', name: 'Moonmelon', plural: 'Moonmelons', node: 'bush', item: 'fruit', snd: 'squish', color: '#c9f28a', dark: '#5a9a2a', edge: '#23461a', leaf: '#7cc860', leafDark: '#3a7a34', fruit: true },
-      { id: 'nectar', name: 'Dew nectar', plural: 'Dew nectar', node: 'mushroom', item: 'drop', snd: 'squish', color: '#ffc4ec', dark: '#d05aa8', edge: '#5e1a48', stem: '#e8fff0', region: 'Bloom Meadow', biome: 'meadow', gate: 'Meadow Gate' },
-      { id: 'spice', name: 'Spice pod', plural: 'Spice pods', node: 'tree', item: 'berries', snd: 'wood', color: '#ff8a3a', dark: '#b0401a', edge: '#4a1a08', leaf: '#d0602a', leafDark: '#7a2e14', region: 'Spice Terraces', biome: 'grove', gate: 'Terrace Steps' },
-      { id: 'honey', name: 'Honeycomb', plural: 'Honeycomb', node: 'resin', item: 'amber', snd: 'resin', color: '#ffd23a', dark: '#c08a10', edge: '#5a3a06', region: 'Hive Cliffs', biome: 'hive', gate: 'Cliff Lift' },
-      { id: 'truffle', name: 'Star truffle', plural: 'Star truffles', node: 'mushroom', item: 'cap', snd: 'squish', color: '#e0c8ff', dark: '#6a4aa0', edge: '#2a1a4a', stem: '#fff4e8', region: 'Truffle Woods', biome: 'enchanted', gate: 'Woods Path' },
+      { id: 'melon', name: 'Moonmelon', plural: 'Moonmelons', node: 'melon', item: 'melonslice', snd: 'melon', color: '#c9f28a', dark: '#5a9a2a', edge: '#23461a', leaf: '#7cc860', leafDark: '#3a7a34', fruit: true },
+      { id: 'nectar', name: 'Dew nectar', plural: 'Dew nectar', node: 'bloom', item: 'vial', snd: 'chime', color: '#ffc4ec', dark: '#d05aa8', edge: '#5e1a48', stem: '#e8fff0', region: 'Bloom Meadow', biome: 'meadow', gate: 'Meadow Gate' },
+      { id: 'spice', name: 'Spice pod', plural: 'Spice pods', node: 'spicebush', item: 'pod', snd: 'rustle', color: '#ff8a3a', dark: '#b0401a', edge: '#4a1a08', leaf: '#d0602a', leafDark: '#7a2e14', region: 'Spice Terraces', biome: 'terraces', gate: 'Terrace Steps' },
+      { id: 'honey', name: 'Honeycomb', plural: 'Honeycomb', node: 'hive', item: 'comb', snd: 'buzz', color: '#ffd23a', dark: '#c08a10', edge: '#5a3a06', region: 'Hive Cliffs', biome: 'hive', gate: 'Cliff Lift' },
+      { id: 'truffle', name: 'Star truffle', plural: 'Star truffles', node: 'truffle', item: 'truffle', snd: 'dig', color: '#e0c8ff', dark: '#6a4aa0', edge: '#2a1a4a', stem: '#fff4e8', region: 'Truffle Woods', biome: 'rootwood', gate: 'Woods Path' },
     ],
     helpers: [
       { slot: 'h1', kind: 'drones', name: 'Bee Drone Bay', unit: 'Bee drone', desc: 'Bee drones harvest for you' },
-      { slot: 'h2', kind: 'producer', style: 'glowfarm', res: 1, every: 3, pile: 12, name: 'Nectar Garden', desc: 'Collects dew nectar on its own' },
+      { slot: 'h2', kind: 'producer', style: 'nectargarden', res: 1, every: 3, pile: 12, name: 'Nectar Garden', desc: 'Collects dew nectar on its own' },
     ],
     machines: [
-      { res: 0, style: 'orchard', name: 'Melon Farm', desc: 'Grows moonmelons on its own', research: 'autoEdenia' },
-      { res: 2, style: 'berryfarm', name: 'Spice Picker', desc: 'Picks spice pods on its own', research: 'autoEdenia' },
+      { res: 0, style: 'melonfarm', name: 'Melon Farm', desc: 'Grows moonmelons on its own', research: 'autoEdenia' },
+      { res: 2, style: 'spicepicker', name: 'Spice Picker', desc: 'Picks spice pods on its own', research: 'autoEdenia' },
     ],
   },
 ];

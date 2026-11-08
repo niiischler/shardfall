@@ -165,6 +165,9 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
       get copper pipelines (30 copper ingots) instead of belts, and liquids only fly home in a **Tanker**.
     - **Edenia**: moonmelons, dew nectar, spice, honeycomb and star truffles. The canteen cooks moonmelons into
       feasts and nectar into elixirs that keep crew full twice as long.
+    - Both have their own looks and sounds: sulfur vents, obsidian blades and opal nests on Petra; melon vines, nectar
+      blooms, spice shrubs, honeycombs on rock and truffle mounds on Edenia, each region with its own ground and
+      scenery, their own machines, bee drones on Edenia, a tank crawler (Petra) and a petal glider (Edenia) for drivers.
   - **Research Lab**: four trees (rocket technology, autonomous harvesting, industry, machines). Each level costs credits plus
     materials from the hall: faster and bigger cargo rockets, faster drones that carry more and hit harder, faster
     producers, faster crew and better recipes.
@@ -203,6 +206,7 @@ js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults
 js/fx.js          particles, floating numbers, screen shake
 js/biomes.js      ground and scenery per region (quarry, gorge, magic forest, ...)
+js/art-far.js     Petra and Edenia: items, nodes, machines, biomes, bee drone and vehicles
 js/world.js       regions, node placement, collision, ground texture
 js/render.js      procedural drawing of every object
 js/ui.js          credit counter, goal line, Open button and station popups (storage overviews), menu
