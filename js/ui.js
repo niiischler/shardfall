@@ -217,8 +217,8 @@ SF.UI = (function () {
     return {
       btn,
       update(r) {
-        const st = SF.ws().plots[p.id], have = SF.Home.hold(code);
-        r.btn.querySelector('.card-lvl').textContent = st.belt ? 'Installed' : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} in chest` : 'Needs the Belt Factory on Halcyon';
+        const st = SF.ws().plots[p.id], have = SF.Home.available(code);
+        r.btn.querySelector('.card-lvl').textContent = st.belt ? 'Installed' : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} (hall, chest, warehouse)` : 'Needs the Belt Factory on Halcyon';
         r.btn.querySelector('.card-eff').textContent = 'Carries the stock to the drop off by itself, so you never have to fetch it.';
         r.btn.querySelector('.card-cost b').textContent = st.belt ? '' : `${need[code]} ${SF.res(code).name}`;
         r.btn.disabled = st.belt || !SF.Home.hasFactory();

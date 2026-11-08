@@ -34,11 +34,18 @@ SF.Home = (function () {
     return true;
   }
 
+  // Belt materials can come from the hall on Halcyon, the chest, or this planet's warehouse.
+  const stores = () => [SF.state.hold, SF.state.chest, SF.ws().wh || {}];
+  function available(code) { return stores().reduce((a, o) => a + (o[code] || 0), 0); }
+  function spendMaterial(code, n) {
+    for (const o of stores()) { const k = Math.min(n, o[code] || 0); o[code] = (o[code] || 0) - k; if (!o[code]) delete o[code]; n -= k; }
+  }
+
   function installBelt(id) {
     const st = SF.ws().plots[id];
     const need = C.conveyor.needs;
-    if (st.belt || !hasFactory() || Object.keys(need).some(c => hold(c) < need[c])) { SF.Audio.nope(); return false; }
-    for (const c in need) SF.state.hold[c] -= need[c];
+    if (st.belt || !hasFactory() || Object.keys(need).some(c => available(c) < need[c])) { SF.Audio.nope(); return false; }
+    for (const c in need) spendMaterial(c, need[c]);
     st.belt = true;
     const p = SF.World.plot(id);
     SF.Audio.build(); SF.FX.shake(0.3);
@@ -156,5 +163,5 @@ SF.Home = (function () {
 
   function enter() { workers.length = 0; }
 
-  return { workers, jobs, crewCap, hasFactory, hold, hire, nextJob, installBelt, update, enter };
+  return { workers, jobs, crewCap, hasFactory, hold, available, hire, nextJob, installBelt, update, enter };
 })();
