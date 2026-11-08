@@ -160,6 +160,7 @@ SF.UI = (function () {
     habitat: () => crewCards(),
     lab: () => researchCards(),
     canteen: () => canteenCards(),
+    workshop: () => workshopCards(),
   };
   const hasPanel = p => !!PANELS[p.kind];
 
@@ -408,7 +409,7 @@ SF.UI = (function () {
       if (!ws) return meter(pl.name, 0, 1, pl.theme.accent, 'not visited yet');
       const r = Hb.rk(ws), lab = Hb.padLabel(pi)[1];
       if (r.away > 0) return meter(pl.name, (r.total || r.away) - r.away, r.total || r.away, pl.theme.accent, lab);
-      return meter(pl.name, r.n, SF.rocketCap(), pl.theme.accent, lab);
+      return meter(pl.name, r.n, SF.rocketCap(pi), pl.theme.accent, lab);
     }).join('');
   }
 
@@ -442,7 +443,7 @@ SF.UI = (function () {
         lvl: () => `${Object.values(SF.state.hold).reduce((a, b) => a + b, 0)} items`,
         text: () => `Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.`,
       }),
-      htmlCard('hall-rockets', 'Cargo rockets', () => ({ html: rocketMeters(), text: `Each rocket carries up to ${SF.rocketCap()} items and flies by itself when full.` })),
+      htmlCard('hall-rockets', 'Cargo rockets', () => ({ html: rocketMeters(), text: 'Each rocket flies by itself when full. Bigger and faster models come from the Rocket Workshop in New Haven.' })),
       {
         btn: card('up-hall', 'Expand the hall', () => Hb.upgradeHall(), true),
         update(r) {
@@ -513,6 +514,54 @@ SF.UI = (function () {
           },
         });
       }
+    }
+    return cards;
+  }
+
+  // ---------- rocket workshop ----------
+  function workshopCards() {
+    const Fl = SF.Fleet, M = C.rockets.models, cards = [];
+    // Which model flies each route: one row per planet, a chip per model you own.
+    const routes = info('ws-routes', `<span class="card-name">Cargo routes</span><span class="card-eff"></span><div class="jobs"></div>`);
+    let key = '';
+    cards.push({
+      btn: routes,
+      update(r) {
+        const list = Fl.routes(), own = Object.keys(M).filter(Fl.owned);
+        r.btn.querySelector('.card-eff').textContent = list.length ? 'Tap a model to fly it on that route. A rocket in the air switches when it is back.' : 'Visit another planet first: each one gets its own cargo route.';
+        const k = list.join(',') + '|' + own.join(',') + '|' + own.map(Fl.cap).join(',');
+        if (k !== key) {
+          key = k;
+          const box = r.btn.querySelector('.jobs');
+          box.innerHTML = list.map(pi => `<div class="job-row"><span class="job-planet">${SF.planetName(pi)}</span>` +
+            own.map(id => `<button type="button" class="job-chip" data-pi="${pi}" data-m="${id}"><i style="background:${M[id].trim}"></i>${M[id].name} <small>${Fl.cap(id)} · ${Math.round(C.hub.flight * (1 - 0.15 * SF.R('engines')) * M[id].flight)}s</small></button>`).join('') + '</div>').join('');
+          box.querySelectorAll('.job-chip').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); Fl.assign(+b.dataset.pi, b.dataset.m); }));
+        }
+        r.btn.querySelectorAll('.job-chip').forEach(b => b.classList.toggle('on', Fl.modelOf(+b.dataset.pi) === b.dataset.m));
+      },
+    });
+    for (const id in M) {
+      const m = M[id];
+      const btn = card('rk-' + id, m.name, () => (Fl.owned(id) ? Fl.upgradeFrame(id) : Fl.build(id)), false);
+      btn.style.setProperty('--tint', m.trim); btn.classList.add('research');
+      btn.insertAdjacentHTML('beforeend', '<ul class="res-list mats"></ul>');
+      cards.push({
+        btn,
+        update(r) {
+          const own = Fl.owned(id), lock = Fl.locked(id), l = Fl.frameLvl(id), max = l >= C.rockets.frame.max;
+          const secs = Math.round(C.hub.flight * (1 - 0.15 * SF.R('engines')) * m.flight);
+          if (!own) {
+            fill(r.btn, lock ? 'Locked' : 'Build this model', lock ? m.locked : `${m.desc} Carries ${Fl.cap(id)}, ${secs}s each way.`, lock ? null : m.cost);
+            r.btn.querySelector('.mats').innerHTML = lock ? '' : matHave(m.needs);
+            if (!lock) r.btn.classList.toggle('poor', SF.state.credits < m.cost || Object.keys(m.needs).some(c => (SF.state.hold[c] || 0) < m.needs[c]));
+            return;
+          }
+          const c = Fl.frameCost(id), next = Math.round(SF.rocketBase() * m.cap * (1 + C.rockets.frame.step * (l + 1)));
+          fill(r.btn, max ? 'Cargo frame MAX' : `Cargo frame ${l} → ${l + 1}`, max ? `Carries ${Fl.cap(id)}, ${secs}s each way.` : `Carries ${Fl.cap(id)} → ${next}, ${secs}s each way.`, max ? null : c.credits);
+          r.btn.querySelector('.mats').innerHTML = max ? '' : matHave(c.mats);
+          if (!max) r.btn.classList.toggle('poor', SF.state.credits < c.credits || Object.keys(c.mats).some(k => (SF.state.hold[k] || 0) < c.mats[k]));
+        },
+      });
     }
     return cards;
   }

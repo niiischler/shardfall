@@ -1463,6 +1463,38 @@ SF.Render = (function () {
       glow(ctx, x + 56, y - 122, 26, 'rgba(111,245,232,0.9)', 0.4 + Math.sin(t * 3) * 0.15);
       label(ctx, 'RESEARCH LAB', x, y + 22, 13, '#6ff5e8');
     },
+    // Rocket Workshop: an open hangar with a rocket on the stand, a gantry crane and sparks from the welder.
+    workshop(ctx, p, t, active) {
+      const x = p.x, y = p.y, ink = '#2a2f38';
+      pad(ctx, x, y + 40, 54, 'rgba(255,143,90,A)', t, active);
+      shadow(ctx, x, y + 6, 104, 26);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      // hangar shell: back wall and arched roof
+      ctx.fillStyle = '#3c4656'; roundRect(ctx, x - 88, y - 84, 176, 86, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#9aa3ad'; ctx.beginPath(); ctx.moveTo(x - 96, y - 80); ctx.quadraticCurveTo(x, y - 140, x + 96, y - 80); ctx.lineTo(x + 88, y - 72); ctx.quadraticCurveTo(x, y - 124, x - 88, y - 72); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff8f5a'; ctx.fillRect(x - 88, y - 70, 176, 5);
+      // side walls with ribs
+      ctx.fillStyle = '#b9c2cc';
+      for (const k of [-1, 1]) { ctx.fillRect(x + k * 88 - (k > 0 ? 22 : 0), y - 64, 22, 66); ctx.strokeRect(x + k * 88 - (k > 0 ? 22 : 0), y - 64, 22, 66); }
+      // the rocket being built, rising a little as if being lifted on a jack
+      const bob = Math.sin(t * 0.8) * 2;
+      ctx.save(); ctx.translate(x - 8, y - 4 + bob); ctx.scale(0.55, 0.55);
+      const ids = Object.keys(C.rockets.models), id = ids[Math.floor(t / 4) % ids.length];
+      rocket(ctx, 0, 0, t, false, C.rockets.models[id]);
+      ctx.restore();
+      // scaffold beside the rocket
+      ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + 18, y - i * 18); ctx.lineTo(x + 34, y - i * 18 - 18); ctx.moveTo(x + 34, y - i * 18); ctx.lineTo(x + 18, y - i * 18 - 18); ctx.stroke(); }
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.strokeRect(x + 18, y - 72, 16, 72);
+      // gantry crane across the roof with a moving hook
+      ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 70, y - 92); ctx.lineTo(x + 70, y - 92); ctx.stroke();
+      const hx = x + Math.sin(t * 0.6) * 50;
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hx, y - 92); ctx.lineTo(hx, y - 70); ctx.stroke();
+      ctx.fillStyle = '#ffd36b'; ctx.fillRect(hx - 6, y - 96, 12, 8);
+      // welding sparks
+      if (Math.sin(t * 5) > 0.2) { glow(ctx, x + 10, y - 40, 22, 'rgba(255,240,180,0.95)', 0.7); for (let i = 0; i < 4; i++) { ctx.fillStyle = '#fff4e8'; ctx.fillRect(x + 10 + Math.cos(t * 30 + i * 2) * 10, y - 40 + Math.sin(t * 27 + i) * 8, 2, 2); } }
+      label(ctx, 'ROCKET WORKSHOP', x, y + 22, 13, '#ff8f5a');
+    },
     // Canteen: a diner with a striped awning, a chimney, crates of sunfruit and a water tank.
     canteen(ctx, p, t, active) {
       const x = p.x, y = p.y, ink = '#3a2a2a', k = SF.state.kitchen;
@@ -1834,11 +1866,29 @@ SF.Render = (function () {
     label(ctx, stock ? `WAREHOUSE  ${stock} waiting` : 'WAREHOUSE', x, y - 136, 13, '#ffd36b');
   }
 
-  function cargoRocket(ctx, x, y, t, firing, s) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    rocket(ctx, 0, 0, t, firing);
-    ctx.fillStyle = '#ffd36b'; ctx.fillRect(-16, -62, 32, 5);
-    ctx.fillStyle = '#3a2a4a'; ctx.font = `700 9px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('CARGO', 0, -40);
+  // Cargo rockets look like their workshop model: freighter, slim courier, wide hauler, tanker with pressure spheres.
+  function cargoRocket(ctx, x, y, t, firing, s, id) {
+    const m = C.rockets.models[id] || C.rockets.models.std;
+    ctx.save(); ctx.translate(x, y); ctx.scale(s * (m.wide ? 1.45 : id === 'courier' ? 0.8 : 1), s * (id === 'courier' ? 1.1 : 1));
+    rocket(ctx, 0, 0, t, firing, m);
+    ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 2;
+    if (id === 'courier') {
+      // swept-back extra fins and a speed stripe
+      ctx.fillStyle = m.trim;
+      for (const k of [-1, 1]) { poly(ctx, [[k * 16, -80], [k * 30, -52], [k * 16, -58]]); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#3a2a4a'; ctx.fillRect(-16, -66, 32, 3);
+    } else if (id === 'tanker') {
+      // two pressure spheres strapped to the sides
+      for (const k of [-1, 1]) {
+        ctx.fillStyle = '#7fd8ff'; ctx.beginPath(); ctx.arc(k * 24, -50, 11, 0, TAU); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.arc(k * 24 - 3, -54, 3.5, 0, TAU); ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = m.wide ? '#c88a4a' : '#ffd36b'; ctx.fillRect(-16, -62, 32, 5);
+      if (m.wide) { ctx.fillStyle = '#8a5a34'; for (const k of [-10, 0, 10]) ctx.fillRect(k - 3, -56, 6, 10); }
+    }
+    ctx.fillStyle = '#3a2a4a'; ctx.font = `700 9px ${FONT}`; ctx.textAlign = 'center';
+    ctx.fillText(id === 'tanker' ? 'TANK' : id === 'courier' ? 'FAST' : 'CARGO', 0, -40);
     ctx.restore();
   }
 
@@ -1853,7 +1903,7 @@ SF.Render = (function () {
     if (lift !== null) {
       const flying = r.away > 0;
       if (flying) FX.smoke(x + (Math.random() - 0.5) * 20, y - lift * 0.1, 3);
-      cargoRocket(ctx, x, y - lift, t, flying, 0.85);
+      cargoRocket(ctx, x, y - lift, t, flying, 0.85, r.away > 0 && r.model ? r.model : SF.Fleet.modelOf(SF.state.planet));
     }
     const k = Math.min(1, r.n / SF.rocketCap());
     ctx.fillStyle = 'rgba(28,10,40,0.75)'; roundRect(ctx, x - 32, y + 22, 64, 9, 4); ctx.fill();
@@ -1911,7 +1961,7 @@ SF.Render = (function () {
   // A cargo rocket coming down onto its hall pad, unloading, then lifting off again.
   function landing(ctx, p, a, t) {
     if (a.fire && Math.random() < 0.6) FX.smoke(p.x + (Math.random() - 0.5) * 30, p.y, 3);
-    cargoRocket(ctx, p.x, p.y - a.h, t, a.fire, 0.8);
+    cargoRocket(ctx, p.x, p.y - a.h, t, a.fire, 0.8, a.r.model);
   }
 
   // The portable material chest, standing next to the rocket on other planets.
@@ -1966,7 +2016,8 @@ SF.Render = (function () {
     else if (m.state === 'eat') label(ctx, 'off to eat', m.x, m.y - 50, 11, '#9be36a', 600);
   }
 
-  function rocket(ctx, x, y, t, firing) {
+  function rocket(ctx, x, y, t, firing, m) {
+    const body = m ? m.body : '#f2f0f8', trim = m ? m.trim : '#ff8f5a';
     if (firing) {
       const f = 30 + Math.random() * 30;
       glow(ctx, x, y + 10, 90, 'rgba(255,160,60,0.9)', 0.9);
@@ -1974,11 +2025,11 @@ SF.Render = (function () {
       ctx.fillStyle = '#fff4e8'; poly(ctx, [[x - 6, y - 4], [x, y + f * 0.5], [x + 6, y - 4]]); ctx.fill();
     }
     ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 3;
-    ctx.fillStyle = '#ff8f5a';
+    ctx.fillStyle = trim;
     for (const s of [-1, 1]) { poly(ctx, [[x + s * 16, y - 40], [x + s * 32, y - 4], [x + s * 16, y - 12]]); ctx.fill(); ctx.stroke(); }
-    ctx.fillStyle = '#f2f0f8';
+    ctx.fillStyle = body;
     ctx.beginPath(); ctx.moveTo(x - 17, y - 8); ctx.lineTo(x - 17, y - 90); ctx.quadraticCurveTo(x, y - 150, x + 17, y - 90); ctx.lineTo(x + 17, y - 8); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ff8f5a'; ctx.fillRect(x - 16, y - 30, 32, 6);
+    ctx.fillStyle = trim; ctx.fillRect(x - 16, y - 30, 32, 6);
     ctx.fillStyle = '#6ff5e8'; ctx.beginPath(); ctx.arc(x, y - 82, 8, 0, TAU); ctx.fill(); ctx.stroke();
   }
 

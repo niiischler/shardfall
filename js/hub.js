@@ -68,7 +68,7 @@ SF.Hub = (function () {
     const ws = SF.state.worlds[pi], r = rk(ws);
     if ((!r.n && !supply) || r.away > 0) return false;
     // The trip length is fixed at lift-off, so research during a flight never makes a rocket jump.
-    r.fl = SF.rocketFlight(); r.total = 2 * r.fl + H.unload;
+    r.fl = SF.rocketFlight(pi); r.model = SF.Fleet.modelOf(pi); r.total = 2 * r.fl + H.unload;
     r.away = r.total; r.out = 0; r.food = null; r.packed = false;
     if (pi === SF.state.planet) {
       SF.Audio.rocket(0.8); SF.FX.shake(0.3);
@@ -233,7 +233,7 @@ SF.Hub = (function () {
         continue;
       }
       // Load the warehouse stock into the rocket: animated where you are, instantly elsewhere.
-      while (r.n < SF.rocketCap() && whCount(ws) > 0 && (!here || loadT <= 0)) {
+      while (r.n < SF.rocketCap(pi) && whCount(ws) > 0 && (!here || loadT <= 0)) {
         // Take turns between the resources in stock, so a fast one never starves the others.
         const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0).sort((a, b) => a - b);
         r.turn = ((r.turn || 0) + 1) % keys.length;
@@ -242,7 +242,7 @@ SF.Hub = (function () {
         r.load[code] = (r.load[code] || 0) + 1; r.n++;
         if (here) { loadT = 0.1; SF.fly(code, C.depot.x + 40, C.depot.y - 30, () => ({ x: H.pad.x, y: H.pad.y - 60 }), { dur: 0.4, arc: 40 }); break; }
       }
-      if (r.n >= SF.rocketCap()) launchCargo(pi);
+      if (r.n >= SF.rocketCap(pi)) launchCargo(pi);
       // Its crew is running out of food: fly now with whatever is loaded.
       else if (SF.Food.needsSupply(pi)) launchCargo(pi, true);
     }
@@ -272,7 +272,7 @@ SF.Hub = (function () {
     if (p === 'out') return [name.toUpperCase(), `lands in ${Math.ceil(fl(r) - e)}s`];
     if (p === 'unload') return [name.toUpperCase(), 'unloading'];
     if (p === 'back') return [name.toUpperCase(), `back on ${name} in ${Math.ceil(r.away)}s`];
-    return [name.toUpperCase(), `loading ${r.n}/${SF.rocketCap()}`];
+    return [name.toUpperCase(), `loading ${r.n}/${SF.rocketCap(pi)}`];
   }
 
   const inFlight = () => Object.keys(SF.state.worlds).filter(k => +k !== C.home && SF.state.worlds[k].rk && SF.state.worlds[k].rk.away > 0).length;
