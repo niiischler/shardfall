@@ -22,7 +22,7 @@ SF.Save = {
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
       worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
       smelt: { q: {}, out: {}, hauler: false, hand: 0, driver: false, heat: 0, t: 0 },
-      research: {}, charted: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
+      research: {}, charted: {}, fuel: 0, fuelUse: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -67,6 +67,8 @@ SF.Save = {
     s.smelt = { q: counts(sm.q), out: counts(sm.out), hauler: !!sm.hauler, hand: Math.max(0, num(sm.hand, 0) | 0), driver: !!sm.driver, heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
     if (data.research) for (const n of SF.RESEARCH_NODES) { const l = num(data.research[n.id], 0) | 0; if (l > 0) s.research[n.id] = Math.min(n.max, l); }
     if (data.charted) for (const k in data.charted) if (SF.PLANETS[+k] && SF.PLANETS[+k].far && data.charted[k]) s.charted[+k] = 1;
+    s.fuel = Math.max(0, Math.min(SF.CFG.fuel.cap, num(data.fuel, 0)));
+    if (data.fuelUse) for (const i of SF.CFG.fuel.inputs) if (data.fuelUse[i.code] === false) s.fuelUse[i.code] = false;
     const fl = data.fleet || {};
     for (const id in SF.CFG.rockets.models) {
       if (fl.own && fl.own[id] && id !== 'std') s.fleet.own[id] = 1;

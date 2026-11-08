@@ -1549,6 +1549,33 @@ SF.Render = (function () {
       glow(ctx, x + 56, y - 122, 26, 'rgba(111,245,232,0.9)', 0.4 + Math.sin(t * 3) * 0.15);
       label(ctx, 'RESEARCH LAB', x, y + 22, 13, '#6ff5e8');
     },
+    // Fuel Plant: a distillation column, two round tanks and a fuel gauge; a flame on top while it refines.
+    fuelplant(ctx, p, t, active) {
+      const x = p.x, y = p.y, ink = '#2a2420', k = Math.min(1, (SF.state.fuel || 0) / C.fuel.cap);
+      pad(ctx, x, y + 40, 54, 'rgba(255,207,74,A)', t, active);
+      shadow(ctx, x, y + 6, 100, 24);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      // two storage tanks with fill level
+      for (const dx of [-52, 52]) {
+        ctx.fillStyle = '#e8e2d8'; roundRect(ctx, x + dx - 26, y - 56, 52, 56, 12); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ffcf4a'; ctx.fillRect(x + dx - 20, y - 6 - 44 * k, 8, 44 * k);
+        ctx.fillStyle = '#c95a3a'; ctx.fillRect(x + dx - 26, y - 40, 52, 5);
+      }
+      // distillation column with rings and pipes
+      ctx.fillStyle = '#9aa3ad'; roundRect(ctx, x - 12, y - 110, 24, 110, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#596170'; for (let i = 0; i < 5; i++) ctx.fillRect(x - 14, y - 100 + i * 20, 28, 4);
+      ctx.strokeStyle = '#c98a4a'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(x - 12, y - 70); ctx.lineTo(x - 30, y - 70); ctx.lineTo(x - 30, y - 56); ctx.moveTo(x + 12, y - 40); ctx.lineTo(x + 30, y - 40); ctx.lineTo(x + 30, y - 56); ctx.stroke();
+      // flare on top while there is something to refine
+      const busy = SF.Fuel.has() && k < 1 && C.fuel.inputs.some(i => SF.Fuel.allowed(i.code) && (SF.state.hold[i.code] || 0) > 0);
+      if (busy) {
+        const f = 10 + Math.sin(t * 9) * 3 + Math.sin(t * 14) * 2;
+        glow(ctx, x, y - 120, 34, 'rgba(255,160,60,0.9)', 0.6);
+        ctx.fillStyle = '#ffcf4a'; poly(ctx, [[x - 6, y - 110], [x + Math.sin(t * 5) * 2, y - 110 - f * 1.6], [x + 6, y - 110]]); ctx.fill();
+      }
+      label(ctx, 'FUEL PLANT', x, y + 22, 13, '#ffcf4a');
+      label(ctx, `${Math.floor(SF.state.fuel || 0)} / ${C.fuel.cap} fuel`, x, y + 37, 10, 'rgba(255,244,232,0.85)', 600);
+    },
     // Star Map: an observatory with a slowly turning holographic orrery of every known planet above it.
     starmap(ctx, p, t, active) {
       const x = p.x, y = p.y, ink = '#1c2a3a';
