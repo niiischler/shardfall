@@ -31,7 +31,7 @@
     P.incoming = 0; P.stackFx = []; P.zone = null; P.hidden = false;
     flyers.length = 0; drones.length = 0;
     cam.x = P.x; cam.y = P.y - 30;
-    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter();
+    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter(); SF.Food.enter();
     document.documentElement.style.setProperty('--accent', W.planet.theme.accent);
   }
 
@@ -43,6 +43,9 @@
     save(); SF.UI.setZone(null); SF.UI.refresh();
   }
   SF.resetProgress = resetProgress;
+
+  // How loud something at (x, y) is for the player: full nearby, silent across the map.
+  SF.near = (x, y) => Math.max(0, Math.min(1, 1 - (Math.hypot(x - P.x, y - P.y) - 350) / 900));
 
   // ---------- flyers: items arcing between places ----------
   function fly(code, sx, sy, getTarget, opts) {
@@ -64,7 +67,7 @@
 
   // Credits that come from somewhere other than the drop off (the hall selling overflow).
   SF.earnFx = function (v, x, y) {
-    A.coin(combo++); comboT = 0.6;
+    A.coin(combo++, SF.near(x, y)); comboT = 0.6;
     FX.pop(x + (Math.random() - 0.5) * 40, y, '+' + SF.UI.fmt(v), '#ffd36b', 18);
     FX.burst(x, y + 30, ['#ffd36b', '#fff1bf'], 4, { z: 6, speed: 90, up: 220, shape: 'coin', size: 4, life: 0.7 });
     SF.UI.bump();
@@ -126,7 +129,7 @@
 
   // ---------- drones ----------
   function spawnDrone(x, y) {
-    drones.push({ x, y, vx: 0, vy: 0, state: 'seek', target: null, cargo: [], incoming: 0, cap: C.drone.cap, hitT: 0, beam: 0, bob: Math.random() * TAU, idle: Math.random() * TAU });
+    drones.push({ x, y, vx: 0, vy: 0, state: 'seek', target: null, cargo: [], incoming: 0, cap: SF.droneCap(), hitT: 0, beam: 0, bob: Math.random() * TAU, idle: Math.random() * TAU });
   }
 
   function droneBay() { return W.plots.find(p => p.kind === 'drones'); }
@@ -170,7 +173,7 @@
         d.hitT -= dt;
         if (d.hitT <= 0) {
           d.hitT = C.drone.hitEvery; d.beam = 1;
-          hitNode(n, 1 + n.res * 0.5, d, Math.max(0, 1 - Math.hypot(n.x - P.x, n.y - P.y) / 500) * 0.4);
+          hitNode(n, (1 + n.res * 0.5) * SF.dronePower(), d, Math.max(0, 1 - Math.hypot(n.x - P.x, n.y - P.y) / 500) * 0.4);
         }
       }
     }
@@ -184,7 +187,7 @@
     }
     if (goal) {
       const dx = goal.x - d.x, dy = goal.y - d.y, l = Math.hypot(dx, dy) || 1;
-      const sp = C.drone.speed * Math.min(1, l / 60);
+      const sp = SF.droneSpeed() * Math.min(1, l / 60);
       d.vx += (dx / l * sp - d.vx) * Math.min(1, dt * 4);
       d.vy += (dy / l * sp - d.vy) * Math.min(1, dt * 4);
     }
@@ -196,7 +199,7 @@
   // ---------- producers (sawmill, mine, excavator) ----------
   SF.producerStats = function (p, st) {
     const h = p.helper;
-    return { every: h.every / (1 + 0.35 * st.lvl), cap: h.pile + 4 * st.lvl };
+    return { every: h.every / (1 + 0.35 * st.lvl) / SF.producerBoost(), cap: h.pile + 4 * st.lvl };
   };
 
   function updateProducer(p, st, dt) {
@@ -435,6 +438,11 @@
         fly(code, from.x, from.y, () => ({ x: W.smelter.x + 87, y: W.smelter.y - 96 }), { dur: 0.4, arc: 60, onArrive() { A.store(SF.Smelter.queued()); } });
         P.smeltT += 0.07;
       }
+      // ...and finished ingots from the tray go onto your back, for the hall.
+      if (!s.stack.some(c => SF.Smelter.isOre(c)) && free > 0 && SF.Smelter.ready() > 0) {
+        P.ingotT = (P.ingotT || 0) - dt;
+        if (P.ingotT <= 0) { P.ingotT = 0.08; const c = SF.Smelter.takeIngot(); if (c != null) toStack(c, W.smelter.x - 82, W.smelter.y - 30, 0); }
+      }
     } else { P.smeltT = 0; P.smeltWarned = false; }
 
     // ore pickup beside the hall: load iron and copper ore into your pack
@@ -449,7 +457,7 @@
     comboT -= dt; if (comboT <= 0) combo = 0;
 
     // pay into a build plot: credits, then materials from the chest
-    if (zone && zone.startsWith('plot:')) {
+    if (zone && zone.startsWith('plot:') && W.plot(zone.slice(5)).kind !== 'lot') {
       const p = W.plot(zone.slice(5)), ps = ws.plots[p.id];
       const left = p.cost - ps.paid;
       if (s.credits >= 0.01 && left > 0) {
@@ -507,6 +515,7 @@
     SF.Home.update(dt);
     SF.Hub.update(dt);
     SF.Smelter.update(dt);
+    SF.Food.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i];
@@ -563,7 +572,7 @@
     Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
     if (W.smelter) {
-      Rn.road(ctx, { x: C.smelter.road[0].x - 20, y: C.smelter.road[0].y }, { x: C.smelter.road[1].x + 30, y: C.smelter.road[1].y });
+      Rn.road(ctx, { x: C.smelter.road[0].x - 20, y: C.smelter.road[0].y + C.smelter.haulLane / 2 }, { x: C.smelter.road[1].x + 30, y: C.smelter.road[1].y + C.smelter.haulLane / 2 });
       Rn.pickupPad(ctx, W.pickup, t, P.zone === 'pickup', SF.Smelter.oreInHall());
     }
     Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt), t);
@@ -593,7 +602,10 @@
       list.push({ y: W.smelter.y, fn: () => Rn.smelter(ctx, W.smelter, t, P.zone === 'smelter', SF.state.smelt.q, SF.Smelter.queued() > 0) });
       const tr = SF.Smelter.tractor;
       if (tr) list.push({ y: tr.y, fn: () => Rn.tractor(ctx, tr, t) });
+      const hl = SF.Smelter.hauler;
+      if (hl) list.push({ y: hl.y, fn: () => Rn.tractor(ctx, hl, t) });
     }
+    for (const car of SF.Food.cars) list.push({ y: car.y, fn: () => Rn.foodCar(ctx, car, t) });
     for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
@@ -662,7 +674,7 @@
     for (const p of W.plots) {
       if (!plotVisible(p)) continue;
       const ps = ws.plots[p.id];
-      if (!ps.built && s.credits >= Math.min(p.cost - ps.paid, p.cost * 0.5)) return p;
+      if (!ps.built && p.kind !== 'lot' && s.credits >= Math.min(p.cost - ps.paid, p.cost * 0.5)) return p;
       if (ps.built && p.kind === 'launch' && !SF.atHome()) return { x: p.x, y: p.y + 40 };
     }
     if (s.totalEarned > 0) for (const key in C.upgrades) if (s.lvl[key] < C.upgrades[key].max && s.credits >= SF.upgradeCost(key)) return C.upgradePad;

@@ -889,6 +889,7 @@ SF.Render = (function () {
   }
 
   function plotMarking(ctx, p, st, t, active) {
+    if (p.kind === 'lot') { lotMarking(ctx, p, t, active); return; }
     const s = C.plotR * 1.6, k = st.paid / p.cost;
     ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, 0.6); ctx.rotate(Math.PI / 4);
     ctx.fillStyle = active ? 'rgba(255,244,232,0.16)' : 'rgba(255,244,232,0.08)';
@@ -915,6 +916,29 @@ SF.Render = (function () {
     hexCoin(ctx, p.x - 6 - left.length * 5.5, p.y - 2, 8);
     label(ctx, left, p.x + 6, p.y - 1, 20, '#ffd36b');
     label(ctx, p.desc, p.x, p.y + 30, 12, 'rgba(255,244,232,0.85)', 600);
+  }
+
+  // An empty lot in New Haven: a fenced square with a plus, waiting for you to pick a building.
+  function lotMarking(ctx, p, t, active) {
+    const s = C.plotR * 1.7;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, 0.6); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = active ? 'rgba(155,227,106,0.2)' : 'rgba(255,244,232,0.07)';
+    ctx.fillRect(-s / 2, -s / 2, s, s);
+    ctx.strokeStyle = active ? '#9be36a' : 'rgba(255,244,232,0.55)'; ctx.lineWidth = 3;
+    ctx.setLineDash([6, 10]); ctx.lineDashOffset = -t * 12; ctx.strokeRect(-s / 2, -s / 2, s, s); ctx.setLineDash([]);
+    ctx.restore();
+    // corner stakes
+    for (const [dx, dy] of [[-s * 0.7, 0], [s * 0.7, 0], [0, -s * 0.42], [0, s * 0.42]]) {
+      ctx.fillStyle = '#a8703f'; ctx.fillRect(p.x + dx - 2, p.y + dy - 14, 4, 14);
+      ctx.fillStyle = '#ff8f5a'; ctx.fillRect(p.x + dx - 3, p.y + dy - 16, 6, 4);
+    }
+    const b = 1 + Math.sin(t * 3) * 0.06;
+    ctx.save(); ctx.translate(p.x, p.y - 4); ctx.scale(b, b);
+    ctx.fillStyle = active ? '#9be36a' : 'rgba(255,244,232,0.75)';
+    ctx.fillRect(-14, -3.5, 28, 7); ctx.fillRect(-3.5, -14, 7, 28);
+    ctx.restore();
+    label(ctx, 'EMPTY LOT', p.x, p.y - 34, 13, '#fff4e8');
+    label(ctx, 'Stand here to choose a building', p.x, p.y + 30, 11, 'rgba(255,244,232,0.8)', 600);
   }
 
   // ---------- buildings ----------
@@ -1117,24 +1141,134 @@ SF.Render = (function () {
       beltRun(ctx, { x: x - 20, y: y + 4 }, { x: x + 70, y: y + 4 }, t, 0);
       label(ctx, 'BELT FACTORY', x, y + 28, 13, '#dfe5ee');
     },
-    habitat(ctx, p, t) {
-      const x = p.x, y = p.y;
-      shadow(ctx, x, y + 6, 62, 20);
-      ctx.fillStyle = '#f2f0f8'; ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.ellipse(x, y, 56, 50, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = 'rgba(58,42,74,0.35)'; ctx.lineWidth = 2;
-      for (const k of [-0.5, 0, 0.5]) { ctx.beginPath(); ctx.ellipse(x, y, 56 * Math.abs(k) + 0.1, 50, 0, Math.PI, TAU); ctx.stroke(); }
-      ctx.fillStyle = '#ffd27a';
-      for (const dx of [-24, 18]) { ctx.beginPath(); ctx.arc(x + dx, y - 26, 7, 0, TAU); ctx.fill(); }
-      ctx.fillStyle = '#3a2a4a'; roundRect(ctx, x - 9, y - 26, 18, 26, 8); ctx.fill();
-      ctx.fillStyle = '#62d08a'; ctx.beginPath(); ctx.arc(x + 46, y - 4, 9, 0, TAU); ctx.arc(x + 54, y - 8, 7, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(x + 48, y - 8, 2.5, 0, TAU); ctx.arc(x + 55, y - 11, 2, 0, TAU); ctx.fill();
-      // solar panel on a pole and a door light
-      ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 50, y); ctx.lineTo(x - 50, y - 34); ctx.stroke();
-      ctx.fillStyle = '#2a4a8a'; poly(ctx, [[x - 66, y - 36], [x - 38, y - 44], [x - 34, y - 32], [x - 62, y - 24]]); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = 'rgba(160,200,255,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 52, y - 40); ctx.lineTo(x - 48, y - 28); ctx.stroke();
-      glow(ctx, x, y - 30, 22, 'rgba(255,210,122,0.9)', 0.35 + Math.sin(t * 2) * 0.1);
-      label(ctx, p.name.toUpperCase(), x, y + 22, 13, '#fff4e8');
+    // A proper little home: two stacked modules, a greenhouse dome, solar wings, a water tank and lit windows.
+    habitat(ctx, p, t, active) {
+      const x = p.x, y = p.y, ink = '#3a2a4a';
+      pad(ctx, x, y + 40, 54, 'rgba(255,210,122,A)', t, active);
+      shadow(ctx, x, y + 6, 92, 24);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      // foundation deck
+      ctx.fillStyle = '#7d7290'; roundRect(ctx, x - 86, y - 12, 172, 16, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#9a90b0'; ctx.fillRect(x - 82, y - 10, 164, 4);
+      // solar wing on a mast, left
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - 78, y - 12); ctx.lineTo(x - 78, y - 70); ctx.stroke();
+      ctx.save(); ctx.translate(x - 78, y - 74); ctx.rotate(-0.18 + Math.sin(t * 0.4) * 0.05);
+      ctx.fillStyle = '#1f3c78'; roundRect(ctx, -24, -10, 48, 20, 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(150,200,255,0.55)'; ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * 9, -9); ctx.lineTo(i * 9, 9); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(-23, 0); ctx.lineTo(23, 0); ctx.stroke();
+      ctx.restore();
+      // lower module: a wide capsule with portholes
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      const g = ctx.createLinearGradient(0, y - 64, 0, y - 12); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#d9d4e8');
+      ctx.fillStyle = g; roundRect(ctx, x - 64, y - 64, 112, 54, 22); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffab4a'; ctx.fillRect(x - 60, y - 34, 104, 5);
+      const lit = SF.state.crew.length;
+      [-40, -14, 12].forEach((dx, i) => {
+        ctx.fillStyle = '#2a1c36'; ctx.beginPath(); ctx.arc(x + dx, y - 48, 8, 0, TAU); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = i < lit ? `rgba(255,210,122,${0.75 + Math.sin(t * 2 + i) * 0.15})` : 'rgba(111,245,232,0.35)';
+        ctx.beginPath(); ctx.arc(x + dx, y - 48, 5.5, 0, TAU); ctx.fill();
+      });
+      // airlock door with a light
+      ctx.fillStyle = '#4c3a5e'; roundRect(ctx, x + 22, y - 40, 20, 30, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#6ff5e8'; ctx.fillRect(x + 30, y - 32, 4, 10);
+      ctx.fillStyle = Math.sin(t * 3) > 0 ? '#9be36a' : '#4f7a3a'; ctx.beginPath(); ctx.arc(x + 32, y - 45, 3, 0, TAU); ctx.fill();
+      // upper module, offset, with a round window and a railing
+      ctx.fillStyle = '#f2f0f8'; roundRect(ctx, x - 50, y - 102, 70, 40, 16); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#2a1c36'; ctx.beginPath(); ctx.arc(x - 15, y - 82, 11, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = lit > 3 ? 'rgba(255,210,122,0.85)' : 'rgba(111,245,232,0.4)'; ctx.beginPath(); ctx.arc(x - 15, y - 82, 7.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(x - 18, y - 85, 2.5, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#9a90b0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 50, y - 106); ctx.lineTo(x + 20, y - 106); ctx.stroke();
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(x - 46 + i * 16, y - 106); ctx.lineTo(x - 46 + i * 16, y - 100); ctx.stroke(); }
+      // antenna with blinking tip
+      ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 8, y - 102); ctx.lineTo(x + 14, y - 130); ctx.stroke();
+      ctx.fillStyle = Math.sin(t * 4) > 0 ? '#ff6b6b' : '#ffd36b'; ctx.beginPath(); ctx.arc(x + 14, y - 132, 3.5, 0, TAU); ctx.fill();
+      // greenhouse dome on the right with sunfruit plants
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(111,245,232,0.28)'; ctx.beginPath(); ctx.ellipse(x + 66, y - 12, 26, 34, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#24835a'; for (const [dx, h] of [[-12, 14], [0, 20], [12, 12]]) { ctx.beginPath(); ctx.ellipse(x + 66 + dx, y - 14 - h / 2, 6, h / 2, 0, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#ffb340'; for (const [dx, dy] of [[-10, -22], [2, -30], [12, -20]]) { ctx.beginPath(); ctx.arc(x + 66 + dx, y + dy, 2.5, 0, TAU); ctx.fill(); }
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x + 66, y - 12, 18, 26, 0, Math.PI * 1.15, Math.PI * 1.45); ctx.stroke();
+      ctx.strokeStyle = 'rgba(58,42,74,0.4)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 66, y - 46); ctx.lineTo(x + 66, y - 12); ctx.stroke();
+      // water tank
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.5;
+      ctx.fillStyle = '#8fd3ff'; roundRect(ctx, x - 98, y - 40, 18, 30, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(x - 95, y - 36, 3, 20);
+      glow(ctx, x - 14, y - 48, 70, 'rgba(255,210,122,0.9)', lit ? 0.18 + Math.sin(t * 2) * 0.04 : 0.06);
+      label(ctx, 'HABITAT', x, y + 22, 13, '#fff4e8');
+      label(ctx, `${C.crew.perHabitat} beds · hire crew here`, x, y + 37, 10, 'rgba(255,244,232,0.8)', 600);
+    },
+    // Research lab: a white block with a big glass observatory dome and a rotating telescope.
+    lab(ctx, p, t, active) {
+      const x = p.x, y = p.y, ink = '#2a3a4a';
+      pad(ctx, x, y + 40, 54, 'rgba(111,245,232,A)', t, active);
+      shadow(ctx, x, y + 6, 92, 24);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      ctx.fillStyle = '#e8eef4'; roundRect(ctx, x - 80, y - 60, 160, 62, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#c9d4e0'; ctx.fillRect(x - 78, y - 58, 156, 10);
+      ctx.fillStyle = '#6ff5e8'; ctx.fillRect(x - 78, y - 22, 156, 4);
+      // windows with screens
+      for (let i = 0; i < 4; i++) {
+        const wx = x - 70 + i * 38;
+        if (i === 2) continue;
+        ctx.fillStyle = '#1c2a3a'; roundRect(ctx, wx, y - 44, 26, 18, 3); ctx.fill();
+        ctx.strokeStyle = SF.RESEARCH[i % 3].color; ctx.lineWidth = 1.5; ctx.beginPath();
+        for (let k = 0; k < 6; k++) ctx.lineTo(wx + 3 + k * 4, y - 35 + Math.sin(t * 3 + k + i) * 5);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      ctx.fillStyle = '#4c5a6e'; roundRect(ctx, x + 6, y - 40, 24, 40, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#6ff5e8'; ctx.fillRect(x + 10, y - 36, 16, 3);
+      // observatory dome
+      ctx.fillStyle = '#c9d4e0'; ctx.beginPath(); ctx.ellipse(x - 30, y - 60, 40, 44, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
+      const open = (Math.sin(t * 0.5) + 1) / 2;
+      ctx.fillStyle = '#1c2a3a'; ctx.beginPath(); ctx.moveTo(x - 36, y - 60); ctx.lineTo(x - 36, y - 102); ctx.lineTo(x - 24, y - 102); ctx.lineTo(x - 24, y - 60); ctx.fill();
+      ctx.save(); ctx.translate(x - 30, y - 74); ctx.rotate(-0.9 + open * 0.5);
+      ctx.fillStyle = '#ffd36b'; roundRect(ctx, -4, -40, 8, 40, 3); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x - 30, y - 60, 32, 36, 0, Math.PI * 1.1, Math.PI * 1.35); ctx.stroke();
+      // antenna mast with a spinning ring
+      ctx.strokeStyle = ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 56, y - 60); ctx.lineTo(x + 56, y - 118); ctx.stroke();
+      ctx.strokeStyle = '#6ff5e8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x + 56, y - 108, 14, 5, t * 1.4, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#6ff5e8'; ctx.beginPath(); ctx.arc(x + 56, y - 122, 4, 0, TAU); ctx.fill();
+      glow(ctx, x + 56, y - 122, 26, 'rgba(111,245,232,0.9)', 0.4 + Math.sin(t * 3) * 0.15);
+      label(ctx, 'RESEARCH LAB', x, y + 22, 13, '#6ff5e8');
+    },
+    // Canteen: a diner with a striped awning, a chimney, crates of sunfruit and a water tank.
+    canteen(ctx, p, t, active) {
+      const x = p.x, y = p.y, ink = '#3a2a2a', k = SF.state.kitchen;
+      pad(ctx, x, y + 40, 54, 'rgba(155,227,106,A)', t, active);
+      shadow(ctx, x, y + 6, 92, 24);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      // chimney with steam
+      ctx.fillStyle = '#7a5a4a'; ctx.fillRect(x + 34, y - 104, 16, 40); ctx.strokeRect(x + 34, y - 104, 16, 40);
+      for (let i = 0; i < 3; i++) { const q = (t * 0.5 + i / 3) % 1; ctx.globalAlpha = (1 - q) * 0.5; ctx.fillStyle = '#fff4e8'; ctx.beginPath(); ctx.arc(x + 42 + Math.sin(q * 6 + i) * 4, y - 110 - q * 40, 5 + q * 8, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+      // building
+      ctx.fillStyle = '#fff1d6'; roundRect(ctx, x - 76, y - 70, 152, 72, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffd27a'; ctx.beginPath(); ctx.moveTo(x - 84, y - 66); ctx.lineTo(x, y - 96); ctx.lineTo(x + 84, y - 66); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // striped awning
+      for (let i = 0; i < 8; i++) {
+        ctx.fillStyle = i % 2 ? '#fff4e8' : '#62d08a';
+        ctx.beginPath(); ctx.moveTo(x - 72 + i * 18, y - 46); ctx.lineTo(x - 54 + i * 18, y - 46); ctx.lineTo(x - 54 + i * 18, y - 36); ctx.quadraticCurveTo(x - 63 + i * 18, y - 30, x - 72 + i * 18, y - 36); ctx.closePath(); ctx.fill();
+      }
+      ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.strokeRect(x - 72, y - 46, 144, 10);
+      // serving window and door
+      ctx.fillStyle = '#2a1c1c'; roundRect(ctx, x - 62, y - 30, 56, 22, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(255,210,122,0.85)'; ctx.fillRect(x - 58, y - 27, 48, 16);
+      ctx.fillStyle = '#ffb340'; for (let i = 0; i < Math.min(5, Math.ceil(k.meal / 12)); i++) { ctx.beginPath(); ctx.arc(x - 52 + i * 9, y - 14, 3.5, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#7a5a4a'; roundRect(ctx, x + 10, y - 30, 22, 30, 4); ctx.fill(); ctx.stroke();
+      // sign
+      ctx.fillStyle = '#62d08a'; roundRect(ctx, x - 30, y - 66, 60, 16, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff4e8'; ctx.font = `700 10px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('CANTEEN', x, y - 58);
+      // water tank and crates
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.5;
+      ctx.fillStyle = '#7fd8ff'; roundRect(ctx, x + 50, y - 44, 22, 42, 7); ctx.fill(); ctx.stroke();
+      const lvl = Math.min(1, k.drink / C.food.cap);
+      ctx.fillStyle = '#2a7fb8'; ctx.fillRect(x + 54, y - 6 - 32 * lvl, 14, 32 * lvl);
+      for (const [cx, cy] of [[-92, 0], [-84, -14]]) { ctx.fillStyle = '#a8703f'; ctx.fillRect(x + cx, y + cy - 12, 18, 12); ctx.strokeRect(x + cx, y + cy - 12, 18, 12); ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(x + cx + 6, y + cy - 13, 3, 0, TAU); ctx.arc(x + cx + 12, y + cy - 13, 3, 0, TAU); ctx.fill(); }
+      label(ctx, 'CANTEEN', x, y + 22, 13, '#9be36a');
+      label(ctx, `${k.meal} meals · ${k.drink} drinks`, x, y + 37, 10, 'rgba(255,244,232,0.85)', 600);
     },
   };
 
@@ -1235,9 +1369,9 @@ SF.Render = (function () {
   // Dirt track the tractor drives between the ore pickup and the smelter.
   function road(ctx, a, b) {
     ctx.save(); ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(70,45,30,0.28)'; ctx.lineWidth = 46; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.strokeStyle = 'rgba(70,45,30,0.28)'; ctx.lineWidth = 78; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     ctx.strokeStyle = 'rgba(50,30,20,0.25)'; ctx.lineWidth = 5; ctx.setLineDash([14, 8]);
-    for (const o of [-11, 11]) { ctx.beginPath(); ctx.moveTo(a.x, a.y + o); ctx.lineTo(b.x, b.y + o); ctx.stroke(); }
+    for (const o of [-26, -4, 4, 26]) { ctx.beginPath(); ctx.moveTo(a.x, a.y + o); ctx.lineTo(b.x, b.y + o); ctx.stroke(); }
     ctx.restore();
   }
 
@@ -1296,7 +1430,10 @@ SF.Render = (function () {
     // casting tray with ingots on the left
     ctx.fillStyle = '#3a3f4a'; roundRect(ctx, x - 102, y - 34, 40, 22, 4); ctx.fill(); ctx.stroke();
     ctx.fillStyle = hot ? `rgba(255,${150 + Math.sin(t * 6) * 40 | 0},60,0.95)` : '#596170'; ctx.fillRect(x - 98, y - 30, 32, 6);
-    item(ctx, 112, x - 90, y - 18, 0.8); item(ctx, 122, x - 72, y - 18, 0.8);
+    const out = SF.state.smelt.out || {}, bars = [112, 122].flatMap(c => Array(Math.min(8, out[c] || 0)).fill(c));
+    bars.forEach((c, i) => item(ctx, c, x - 94 + (i % 4) * 9, y - 18 - Math.floor(i / 4) * 6, 0.8));
+    const nOut = SF.Smelter.ready();
+    if (nOut) label(ctx, `${nOut} ingot${nOut > 1 ? 's' : ''} ready`, x - 82, y - 52, 11, '#ffd36b', 700);
     const n = (q[12] || 0) + (q[22] || 0);
     label(ctx, 'SMELTER', x, y + 52, 15, '#ff8f5a');
     label(ctx, n ? `${q[12] || 0} iron · ${q[22] || 0} copper ore in the furnace` : 'Bring iron or copper ore', x, y + 69, 11, 'rgba(255,244,232,0.85)', 600);
@@ -1318,8 +1455,8 @@ SF.Render = (function () {
     ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
     ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2.5;
     // body, hood and exhaust
-    ctx.fillStyle = '#ff8f5a'; roundRect(ctx, -30, -30, 52, 18, 5); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ffab4a'; roundRect(ctx, 0, -38, 24, 12, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = tr.hauler ? '#62a8ff' : '#ff8f5a'; roundRect(ctx, -30, -30, 52, 18, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = tr.hauler ? '#8fd3ff' : '#ffab4a'; roundRect(ctx, 0, -38, 24, 12, 4); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#2a2f38'; for (let i = 0; i < 3; i++) ctx.fillRect(6 + i * 6, -34, 3, 6);
     ctx.fillStyle = '#3a3f4a'; ctx.fillRect(4, -52, 4, 15);
     // cab with the driver
@@ -1334,6 +1471,25 @@ SF.Render = (function () {
     ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(23, -26, 2.5, 0, TAU); ctx.fill();
     ctx.restore();
     if (tr.wait) label(ctx, tr.wait, x, y - 82, 11, '#ffab4a', 600);
+  }
+
+  // Canteen delivery car: a little green van with a food crate on the back.
+  function foodCar(ctx, car, t) {
+    const f = car.face, x = car.x, y = car.y, bump = Math.abs(Math.sin(car.walk)) * 1;
+    shadow(ctx, x, y + 2, 40, 8);
+    ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+    ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2.5;
+    ctx.fillStyle = '#62d08a'; roundRect(ctx, -34, -34, 52, 26, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#9be36a'; roundRect(ctx, 14, -28, 22, 20, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#9af5ff'; roundRect(ctx, 20, -25, 12, 9, 2); ctx.fill();
+    ctx.fillStyle = '#f7f6fc'; ctx.beginPath(); ctx.arc(26, -20, 3.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff4e8'; ctx.fillRect(-30, -26, 40, 7);
+    ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(-22, -22.5, 2.5, 0, TAU); ctx.arc(-14, -22.5, 2.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#7fd8ff'; ctx.beginPath(); ctx.arc(-4, -22.5, 2.5, 0, TAU); ctx.arc(4, -22.5, 2.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(35, -14, 2.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = Math.sin(t * 6) > 0 ? '#ff8f5a' : '#ffd36b'; ctx.fillRect(-6, -38, 10, 4);
+    wheel(ctx, -20, -6, 7, car.walk); wheel(ctx, 20, -6, 7, car.walk);
+    ctx.restore();
   }
 
   function wheel(ctx, x, y, r, a) {
@@ -1401,10 +1557,10 @@ SF.Render = (function () {
       if (flying) FX.smoke(x + (Math.random() - 0.5) * 20, y - lift * 0.1, 3);
       cargoRocket(ctx, x, y - lift, t, flying, 0.85);
     }
-    const k = Math.min(1, r.n / C.hub.rocketCap);
+    const k = Math.min(1, r.n / SF.rocketCap());
     ctx.fillStyle = 'rgba(28,10,40,0.75)'; roundRect(ctx, x - 32, y + 22, 64, 9, 4); ctx.fill();
     ctx.fillStyle = '#ffd36b'; roundRect(ctx, x - 30, y + 24, Math.max(3, 60 * k), 5, 2.5); ctx.fill();
-    label(ctx, r.away > 0 ? `ROCKET BACK IN ${Math.ceil(r.away)}s` : `CARGO ${r.n}/${C.hub.rocketCap}`, x, y + 44, 12, '#ffd36b');
+    label(ctx, r.away > 0 ? `ROCKET BACK IN ${Math.ceil(r.away)}s` : `CARGO ${r.n}/${SF.rocketCap()}`, x, y + 44, 12, '#ffd36b');
   }
 
   // Halcyon's hall: rockets land behind it, you unload in front of it.
@@ -1504,11 +1660,12 @@ SF.Render = (function () {
     TOOLS[SF.toolFor(SF.res(m.job).node)](ctx, sw);
     ctx.restore();
     ctx.fillStyle = '#f7f6fc'; ctx.beginPath(); ctx.arc(0, -48, 13, 0, TAU); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = m.hungry ? '#8a8f99' : '#ffb35a'; ctx.beginPath(); ctx.ellipse(f * 4, -47, 8, 7, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = m.need && m.need !== 'eating' ? '#8a8f99' : '#ffb35a'; ctx.beginPath(); ctx.ellipse(f * 4, -47, 8, 7, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(f * 2, -50, 2.5, 1.5, -0.5 * f, 0, TAU); ctx.fill();
     ctx.restore();
     for (let i = 0; i < m.cargo.length; i++) item(ctx, m.cargo[i], m.x - f * 14, m.y - 24 - i * 7 - bob, 0.85);
-    if (m.hungry) label(ctx, 'hungry', m.x, m.y - 50, 11, '#ff8f5a', 600);
+    if (m.need) label(ctx, m.need, m.x, m.y - 50, 11, '#ff8f5a', 600);
+    else if (m.state === 'eat') label(ctx, 'off to eat', m.x, m.y - 50, 11, '#9be36a', 600);
   }
 
   function rocket(ctx, x, y, t, firing) {
@@ -1529,5 +1686,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { item, here, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { item, here, foodCar, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

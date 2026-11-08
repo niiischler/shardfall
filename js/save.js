@@ -20,7 +20,8 @@ SF.Save = {
       credits: 0, totalEarned: 0, lvl: { cap: 0, drill: 0, speed: 0 },
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
       worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
-      smelt: { q: {}, hand: 0, driver: false, heat: 0, t: 0 },
+      smelt: { q: {}, out: {}, hauler: false, hand: 0, driver: false, heat: 0, t: 0 },
+      research: {}, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -55,9 +56,12 @@ SF.Save = {
     s.chestLvl = Math.max(0, num(data.chestLvl, 0) | 0);
     s.hallLvl = Math.max(0, num(data.hallLvl, 0) | 0);
     const sm = data.smelt || {};
-    s.smelt = { q: counts(sm.q), hand: Math.max(0, num(sm.hand, 0) | 0), driver: !!sm.driver, heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
+    s.smelt = { q: counts(sm.q), out: counts(sm.out), hauler: !!sm.hauler, hand: Math.max(0, num(sm.hand, 0) | 0), driver: !!sm.driver, heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
+    if (data.research) for (const n of SF.RESEARCH_NODES) { const l = num(data.research[n.id], 0) | 0; if (l > 0) s.research[n.id] = Math.min(n.max, l); }
+    const kt = data.kitchen || {};
+    s.kitchen = { meal: Math.max(0, num(kt.meal, 0) | 0), drink: Math.max(0, num(kt.drink, 0) | 0), drivers: Math.max(0, num(kt.drivers, 0) | 0), t: 0 };
     if (Array.isArray(data.inbound)) s.inbound = data.inbound.filter(f => f && f.items).map(f => ({ t: num(f.t, 0), items: counts(f.items), from: num(f.from, 0) | 0 }));
-    if (Array.isArray(data.crew)) s.crew = data.crew.filter(w => w && valid(w.job)).map(w => ({ job: w.job, food: num(w.food, 0) }));
+    if (Array.isArray(data.crew)) s.crew = data.crew.filter(w => w && valid(w.job)).map(w => ({ job: w.job, food: Math.min(1, num(w.food, 1)), water: Math.min(1, num(w.water, 1)) }));
     s.worlds = {};
     if (data.worlds) for (const k in data.worlds) {
       const pi = +k, w = data.worlds[k];
@@ -66,10 +70,23 @@ SF.Save = {
       const into = s.worlds[pi];
       into.drones = Math.max(0, num(w.drones, 0) | 0);
       into.wh = counts(w.wh);
-      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0 }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
+      if (w.pantry) into.pantry = { meal: Math.max(0, num(w.pantry.meal, 0) | 0), drink: Math.max(0, num(w.pantry.drink, 0) | 0) };
+      // The old fixed home buildings move onto the new New Haven lots.
+      if (pi === SF.CFG.home && w.plots) {
+        const MOVE = { fac: ['L1', 'factory', 30000, { 112: 40, 122: 20 }], hab1: ['L3', 'habitat', 15000, { 10: 50, 21: 30 }],
+          hab2: ['L4', 'habitat', 30000, { 10: 80, 21: 60, 0: 40 }], hab3: ['L6', 'habitat', 60000, { 10: 120, 21: 90, 3: 30 }] };
+        for (const id in MOVE) {
+          const o = w.plots[id];
+          if (!o || w.plots[MOVE[id][0]] || (!o.built && !o.paid && !(o.res && Object.keys(o.res).length))) continue;
+          const [lot, kind, cost, needs] = MOVE[id];
+          w.plots[lot] = Object.assign({}, o, { kind, cost, needs });
+        }
+      }
+      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0, fl: num(w.rk.fl, 0) || undefined, total: num(w.rk.total, 0) || undefined, food: w.rk.food && { meal: num(w.rk.food.meal, 0) | 0, drink: num(w.rk.food.drink, 0) | 0 } }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
         if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, res: p.res || {} });
+        if (p && SF.BUILDS[p.kind] && p.needs) Object.assign(into.plots[id], { kind: p.kind, cost: num(p.cost, 0), needs: counts(p.needs) });
         // Home buildings used to take raw ore; what was already paid in counts as ingots.
         const res = into.plots[id].res;
         for (const ore of [12, 22]) if (pi === SF.CFG.home && res[ore]) { res[ore + 100] = (res[ore + 100] || 0) + res[ore]; delete res[ore]; }
@@ -109,16 +126,18 @@ SF.Save = {
       const plots = {}, w = s.worlds[k];
       for (const id in w.plots) {
         const p = w.plots[id], res = Object.keys(p.res || {}).length ? p.res : undefined;
-        if (p.paid || p.built || p.lvl || p.pile || res) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, res };
+        if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined };
       }
       const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
-      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined } : undefined;
-      worlds[k] = { plots, drones: w.drones || undefined, wh, rk };
+      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined, fl: w.rk.fl, total: w.rk.total, food: w.rk.food || undefined } : undefined;
+      const pantry = w.pantry && (w.pantry.meal || w.pantry.drink) ? w.pantry : undefined;
+      worlds[k] = { plots, drones: w.drones || undefined, wh, rk, pantry };
     }
     return Object.assign({}, s, {
       credits: Math.round(s.credits * 100) / 100, totalEarned: Math.round(s.totalEarned), lifetime: Math.round(s.lifetime),
-      worlds, smelt: { q: s.smelt.q, hand: s.smelt.hand || undefined, driver: s.smelt.driver || undefined, heat: s.smelt.heat || undefined },
-      crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 10) / 10 })),
+      worlds, smelt: { q: s.smelt.q, out: s.smelt.out, hauler: s.smelt.hauler || undefined, hand: s.smelt.hand || undefined, driver: s.smelt.driver || undefined, heat: s.smelt.heat || undefined },
+      crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 100) / 100, water: Math.round((w.water == null ? 1 : w.water) * 100) / 100 })),
+      kitchen: { meal: s.kitchen.meal, drink: s.kitchen.drink, drivers: s.kitchen.drivers || undefined },
       inbound: s.inbound.map(f => ({ t: Math.round(f.t * 10) / 10, items: f.items, from: f.from })),
     });
   },

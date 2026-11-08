@@ -117,17 +117,17 @@ SF.Audio = (function () {
     isMuted: () => muted,
     hit(mat, v) { (MAT[mat] || MAT.stone).hit(v == null ? 1 : v); },
     brk(mat, v) { (MAT[mat] || MAT.stone).brk(v == null ? 1 : v); },
-    pick(n) { tone(semis(660, scale[n % scale.length]), 0.06, 'sine', 0.07, 1.15); },
-    coin(c) { const f = semis(523, scale[c % scale.length]); tone(f, 0.08, 'square', 0.035); tone(f * 2, 0.1, 'sine', 0.06); },
+    pick(n, v) { v = v == null ? 1 : v; tone(semis(660, scale[n % scale.length]), 0.06, 'sine', 0.07 * v, 1.15); },
+    coin(c, v) { v = v == null ? 1 : v; const f = semis(523, scale[c % scale.length]); tone(f, 0.08, 'square', 0.035 * v); tone(f * 2, 0.1, 'sine', 0.06 * v); },
     full() { tone(150, 0.16, 'sawtooth', 0.07, 0.75); tone(120, 0.18, 'sawtooth', 0.06, 0.75, 0.1); },
     pay() { tone(760 + Math.random() * 120, 0.045, 'sine', 0.04, 1.3); },
     buy() { [0, 4, 7, 12].forEach((s, i) => tone(semis(440, s), 0.13, 'triangle', 0.11, 1, i * 0.055)); },
     nope() { tone(220, 0.1, 'square', 0.04, 0.8); },
-    store(n) { tone(semis(392, scale[n % scale.length]), 0.07, 'triangle', 0.06, 0.9); noise(0.04, 0.06, 900, 0, 'lowpass'); },
+    store(n, v) { v = v == null ? 1 : v; tone(semis(392, scale[n % scale.length]), 0.07, 'triangle', 0.06 * v, 0.9); noise(0.04, 0.06 * v, 900, 0, 'lowpass'); },
     rocket(k) { const v = k == null ? 1 : k; noise(1.6, 0.22 * v, 220, 0, 'lowpass'); tone(70, 1.4, 'sawtooth', 0.05 * v, 1.8); },
     land(k) { const v = k == null ? 1 : k; noise(0.9, 0.16 * v, 300, 0, 'lowpass'); tone(160, 0.8, 'sawtooth', 0.04 * v, 0.4); },
     // Molten metal poured into the mould: a hiss and a low clank.
-    smelt() { noise(0.35, 0.07, 2600, 0, 'highpass'); tone(190, 0.12, 'triangle', 0.05, 0.8); tone(95, 0.18, 'sine', 0.06, 0.9, 0.04); },
+    smelt(v) { v = v == null ? 1 : v; noise(0.35, 0.07 * v, 2600, 0, 'highpass'); tone(190, 0.12, 'triangle', 0.05 * v, 0.8); tone(95, 0.18, 'sine', 0.06 * v, 0.9, 0.04); },
     build() {
       [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => tone(semis(330, s), 0.24, 'triangle', 0.12, 1, i * 0.07));
       noise(0.6, 0.14, 700);
