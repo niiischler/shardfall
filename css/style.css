@@ -287,3 +287,17 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
 #panel-body .card.wide:not(.info) { grid-column: auto; }
 .job-chip small { font: 600 0.62rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
 .job-chip.locked { opacity: 0.35; cursor: not-allowed; }
+
+/* star map */
+.card.map-card { display: grid; grid-template-columns: 52px 1fr; column-gap: 12px; align-items: start; border-color: color-mix(in srgb, var(--tint) 45%, transparent); }
+#panel-body .card.map-card { grid-column: auto; }
+.map-card .globe { width: 50px; height: 50px; border-radius: 50%; margin-top: 2px; box-shadow: inset -10px -12px 18px rgba(0, 0, 0, 0.45), 0 0 18px color-mix(in srgb, var(--tint) 40%, transparent); }
+.map-card .map-text { display: grid; gap: 4px; min-width: 0; }
+.map-card .card-name { color: var(--tint); }
+.map-card .card-eff { min-height: 0; }
+.map-res { margin: 2px 0; gap: 4px; }
+.map-res li { padding: 2px 8px; font-size: 0.7rem; }
+.map-res small { opacity: 0.6; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.map-stats { display: flex; gap: 12px; font: 600 0.75rem/1 var(--display); opacity: 0.75; }
+.map-card .map-go { justify-self: start; margin-top: 4px; padding: 9px 14px; background: var(--tint); }
+.map-card .map-go.poor { opacity: 0.6; }

@@ -148,6 +148,12 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   - **Rocket Workshop**: build new cargo rocket models (Swift Courier: small but twice as fast; Heavy Hauler: three
     times the cargo, slow; Tanker: for liquids and gases, later) and choose which one flies each planet's route.
     Each model's cargo frame can be upgraded ten times (+25% capacity per level).
+  - **Star Map** (main area, above the hall, 1M): every planet at a glance (warehouse, rocket, crew, machines) and
+    flights from there. It also finds two far planets, each charted once for credits:
+    - **Petra**: crude oil and natural gas (liquids) plus sulfur, obsidian and fire opals. Its derrick and gas well
+      get copper pipelines (30 copper ingots) instead of belts, and liquids only fly home in a **Tanker**.
+    - **Edenia**: moonmelons, dew nectar, spice, honeycomb and star truffles. The canteen cooks moonmelons into
+      feasts and nectar into elixirs that keep crew full twice as long.
   - **Research Lab**: four trees (rocket technology, autonomous harvesting, industry, machines). Each level costs credits plus
     materials from the hall: faster and bigger cargo rockets, faster drones that carry more and hit harder, faster
     producers, faster crew and better recipes.

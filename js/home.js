@@ -11,7 +11,8 @@ SF.Home = (function () {
   // A job needs its region open on that planet (the gate built), like the nodes do for you.
   function jobOpen(code) {
     const t = code % 10, ws = SF.state.worlds[Math.floor(code / 10)];
-    return t === 0 || !!(ws && ws.plots && ws.plots['g' + (t + 1)] && ws.plots['g' + (t + 1)].built);
+    if (!ws) return Math.floor(code / 10) <= C.home && t === 0;     // far planets: only once you have landed there
+    return t === 0 || !!(ws.plots && ws.plots['g' + (t + 1)] && ws.plots['g' + (t + 1)].built);
   }
   const workTime = code => C.crew.workEvery * (C.crew.rareSlow[code % 10] || 1);
   const jobPlanet = w => Math.floor(w.job / 10);
@@ -77,16 +78,18 @@ SF.Home = (function () {
     for (const o of stores()) { const k = Math.min(n, o[code] || 0); o[code] = (o[code] || 0) - k; if (!o[code]) delete o[code]; n -= k; }
   }
 
+  // Liquids (Petra) run through a copper pipeline instead of a belt.
+  const beltNeeds = id => (SF.World.plot(id).helper && SF.World.plot(id).helper.pipe ? C.pipe.needs : C.conveyor.needs);
   function installBelt(id) {
     const st = SF.ws().plots[id];
-    const need = C.conveyor.needs;
+    const need = beltNeeds(id);
     if (st.belt || SF.World.plot(id).research || !hasFactory() || Object.keys(need).some(c => available(c) < need[c])) { SF.Audio.nope(); return false; }
     for (const c in need) spendMaterial(c, need[c]);
     st.belt = true;
     const p = SF.World.plot(id);
     SF.Audio.build(); SF.FX.shake(0.3);
     SF.FX.burst(p.x, p.y + 40, ['#9aa3ad', '#fff4e8'], 30, { z: 10, speed: 240, size: 5 });
-    SF.FX.pop(p.x, p.y - 90, 'Conveyor installed', '#dfe5ee', 20);
+    SF.FX.pop(p.x, p.y - 90, p.helper && p.helper.pipe ? 'Pipeline installed' : 'Conveyor installed', '#dfe5ee', 20);
     SF.save(); SF.UI.refresh();
     return true;
   }
@@ -212,5 +215,5 @@ SF.Home = (function () {
 
   function enter() { workers.length = 0; }
 
-  return { workers, jobs, jobOpen, spendMaterial, workTime, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
+  return { workers, beltNeeds, jobs, jobOpen, spendMaterial, workTime, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
 })();

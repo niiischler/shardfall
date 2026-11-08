@@ -100,7 +100,7 @@ SF.Hub = (function () {
       r.load[code]--; if (!r.load[code]) delete r.load[code];
       credits += deliver(code, 1); r.out++; moved++;
       if (SF.state.planet === C.home) {
-        const p = pads()[pi % 3], h = SF.World.hall;
+        const p = pads()[padOf(pi)], h = SF.World.hall;
         SF.fly(code, p.x, p.y - 50, () => ({ x: h.x, y: h.y - 40 }), { dur: 0.45, arc: 40, delay: moved * 0.03 });
       }
     }
@@ -192,7 +192,10 @@ SF.Hub = (function () {
   }
 
   // Landing pads behind the hall.
-  const pads = () => { const h = SF.World.hall; return [-150, 0, 150].map((dx, i) => ({ x: h.x + dx, y: h.y - 125 - (i === 1 ? 45 : 0) })); };
+  // One pad per route: three behind the hall for the first planets, two to its right for the far planets.
+  const PADS = [[-150, -125], [0, -170], [150, -125], [280, -95], [300, 60]];
+  const padOf = pi => (pi < C.home ? pi : pi - 1);
+  const pads = () => { const h = SF.World.hall; return PADS.map(([dx, dy], i) => ({ x: h.x + dx, y: h.y + dy, pi: i < C.home ? i : i + 1 })); };
 
   // ---------- update ----------
   function update(dt) {
@@ -235,7 +238,10 @@ SF.Hub = (function () {
       // Load the warehouse stock into the rocket: animated where you are, instantly elsewhere.
       while (r.n < SF.rocketCap(pi) && whCount(ws) > 0 && (!here || loadT <= 0)) {
         // Take turns between the resources in stock, so a fast one never starves the others.
-        const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0).sort((a, b) => a - b);
+        // Liquids and gases only go into a Tanker.
+        const tank = SF.Fleet.model(SF.Fleet.modelOf(pi)).liquid;
+        const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0 && (tank || !SF.res(+c).liquid)).sort((a, b) => a - b);
+        if (!keys.length) break;
         r.turn = ((r.turn || 0) + 1) % keys.length;
         const code = +keys[r.turn];
         ws.wh[code]--; if (!ws.wh[code]) delete ws.wh[code];
@@ -259,7 +265,7 @@ SF.Hub = (function () {
       if (e >= F - 2.4 && e < F) { h = Math.pow(F - e, 2) * 90; fire = true; }
       else if (e >= F && e < F + U) h = 0;
       else if (e >= F + U && e < F + U + 2.4) { h = Math.pow(e - F - U, 2) * 120; fire = true; }
-      out.push({ pi, pad: pi % 3, h, fire, e, r });
+      out.push({ pi, pad: padOf(pi), h, fire, e, r });
     }
     return out;
   }
@@ -290,7 +296,7 @@ SF.Hub = (function () {
   function enter() {}
 
   return {
-    arrivals, padLabel, inFlight, phase, pads, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
+    arrivals, padLabel, inFlight, phase, pads, padOf, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
     rk, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
   };
 })();

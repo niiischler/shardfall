@@ -219,7 +219,7 @@
         st.beltT = SF.beltEvery(st); st.pile--;
         const path = Rn.beltRoute(p), end = path[path.length - 1];
         fly(code, path[0].x, path[0].y, () => end, {
-          dur: Rn.routeLen(path) / Rn.BELT_SPEED, arc: 0, path,
+          dur: Rn.routeLen(path) / Rn.BELT_SPEED, arc: 0, path, pipe: !!p.helper.pipe,
           onArrive(f) {
             if (SF.hubActive()) deposit(f.code);
             else fly(f.code, end.x, end.y, depotTarget, { dur: 0.35, arc: 40, onArrive(g) { deposit(g.code); } });
@@ -597,7 +597,7 @@
     }
     Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt), t);
     // stock riding on the belts, under everything that stands
-    for (const f of flyers) if (f.path && f.t >= 0) { const q = Rn.along(f.path, f.t * Rn.routeLen(f.path)); Rn.item(ctx, f.code, q.x, q.y - 6, 1); }
+    for (const f of flyers) if (f.path && f.t >= 0 && !f.pipe) { const q = Rn.along(f.path, f.t * Rn.routeLen(f.path)); Rn.item(ctx, f.code, q.x, q.y - 6, 1); }
     for (const p of W.plots) if (plotVisible(p) && !ws.plots[p.id].built) Rn.plotMarking(ctx, p, ws.plots[p.id], t, P.zone === 'plot:' + p.id);
 
     // y-sorted objects

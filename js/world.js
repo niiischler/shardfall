@@ -349,6 +349,16 @@
         n.h = 54 + R() * 18;
         n.arms = [{ s: -1, y: 0.45 + R() * 0.2, h: 14 + R() * 10 }, { s: 1, y: 0.3 + R() * 0.2, h: 18 + R() * 10 }];
         break;
+      case 'oilseep':
+        n.pts = blob(R, 10, n.r * 1.2, 0.3);
+        n.bubbles = [];
+        for (let i = 0; i < 4; i++) n.bubbles.push({ x: (R() - 0.5) * n.r, y: (R() - 0.5) * 6, p: R() });
+        n.rocks = [];
+        for (let i = 0; i < 5; i++) { const a = R() * TAU; n.rocks.push({ x: Math.cos(a) * n.r * 1.2, y: Math.sin(a) * n.r * 0.55 - 2, s: 3 + R() * 4 }); }
+        break;
+      case 'gasvent':
+        n.h = 26 + R() * 12;
+        break;
       case 'bones':
         n.ribs = 4 + Math.floor(R() * 2);
         n.flip = R() > 0.5 ? 1 : -1;

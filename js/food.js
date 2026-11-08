@@ -8,7 +8,9 @@ SF.Food = (function () {
 
   const on = () => SF.homeHas('canteen');
   const kitchen = () => SF.state.kitchen;
-  const pantry = pi => { const ws = SF.state.worlds[pi]; if (!ws) return { meal: 0, drink: 0 }; return ws.pantry || (ws.pantry = { meal: 0, drink: 0 }); };
+  const pantry = pi => { const ws = SF.state.worlds[pi]; if (!ws) return { meal: 0, drink: 0, feast: 0, elixir: 0 }; return ws.pantry || (ws.pantry = { meal: 0, drink: 0, feast: 0, elixir: 0 }); };
+  // Servings of each kind, ordinary and Edenia's.
+  const meals = s => (s.meal || 0) + (s.feast || 0), drinks = s => (s.drink || 0) + (s.elixir || 0);
   const source = pi => (pi === C.home ? kitchen() : pantry(pi));
   const jobPlanet = w => Math.floor(w.job / 10);
   const crewOn = pi => SF.state.crew.filter(w => jobPlanet(w) === pi).length;
@@ -26,14 +28,15 @@ SF.Food = (function () {
   // Something in the larder this crew member needs right now.
   function hasFood(w, pi) {
     const s = source(pi);
-    return (w.food < 0.6 && s.meal > 0) || (w.water < 0.6 && s.drink > 0);
+    return (w.food < 0.6 && meals(s) > 0) || (w.water < 0.6 && drinks(s) > 0);
   }
 
   function refill(w, pi) {
     if (!on()) return;
     const s = source(pi);
-    if (w.food < 0.6 && s.meal > 0) { s.meal--; w.food = 1; }
-    if (w.water < 0.6 && s.drink > 0) { s.drink--; w.water = 1; }
+    // Edenia food first: it fills the meter twice over.
+    if (w.food < 0.6) { if (s.feast > 0) { s.feast--; w.food = F.fine; } else if (s.meal > 0) { s.meal--; w.food = 1; } }
+    if (w.water < 0.6) { if (s.elixir > 0) { s.elixir--; w.water = F.fine; } else if (s.drink > 0) { s.drink--; w.water = 1; } }
   }
 
   // Meters drain over time. Crew you cannot see sort themselves out: a walk costs work time.
@@ -90,10 +93,14 @@ SF.Food = (function () {
     k.t = (k.t || 0) + dt;
     while (k.t >= F.cookEvery) {
       k.t -= F.cookEvery;
-      if (k.meal < F.cap && (h[F.meal] || 0) > 0) { h[F.meal]--; if (!h[F.meal]) delete h[F.meal]; k.mealIn = (k.mealIn || 0) + 1; }
-      if (k.drink < F.cap && (h[F.drink] || 0) > 0) { h[F.drink]--; if (!h[F.drink]) delete h[F.drink]; k.drinkIn = (k.drinkIn || 0) + 1; }
-      while (k.mealIn >= need) { k.mealIn -= need; k.meal = Math.min(F.cap, k.meal + 1); }
-      while (k.drinkIn >= need) { k.drinkIn -= need; k.drink = Math.min(F.cap, k.drink + 1); }
+      // Moonmelons and dew nectar from Edenia become feasts and elixirs; otherwise sunfruit and cactus water.
+      const take = c => { if ((h[c] || 0) <= 0) return false; h[c]--; if (!h[c]) delete h[c]; return true; };
+      if (meals(k) < F.cap) { if (take(F.feast)) k.feastIn = (k.feastIn || 0) + 1; else if (take(F.meal)) k.mealIn = (k.mealIn || 0) + 1; }
+      if (drinks(k) < F.cap) { if (take(F.elixir)) k.elixirIn = (k.elixirIn || 0) + 1; else if (take(F.drink)) k.drinkIn = (k.drinkIn || 0) + 1; }
+      while (k.mealIn >= need) { k.mealIn -= need; k.meal++; }
+      while (k.drinkIn >= need) { k.drinkIn -= need; k.drink++; }
+      while (k.feastIn >= need) { k.feastIn -= need; k.feast = (k.feast || 0) + 1; }
+      while (k.elixirIn >= need) { k.elixirIn -= need; k.elixir = (k.elixir || 0) + 1; }
     }
   }
 
@@ -154,23 +161,25 @@ SF.Food = (function () {
   function needsSupply(pi) {
     if (!on() || !eaters(pi)) return false;
     const p = pantry(pi), k = kitchen(), n = eaters(pi);
-    return (p.meal < n && k.meal > 0) || (p.drink < n && k.drink > 0);
+    return (meals(p) < n && meals(k) > 0) || (drinks(p) < n && drinks(k) > 0);
   }
 
   // Food loaded when the rocket leaves Halcyon for home.
   function pack(pi) {
     if (!on()) return null;
     const p = pantry(pi), k = kitchen(), want = F.pantry * eaters(pi);
-    const meal = Math.min(k.meal, Math.max(0, want - p.meal)), drink = Math.min(k.drink, Math.max(0, want - p.drink));
-    k.meal -= meal; k.drink -= drink;
-    return meal || drink ? { meal, drink } : null;
+    // Edenia food goes out first, then ordinary servings fill the rest.
+    const feast = Math.min(k.feast || 0, Math.max(0, want - meals(p))), elixir = Math.min(k.elixir || 0, Math.max(0, want - drinks(p)));
+    const meal = Math.min(k.meal, Math.max(0, want - meals(p) - feast)), drink = Math.min(k.drink, Math.max(0, want - drinks(p) - elixir));
+    k.meal -= meal; k.drink -= drink; k.feast = (k.feast || 0) - feast; k.elixir = (k.elixir || 0) - elixir;
+    return meal || drink || feast || elixir ? { meal, drink, feast, elixir } : null;
   }
 
   function unpack(pi, food) {
     if (!food) return;
     const p = pantry(pi);
-    p.meal += food.meal || 0; p.drink += food.drink || 0;
-    if (pi === SF.state.planet) SF.FX.pop(C.hub.pad.x, C.hub.pad.y - 120, `+${food.meal} meals, +${food.drink} drinks for the crew`, '#9be36a', 16, { life: 1.6 });
+    p.meal += food.meal || 0; p.drink += food.drink || 0; p.feast = (p.feast || 0) + (food.feast || 0); p.elixir = (p.elixir || 0) + (food.elixir || 0);
+    if (pi === SF.state.planet) SF.FX.pop(C.hub.pad.x, C.hub.pad.y - 120, `+${meals(food)} meals, +${drinks(food)} drinks for the crew`, '#9be36a', 16, { life: 1.6 });
   }
 
   // Drivers keep their meters here (not saved: a reload finds them fed). They eat like crew you cannot see:
@@ -198,5 +207,5 @@ SF.Food = (function () {
 
   function enter() { cars.length = 0; }
 
-  return { cars, on, pantry, crewOn, driversOn, eaters, tickDriver, driverStatus, hasFood, refill, tick, canWork, wantsWalk, eatSpot, status, driverCost, hireDriver, needsSupply, pack, unpack, update, enter };
+  return { cars, on, pantry, meals, drinks, crewOn, driversOn, eaters, tickDriver, driverStatus, hasFood, refill, tick, canWork, wantsWalk, eatSpot, status, driverCost, hireDriver, needsSupply, pack, unpack, update, enter };
 })();

@@ -171,6 +171,18 @@ SF.Render = (function () {
       ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-3, -4, 5, 1.2);
       ctx.fillStyle = rgba(R.edge, 0.4); ctx.fillRect(-5, 2, 10, 1);
     },
+    // A liquid in a jerry can, and a gas in a round pressure bottle.
+    canister(ctx, R) {
+      roundRect(ctx, -6, -8, 12, 15, 2); ctx.fillStyle = R.color; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = R.edge; ctx.stroke();
+      ctx.fillStyle = R.dark; ctx.fillRect(-6, -1, 12, 3);
+      ctx.fillStyle = '#ffcf4a'; ctx.fillRect(1, -11, 4, 3);
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(-3, 4); ctx.stroke();
+    },
+    gastank(ctx, R) {
+      ctx.fillStyle = R.color; ctx.beginPath(); ctx.arc(0, 1, 7, 0, TAU); ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = R.edge; ctx.stroke();
+      ctx.fillStyle = R.dark; ctx.fillRect(-2, -9, 4, 4);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(-2.5, -1.5, 2, 0, TAU); ctx.fill();
+    },
     berries(ctx, R) {
       ctx.fillStyle = R.leafDark || '#1f4f22'; ctx.beginPath(); ctx.ellipse(0, -6, 5, 2.2, -0.3, 0, TAU); ctx.fill();
       for (const [x, y] of [[-3.5, 1], [3.5, 1], [0, -2.5]]) {
@@ -681,6 +693,43 @@ SF.Render = (function () {
         for (const dx of [-4, 4]) { ctx.beginPath(); ctx.moveTo(dx, -n.h + 6); ctx.lineTo(dx, -4); ctx.stroke(); }
       },
       dead(ctx, n, R) { ctx.fillStyle = R.plantDark; roundRect(ctx, -9, -10, 18, 10, 5); ctx.fill(); },
+    },
+    // A bubbling pool of crude oil with a rainbow sheen.
+    oilseep: {
+      top: 40,
+      alive(ctx, n, R, t, ov) {
+        ctx.fillStyle = ov || R.edge; poly(ctx, n.pts.map(([x, y]) => [x, y * 0.5 - 4])); ctx.fill();
+        if (ov) return;
+        ctx.fillStyle = R.dark; poly(ctx, n.pts.map(([x, y]) => [x * 0.85, y * 0.42 - 5])); ctx.fill();
+        ctx.fillStyle = `rgba(190,150,255,${0.18 + Math.sin(t + n.phase) * 0.08})`; ctx.beginPath(); ctx.ellipse(-n.r * 0.2, -8, n.r * 0.5, n.r * 0.14, 0.2, 0, TAU); ctx.fill();
+        ctx.fillStyle = `rgba(120,255,200,${0.12 + Math.sin(t * 1.3 + n.phase) * 0.06})`; ctx.beginPath(); ctx.ellipse(n.r * 0.25, -4, n.r * 0.35, n.r * 0.1, -0.2, 0, TAU); ctx.fill();
+        for (const b of n.bubbles) {
+          const k = (t * 0.8 + b.p) % 1;
+          ctx.strokeStyle = `rgba(255,255,255,${0.5 * (1 - k)})`; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(b.x, b.y - 6, 2 + k * 5, Math.PI, TAU); ctx.stroke();
+        }
+        // rocks around the edge
+        ctx.fillStyle = '#4a4440'; for (const r of n.rocks) { ctx.beginPath(); ctx.ellipse(r.x, r.y, r.s, r.s * 0.6, 0, 0, TAU); ctx.fill(); }
+      },
+      dead(ctx, n, R) { ctx.fillStyle = 'rgba(20,16,24,0.6)'; poly(ctx, n.pts.map(([x, y]) => [x * 0.6, y * 0.3 - 2])); ctx.fill(); },
+    },
+    // A rock vent puffing pale gas.
+    gasvent: {
+      top: 70,
+      alive(ctx, n, R, t, ov) {
+        ctx.fillStyle = ov || R.stone; poly(ctx, [[-n.r, 0], [-n.r * 0.5, -n.h], [n.r * 0.5, -n.h], [n.r, 0]]); ctx.fill();
+        if (ov) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; poly(ctx, [[n.r * 0.1, 0], [n.r * 0.5, -n.h], [n.r, 0]]); ctx.fill();
+        ctx.fillStyle = '#1a1614'; ctx.beginPath(); ctx.ellipse(0, -n.h, n.r * 0.45, n.r * 0.16, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = R.dark; ctx.beginPath(); ctx.ellipse(0, -n.h + 1, n.r * 0.3, n.r * 0.09, 0, 0, TAU); ctx.fill();
+        for (let i = 0; i < 4; i++) {
+          const k = (t * 0.45 + i / 4 + n.phase) % 1;
+          ctx.globalAlpha = (1 - k) * 0.55; ctx.fillStyle = R.color;
+          ctx.beginPath(); ctx.arc(Math.sin(k * 4 + i) * 8 * k, -n.h - 6 - k * 50, 5 + k * 12, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      },
+      dead(ctx, n, R) { ctx.fillStyle = R.stone; poly(ctx, [[-n.r * 0.8, 0], [-n.r * 0.4, -10], [n.r * 0.4, -10], [n.r * 0.8, 0]]); ctx.fill(); },
     },
     bones: {
       top: 66,
@@ -1217,6 +1266,43 @@ SF.Render = (function () {
       for (let i = 0; i < 2; i++) { const k = (t * 1.2 + i / 2) % 1; ctx.fillStyle = `rgba(127,216,255,${1 - k})`; ctx.beginPath(); ctx.ellipse(x + 26, y - 30 + k * 26, 2.5, 3.5, 0, 0, TAU); ctx.fill(); }
       ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 22, y - 34); ctx.lineTo(x + 28, y - 34); ctx.lineTo(x + 28, y - 30); ctx.stroke();
     },
+    // Oil derrick (Petra): a lattice tower with a nodding pump jack and a black storage tank.
+    derrick(ctx, x, y, t) {
+      ctx.strokeStyle = '#2a2420'; ctx.lineWidth = 3;
+      ctx.fillStyle = '#3a3036'; roundRect(ctx, x + 18, y - 40, 34, 40, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffcf4a'; ctx.fillRect(x + 18, y - 30, 34, 4);
+      // lattice tower
+      ctx.strokeStyle = '#c9a24a'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(x - 40, y); ctx.lineTo(x - 22, y - 92); ctx.lineTo(x - 4, y); ctx.stroke();
+      for (let i = 0; i < 5; i++) { const k = i / 5, w = 18 * (1 - k); ctx.beginPath(); ctx.moveTo(x - 22 - w, y - k * 92); ctx.lineTo(x - 22 + w * 0.8, y - (k + 0.2) * 92); ctx.stroke(); }
+      // pump jack
+      const a = Math.sin(t * 2.2) * 0.3;
+      ctx.fillStyle = '#5a4a3a'; poly(ctx, [[x - 8, y], [x + 2, y - 34], [x + 12, y]]); ctx.fill();
+      ctx.save(); ctx.translate(x + 2, y - 34); ctx.rotate(a);
+      ctx.fillStyle = '#ffcf4a'; ctx.strokeStyle = '#2a2420'; ctx.lineWidth = 2; roundRect(ctx, -34, -4, 54, 8, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#2a2420'; ctx.beginPath(); ctx.arc(-34, 4, 8, Math.PI * 0.5, Math.PI * 1.5); ctx.fill();
+      ctx.restore();
+      // oil sheen at the well head
+      ctx.fillStyle = '#1c1626'; ctx.beginPath(); ctx.ellipse(x - 30, y - 2, 14, 5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(180,140,255,${0.25 + Math.sin(t * 3) * 0.1})`; ctx.beginPath(); ctx.ellipse(x - 33, y - 3, 6, 2, 0, 0, TAU); ctx.fill();
+    },
+    // Gas well (Petra): a valve tree, a round pressure tank and a flare stack burning off the excess.
+    gaswell(ctx, x, y, t) {
+      ctx.strokeStyle = '#2a2420'; ctx.lineWidth = 2.5;
+      ctx.fillStyle = '#dfe5ee'; ctx.beginPath(); ctx.arc(x + 20, y - 26, 24, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.arc(x + 12, y - 34, 6, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#4a8ab0'; ctx.fillRect(x + 4, y - 4, 32, 5);
+      // valve tree
+      ctx.fillStyle = '#c95a3a'; ctx.fillRect(x - 26, y - 40, 10, 40); ctx.strokeRect(x - 26, y - 40, 10, 40);
+      for (const dy of [-34, -18]) { ctx.fillStyle = '#ff8f5a'; ctx.beginPath(); ctx.arc(x - 21, y + dy, 6, 0, TAU); ctx.fill(); ctx.stroke(); }
+      ctx.strokeStyle = '#9aa3ad'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x - 16, y - 26); ctx.lineTo(x - 4, y - 26); ctx.stroke();
+      // flare stack
+      ctx.strokeStyle = '#2a2420'; ctx.lineWidth = 2; ctx.fillStyle = '#6a6060'; ctx.fillRect(x - 50, y - 86, 7, 86); ctx.strokeRect(x - 50, y - 86, 7, 86);
+      const f = 14 + Math.sin(t * 9) * 4 + Math.sin(t * 13) * 3;
+      glow(ctx, x - 46, y - 96, 40, 'rgba(255,160,60,0.9)', 0.6);
+      ctx.fillStyle = '#ffcf4a'; poly(ctx, [[x - 53, y - 86], [x - 46 + Math.sin(t * 5) * 3, y - 86 - f * 1.6], [x - 39, y - 86]]); ctx.fill();
+      ctx.fillStyle = '#fff4e8'; poly(ctx, [[x - 49, y - 86], [x - 46, y - 86 - f * 0.7], [x - 43, y - 86]]); ctx.fill();
+    },
   };
 
   const BUILDINGS = {
@@ -1463,6 +1549,37 @@ SF.Render = (function () {
       glow(ctx, x + 56, y - 122, 26, 'rgba(111,245,232,0.9)', 0.4 + Math.sin(t * 3) * 0.15);
       label(ctx, 'RESEARCH LAB', x, y + 22, 13, '#6ff5e8');
     },
+    // Star Map: an observatory with a slowly turning holographic orrery of every known planet above it.
+    starmap(ctx, p, t, active) {
+      const x = p.x, y = p.y, ink = '#1c2a3a';
+      pad(ctx, x, y + 40, 60, 'rgba(159,214,255,A)', t, active);
+      shadow(ctx, x, y + 6, 110, 28);
+      ctx.strokeStyle = ink; ctx.lineWidth = 3;
+      // round base with steps
+      ctx.fillStyle = '#3c4a66'; ctx.beginPath(); ctx.ellipse(x, y - 4, 96, 26, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#56688a'; roundRect(ctx, x - 80, y - 54, 160, 50, 10); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#9fd6ff'; for (let i = 0; i < 6; i++) { const wx = x - 66 + i * 24; roundRect(ctx, wx, y - 42, 14, 20, 4); ctx.fill(); }
+      ctx.fillStyle = '#ffd36b'; ctx.fillRect(x - 80, y - 58, 160, 5);
+      // projector dish
+      ctx.fillStyle = '#c9d4e0'; ctx.beginPath(); ctx.ellipse(x, y - 62, 46, 12, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#9fd6ff'; ctx.beginPath(); ctx.ellipse(x, y - 64, 30, 7, 0, 0, TAU); ctx.fill();
+      // light cone
+      const g = ctx.createLinearGradient(x, y - 64, x, y - 190);
+      g.addColorStop(0, 'rgba(159,214,255,0.45)'); g.addColorStop(1, 'rgba(159,214,255,0)');
+      ctx.fillStyle = g; poly(ctx, [[x - 28, y - 64], [x - 90, y - 190], [x + 90, y - 190], [x + 28, y - 64]]); ctx.fill();
+      // orrery: the sun and every planet you know on its orbit
+      const cy = y - 150;
+      glow(ctx, x, cy, 50, 'rgba(255,211,107,0.95)', 0.8);
+      ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(x, cy, 10, 0, TAU); ctx.fill();
+      SF.PLANETS.forEach((pl, i) => {
+        const r = 26 + i * 13, a = t * (0.5 - i * 0.05) + i * 1.7;
+        ctx.strokeStyle = 'rgba(159,214,255,0.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, cy, r, r * 0.35, 0, 0, TAU); ctx.stroke();
+        const known = !pl.far || (SF.state.charted && SF.state.charted[i]);
+        ctx.fillStyle = known ? pl.theme.accent : 'rgba(255,255,255,0.35)';
+        ctx.beginPath(); ctx.arc(x + Math.cos(a) * r, cy + Math.sin(a) * r * 0.35, i === C.home ? 7 : 5.5, 0, TAU); ctx.fill();
+      });
+      label(ctx, 'STAR MAP', x, y + 22, 13, '#9fd6ff');
+    },
     // Rocket Workshop: an open hangar with a rocket on the stand, a gantry crane and sparks from the welder.
     workshop(ctx, p, t, active) {
       const x = p.x, y = p.y, ink = '#2a2f38';
@@ -1517,7 +1634,7 @@ SF.Render = (function () {
       // serving window and door
       ctx.fillStyle = '#2a1c1c'; roundRect(ctx, x - 62, y - 30, 56, 22, 3); ctx.fill();
       ctx.fillStyle = 'rgba(255,210,122,0.85)'; ctx.fillRect(x - 58, y - 27, 48, 16);
-      ctx.fillStyle = '#ffb340'; for (let i = 0; i < Math.min(5, Math.ceil(k.meal / 12)); i++) { ctx.beginPath(); ctx.arc(x - 52 + i * 9, y - 14, 3.5, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#ffb340'; for (let i = 0; i < Math.min(5, Math.ceil(SF.Food.meals(k) / 12)); i++) { ctx.beginPath(); ctx.arc(x - 52 + i * 9, y - 14, 3.5, 0, TAU); ctx.fill(); }
       ctx.fillStyle = '#7a5a4a'; roundRect(ctx, x + 10, y - 30, 22, 30, 4); ctx.fill(); ctx.stroke();
       // sign
       ctx.fillStyle = '#62d08a'; roundRect(ctx, x - 30, y - 66, 60, 16, 4); ctx.fill(); ctx.stroke();
@@ -1525,11 +1642,11 @@ SF.Render = (function () {
       // water tank and crates
       ctx.strokeStyle = ink; ctx.lineWidth = 2.5;
       ctx.fillStyle = '#7fd8ff'; roundRect(ctx, x + 50, y - 44, 22, 42, 7); ctx.fill(); ctx.stroke();
-      const lvl = Math.min(1, k.drink / C.food.cap);
+      const lvl = Math.min(1, SF.Food.drinks(k) / C.food.cap);
       ctx.fillStyle = '#2a7fb8'; ctx.fillRect(x + 54, y - 6 - 32 * lvl, 14, 32 * lvl);
       for (const [cx, cy] of [[-92, 0], [-84, -14]]) { ctx.fillStyle = '#a8703f'; ctx.fillRect(x + cx, y + cy - 12, 18, 12); ctx.strokeRect(x + cx, y + cy - 12, 18, 12); ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(x + cx + 6, y + cy - 13, 3, 0, TAU); ctx.arc(x + cx + 12, y + cy - 13, 3, 0, TAU); ctx.fill(); }
       label(ctx, 'CANTEEN', x, y + 22, 13, '#9be36a');
-      label(ctx, `${k.meal} meals · ${k.drink} drinks`, x, y + 37, 10, 'rgba(255,244,232,0.85)', 600);
+      label(ctx, `${SF.Food.meals(k)} meals · ${SF.Food.drinks(k)} drinks`, x, y + 37, 10, 'rgba(255,244,232,0.85)', 600);
     },
   };
 
@@ -1623,9 +1740,34 @@ SF.Render = (function () {
   }
 
   // Ground part of every belt: runs, drums and feeder. Drawn before the y-sorted objects.
+  // A copper pipeline on short stands, with a flow of dark pulses toward the warehouse.
+  function pipe(ctx, pts, t) {
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const path = () => { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); };
+    ctx.translate(0, 8); ctx.strokeStyle = 'rgba(28,10,38,0.3)'; ctx.lineWidth = 16; path(); ctx.stroke(); ctx.translate(0, -8);
+    ctx.strokeStyle = '#5a2e14'; ctx.lineWidth = 16; path(); ctx.stroke();
+    ctx.strokeStyle = '#d98a4e'; ctx.lineWidth = 12; path(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,220,170,0.6)'; ctx.lineWidth = 3; ctx.translate(0, -3); path(); ctx.stroke(); ctx.translate(0, 3);
+    // flanges every so often and at the bends
+    const L = routeLen(pts);
+    ctx.fillStyle = '#8a4a26';
+    for (let d = 20; d < L; d += 60) { const q = along(pts, d); ctx.beginPath(); ctx.arc(q.x, q.y, 9, 0, TAU); ctx.fill(); }
+    for (const q of pts) { ctx.fillStyle = '#a85a2a'; ctx.beginPath(); ctx.arc(q.x, q.y, 10, 0, TAU); ctx.fill(); ctx.fillStyle = '#5a2e14'; ctx.beginPath(); ctx.arc(q.x, q.y, 4, 0, TAU); ctx.fill(); }
+    // flow
+    const off = (t * 70) % 40;
+    ctx.fillStyle = 'rgba(30,20,40,0.55)';
+    for (let d = off; d < L; d += 40) { const q = along(pts, d); ctx.beginPath(); ctx.ellipse(q.x, q.y - 1, 4, 3, 0, 0, TAU); ctx.fill(); }
+    // pump at the producer end
+    const s = pts[0];
+    ctx.fillStyle = '#596170'; ctx.strokeStyle = '#2a2f38'; ctx.lineWidth = 2; roundRect(ctx, s.x - 14, s.y - 16, 28, 22, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = Math.sin(t * 5) > 0 ? '#9be36a' : '#4f7a3a'; ctx.beginPath(); ctx.arc(s.x + 7, s.y - 9, 2.5, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
   function belts(ctx, plots, t) {
     for (const p of plots) {
       const pts = beltRoute(p);
+      if (p.helper && p.helper.pipe) { pipe(ctx, pts, t); continue; }
       let cum = 0;
       for (let i = 1; i < pts.length; i++) { beltRun(ctx, pts[i - 1], pts[i], t, cum); cum += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); }
       for (let i = 1; i < pts.length - 1; i++) beltDrum(ctx, pts[i], t);
@@ -1913,15 +2055,16 @@ SF.Render = (function () {
 
   // Halcyon's hall: rockets land behind it, you unload in front of it.
   function hallPads(ctx, h, pads, t) {
+    pads = pads.filter(p => p.pi < C.home || SF.state.worlds[p.pi]);   // far planets get their pad once you have been there
     for (const p of pads) {
       ctx.fillStyle = '#4c3a5e'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 42, 15, 0, 0, TAU); ctx.fill();
       ctx.strokeStyle = 'rgba(255,211,107,0.8)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(p.x, p.y, 34, 11, 0, 0, TAU); ctx.stroke();
       ctx.fillStyle = '#ffd36b'; ctx.font = `700 14px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', p.x, p.y + 1);
       for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; ctx.fillStyle = Math.sin(t * 3 + i) > 0 ? '#9be36a' : '#3a5a2a'; ctx.beginPath(); ctx.arc(p.x + Math.cos(a) * 42, p.y + Math.sin(a) * 15, 2.5, 0, TAU); ctx.fill(); }
     }
-    pads.forEach((p, i) => {
-      if (!SF.state.homeReached || i === C.home) return;
-      const [a, b] = SF.Hub.padLabel(i);
+    pads.forEach(p => {
+      if (!SF.state.homeReached) return;
+      const [a, b] = SF.Hub.padLabel(p.pi);
       label(ctx, a, p.x, p.y + 26, 11, '#ffd36b'); label(ctx, b, p.x, p.y + 40, 10, 'rgba(255,244,232,0.9)', 600);
     });
     pad(ctx, h.x, h.padY, h.r, 'rgba(255,211,107,A)', t, SF.player.zone === 'hall');

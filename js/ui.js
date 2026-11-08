@@ -161,6 +161,7 @@ SF.UI = (function () {
     lab: () => researchCards(),
     canteen: () => canteenCards(),
     workshop: () => workshopCards(),
+    starmap: () => starmapCards(),
   };
   const hasPanel = p => !!PANELS[p.kind];
 
@@ -287,7 +288,7 @@ SF.UI = (function () {
       for (const p of L.plots) {
         const st = ws.plots[p.id];
         if (p.kind !== 'producer' || !st || !st.built || !st.belt) continue;
-        const btn = card('belt-up-' + pi + p.id, `${p.name} belt`, () => SF.upgradeBelt(pi, p.id), false);
+        const btn = card('belt-up-' + pi + p.id, `${p.name} ${p.helper && p.helper.pipe ? 'pipeline' : 'belt'}`, () => SF.upgradeBelt(pi, p.id), false);
         btn.style.setProperty('--tint', pl.theme.accent); btn.classList.add('research');
         btn.insertAdjacentHTML('beforeend', '<ul class="res-list mats"></ul>');
         cards.push({
@@ -326,8 +327,8 @@ SF.UI = (function () {
   }
 
   function beltCard(p) {
-    const need = C.conveyor.needs, code = +Object.keys(need)[0];
-    const btn = card('belt-' + p.id, 'Conveyor belt', () => SF.Home.installBelt(p.id), true);
+    const pipe = !!(p.helper && p.helper.pipe), need = SF.Home.beltNeeds(p.id), code = +Object.keys(need)[0];
+    const btn = card('belt-' + p.id, pipe ? 'Copper pipeline' : 'Conveyor belt', () => SF.Home.installBelt(p.id), true);
     btn.querySelector('.card-cost').innerHTML = '<b></b>';
     return {
       btn,
@@ -340,7 +341,7 @@ SF.UI = (function () {
           return;
         }
         r.btn.querySelector('.card-lvl').textContent = st.belt ? `Installed · level ${st.beltLvl || 0}` : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} (hall, chest, warehouse)` : 'Needs the Belt Factory on Halcyon';
-        r.btn.querySelector('.card-eff').textContent = 'Carries the stock to the drop off by itself, so you never have to fetch it.';
+        r.btn.querySelector('.card-eff').textContent = pipe ? 'Pumps the liquid to the warehouse by itself, so you never have to fetch it.' : 'Carries the stock to the drop off by itself, so you never have to fetch it.';
         r.btn.querySelector('.card-cost b').textContent = st.belt ? '' : `${need[code]} ${SF.res(code).name}`;
         r.btn.disabled = st.belt || !SF.Home.hasFactory();
         r.btn.classList.toggle('poor', !st.belt && have < need[code]);
@@ -360,7 +361,8 @@ SF.UI = (function () {
   }
   const tile = c => { const R = SF.res(c); return `<div class="tile" data-code="${c}" style="--tint:${R.color}"><img alt="" src="${icon(c)}">` +
     `<span class="t-name">${R.plural}</span><span class="t-num"><b>0</b><small></small></span><span class="bar"><i></i></span></div>`; };
-  const planetGroups = (filter) => SF.PLANETS.map((pl, pi) => ({ name: pl.name, tint: pl.theme.accent, codes: pl.resources.map(r => pi * 10 + r.tier).filter(filter) }))
+  const known = pi => !SF.PLANETS[pi].far || !!SF.state.worlds[pi];
+  const planetGroups = (filter) => SF.PLANETS.map((pl, pi) => ({ name: pl.name, tint: pl.theme.accent, codes: known(pi) ? pl.resources.map(r => pi * 10 + r.tier).filter(filter) : [] }))
     .concat([{ name: 'Smelted', tint: '#dfe5ee', codes: Object.keys(SF.INGOTS).map(Number).filter(filter) }]);
 
   function storeCard(id, opts) {
@@ -404,7 +406,7 @@ SF.UI = (function () {
   // Where every cargo rocket is right now.
   function rocketMeters(only) {
     const Hb = SF.Hub;
-    return SF.PLANETS.map((pl, pi) => ({ pl, pi })).filter(o => o.pi !== C.home && (only == null || o.pi === only)).map(({ pl, pi }) => {
+    return SF.PLANETS.map((pl, pi) => ({ pl, pi })).filter(o => o.pi !== C.home && known(o.pi) && (only == null || o.pi === only)).map(({ pl, pi }) => {
       const ws = SF.state.worlds[pi];
       if (!ws) return meter(pl.name, 0, 1, pl.theme.accent, 'not visited yet');
       const r = Hb.rk(ws), lab = Hb.padLabel(pi)[1];
@@ -518,6 +520,37 @@ SF.UI = (function () {
     return cards;
   }
 
+  // ---------- star map ----------
+  // Every planet as a card: a little globe, its resources, what is going on there, and a way to fly or chart it.
+  function starmapCards() {
+    const cards = [], Mp = SF.Map;
+    SF.PLANETS.forEach((pl, pi) => {
+      const th = pl.theme;
+      const div = info('map-' + pl.id, `<div class="globe" style="background:radial-gradient(circle at 35% 30%, ${th.accent} 0 6%, ${th.ground} 34%, ${th.backdrop} 100%)"></div>
+        <div class="map-text"><span class="card-name"></span><span class="card-lvl"></span><span class="card-eff">${pl.tagline}</span>
+        <ul class="res-list map-res">${pl.resources.map(r => `<li><i style="background:${r.color}"></i>${r.plural}${r.liquid ? ' <small>liquid</small>' : ''}</li>`).join('')}</ul>
+        <div class="meters"></div><button type="button" class="btn primary map-go"></button></div>`);
+      div.classList.add('map-card'); div.style.setProperty('--tint', th.accent);
+      const go = div.querySelector('.map-go');
+      go.addEventListener('click', () => { SF.Audio.init(); if (pi === SF.state.planet) return; if (Mp.charted(pi)) Mp.fly(pi); else if (Mp.chart(pi)) flash(div); else shakeEl(div); });
+      cards.push({
+        btn: div,
+        update(r) {
+          const here = pi === SF.state.planet, ch = Mp.charted(pi), o = Mp.overview(pi);
+          r.btn.querySelector('.card-name').textContent = pl.name + (pi === C.home ? ' · home' : '');
+          r.btn.querySelector('.card-lvl').textContent = here ? 'You are here' : !ch ? 'Uncharted' : o ? `${o.gates} of 5 regions open` : 'Not visited yet';
+          r.btn.querySelector('.meters').innerHTML = !o ? '' : (o.stock != null ? meter('Warehouse', o.stock, o.cap, th.accent) : '') +
+            (pi !== C.home ? meter('Cargo rocket', SF.Hub.rk(SF.state.worlds[pi]).n, SF.rocketCap(pi), th.accent, SF.Hub.padLabel(pi)[1] + ' · ' + SF.Fleet.model(SF.Fleet.modelOf(pi)).name) : '') +
+            `<div class="map-stats"><span>${o.crew} crew</span><span>${o.machines} machines</span></div>`;
+          go.hidden = here;
+          go.textContent = ch ? `Fly to ${pl.name}` : `Chart a course · ${fmt(pl.chart)}`;
+          go.classList.toggle('poor', !ch && SF.state.credits < pl.chart);
+        },
+      });
+    });
+    return cards;
+  }
+
   // ---------- rocket workshop ----------
   function workshopCards() {
     const Fl = SF.Fleet, M = C.rockets.models, cards = [];
@@ -574,10 +607,11 @@ SF.UI = (function () {
         const k = SF.state.kitchen, h = SF.state.hold, per = SF.foodPer(), cap = SF.Hub.hallCap();
         const fed = SF.state.crew.filter(w => SF.Food.canWork(w)).length;
         return {
-          html: meter('Meals ready', k.meal, F.cap, '#ffb340') + meter('Drinks ready', k.drink, F.cap, '#7fd8ff') +
+          html: meter('Meals ready', SF.Food.meals(k), F.cap, '#ffb340', k.feast ? `${k.meal} + ${k.feast} feasts` : null) + meter('Drinks ready', SF.Food.drinks(k), F.cap, '#7fd8ff', k.elixir ? `${k.drink} + ${k.elixir} elixirs` : null) +
             meter(SF.res(F.meal).plural + ' in the hall', h[F.meal] || 0, cap, SF.res(F.meal).color) + meter(SF.res(F.drink).name + ' in the hall', h[F.drink] || 0, cap, SF.res(F.drink).color) +
+            (SF.state.worlds[5] ? meter(SF.res(F.feast).plural + ' in the hall', h[F.feast] || 0, cap, SF.res(F.feast).color) + meter(SF.res(F.elixir).name + ' in the hall', h[F.elixir] || 0, cap, SF.res(F.elixir).color) : '') +
             meter('Crew fed and working', fed, SF.state.crew.length || 1, '#9be36a', `${fed} / ${SF.state.crew.length}`),
-          text: `Cooks ${per} ${SF.res(F.meal).plural.toLowerCase()} into 1 meal and ${per} ${SF.res(F.drink).plural.toLowerCase()} into 1 drink. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
+          text: `Cooks ${per} ${SF.res(F.meal).plural.toLowerCase()} into 1 meal and ${per} ${SF.res(F.drink).plural.toLowerCase()} into 1 drink. Moonmelons and dew nectar from Edenia become feasts and elixirs that keep crew full twice as long. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
         };
       }),
       {
@@ -642,7 +676,11 @@ SF.UI = (function () {
         groups: () => { const wh = SF.ws().wh || {}, pi = SF.state.planet; return planetGroups(c => Math.floor(c / 10) === pi && c < 100 || (wh[c] || 0) > 0); },
         count: c => (SF.ws().wh || {})[c] || 0,
         lvl: () => `${Object.values(SF.ws().wh || {}).reduce((a, b) => a + b, 0)} / ${SF.Hub.whCap()} items`,
-        text: () => SF.Hub.whFull() ? 'Full! Crew, drones, belts and you all wait until the rocket takes a load. Expand it below.' : 'Stock waits here while the rocket is away and loads up again when it lands.',
+        text: () => {
+          const wh = SF.ws().wh || {}, wet = Object.keys(wh).some(c => wh[c] > 0 && SF.res(+c).liquid) && !SF.Fleet.model(SF.Fleet.modelOf(SF.state.planet)).liquid;
+          return (SF.Hub.whFull() ? 'Full! Crew, drones, belts and you all wait until the rocket takes a load. Expand it below.' : 'Stock waits here while the rocket is away and loads up again when it lands.') +
+            (wet ? ' Liquids and gases wait for a Tanker: build one in the Rocket Workshop and pick it for this route.' : '');
+        },
       }),
       {
         btn: card('up-wh', 'Expand the warehouse', () => SF.Hub.upgradeWarehouse(), true),
@@ -654,7 +692,7 @@ SF.UI = (function () {
       htmlCard('wh-rocket', 'Cargo rocket', () => {
         const pi = SF.state.planet, n = SF.Food.crewOn(pi), pan = SF.Food.pantry(pi);
         return {
-          html: rocketMeters(pi) + (n ? meter('Crew meals', pan.meal, Math.max(pan.meal, C.food.pantry * n), '#ffb340') + meter('Crew drinks', pan.drink, Math.max(pan.drink, C.food.pantry * n), '#7fd8ff') : ''),
+          html: rocketMeters(pi) + (n ? meter('Crew meals', SF.Food.meals(pan), Math.max(SF.Food.meals(pan), C.food.pantry * n), '#ffb340') + meter('Crew drinks', SF.Food.drinks(pan), Math.max(SF.Food.drinks(pan), C.food.pantry * n), '#7fd8ff') : ''),
           text: 'It flies to Halcyon by itself when full' + (n ? ' and brings the crew food from the canteen on the way back.' : '.'),
         };
       }),
@@ -682,7 +720,7 @@ SF.UI = (function () {
   }
 
   function travelCards() {
-    return SF.PLANETS.map((pl, i) => ({ pl, i })).filter(o => o.i !== SF.state.planet).map(({ pl, i }) => {
+    return SF.Map.destinations().map(i => ({ pl: SF.PLANETS[i], i })).map(({ pl, i }) => {
       const btn = document.createElement('button');
       btn.className = 'card travel'; btn.id = 'fly-' + pl.id; btn.type = 'button';
       btn.innerHTML = `<span class="card-key"></span><span class="card-name">${pl.name}</span>
@@ -705,7 +743,7 @@ SF.UI = (function () {
     }];
     // Each crew member: a status line and every job at a glance, grouped by planet. One tap picks it.
     SF.state.crew.forEach((w, i) => {
-      const rows = SF.PLANETS.map((pl, pi) => `<div class="job-row"><span class="job-planet">${pl.name}</span>` +
+      const rows = SF.PLANETS.map((pl, pi) => !known(pi) ? '' : `<div class="job-row"><span class="job-planet">${pl.name}</span>` +
         pl.resources.map(r => `<button type="button" class="job-chip${r.tier > 2 ? ' rare' : ''}" data-job="${pi * 10 + r.tier}" title="1 every ${SF.Home.workTime(pi * 10 + r.tier)}s while you are elsewhere"><i style="background:${r.color}"></i>${r.plural}${r.tier > 2 ? ' <small>slow</small>' : ''}</button>`).join('') + '</div>').join('');
       const div = info('crew-' + i, `<span class="card-name">Crew ${i + 1}</span><span class="card-lvl"></span><span class="card-eff"></span><div class="jobs">${rows}</div>`);
       div.querySelectorAll('.job-chip').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); if (SF.Home.setJob(i, +b.dataset.job)) SF.Audio.pick(3); }));

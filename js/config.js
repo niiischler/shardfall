@@ -33,10 +33,11 @@ SF.CFG = {
   tools: {
     pick:  { name: 'Plasma Pick', mult: 1 },
     axe:   { name: 'Ion Axe',     mult: 2,   stars: 1, nodes: ['tree', 'palm', 'resin', 'bush', 'mushroom', 'cactus'] },
-    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['crystal', 'magma', 'icespire', 'ironrock', 'goldvein', 'mesa', 'malachite', 'geode', 'bones', 'clam', 'coral', 'conch'] },
+    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['crystal', 'magma', 'icespire', 'ironrock', 'goldvein', 'mesa', 'malachite', 'geode', 'bones', 'clam', 'coral', 'conch', 'oilseep', 'gasvent'] },
   },
 
   home: 3,                             // index of the home planet; travel opens there
+  pipe: { needs: { 122: 30 } },        // copper pipeline for liquids (Petra), instead of a belt
   conveyor: { needs: { 112: 30 }, every: 0.8, speedUp: 0.6,   // 30 iron ingots per belt; 1 item every 0.8s, +60% per belt level
     up: { credits: 20000, growth: 1.8, mats: { 112: 20, 122: 10 } } },   // belt upgrades at the Belt Factory (research 'beltTech')
 
@@ -50,6 +51,7 @@ SF.CFG = {
     walkHome: 30, walkAway: 8,                              // work lost walking to the canteen / warehouse while you are elsewhere
     driver: 12000, drivers: 2, carSpeed: 230,               // delivery car drivers at the canteen
     pantry: 3,                                              // servings per crew member each supply run brings out
+    feast: 50, elixir: 51, fine: 2,                         // Edenia food: moonmelon feasts and nectar elixirs keep crew full twice as long
   },
   crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, rareSlow: [1, 1, 1, 2.5, 4], eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
 
@@ -192,6 +194,8 @@ SF.RESEARCH = [
     { id: 'autoKelvos', name: 'Kelvos machines', max: 1, credits: 60000, eff: () => 'Crystal drill, magma pump and glowcap farm on Kelvos', mats: { 112: 80, 3: 40 } },
     { id: 'autoVerdra', name: 'Verdra machines', max: 1, credits: 60000, eff: () => 'Berry picker on Verdra', mats: { 112: 80, 13: 40 } },
     { id: 'autoDune', name: 'Duneveil machines', max: 1, credits: 80000, eff: () => 'Cactus condenser and copper mine on Duneveil', mats: { 122: 80, 23: 40 } },
+    { id: 'autoPetra', name: 'Petra machines', max: 1, credits: 250000, eff: () => 'Sulfur drill on Petra', mats: { 122: 150, 42: 60 } },
+    { id: 'autoEdenia', name: 'Edenia machines', max: 1, credits: 300000, eff: () => 'Melon farm and spice picker on Edenia', mats: { 112: 150, 52: 60 } },
     { id: 'autoHalcyon', name: 'Halcyon machines', max: 1, credits: 100000, eff: () => 'Sunfruit orchard, coral farm and pearl diver on Halcyon, straight into the hall', mats: { 122: 80, 24: 40 } },
     { id: 'twin', name: 'Second plant', max: 1, credits: 150000, after: 'presses', eff: () => 'Build a second copy of every machine', mats: { 112: 200, 122: 100, 14: 40 } },
     { id: 'beltTech', name: 'Faster belts', max: 3, credits: 50000, after: 'presses', eff: l => `Belts can be upgraded to level ${l} at the Belt Factory`, mats: { 112: 100, 122: 60, 21: 200 } },
