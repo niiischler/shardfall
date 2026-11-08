@@ -54,7 +54,8 @@
   SF.fly = fly;
 
   function earn(code) {
-    const v = SF.resValue(code) * SF.sellMult();
+    const v = SF.resValue(code) * SF.sellMult() * SF.demandMult(code);
+    SF.demandHit(code, 1);
     SF.state.credits += v; SF.state.totalEarned += v; SF.state.lifetime += v;
     combo++; comboT = 0.6; depotGlow = 1;
     A.coin(combo);
@@ -409,6 +410,7 @@
       else if (inZone(C.upgradePad.x, C.upgradePad.y, C.upgradePad.r)) zone = 'upgrade';
       else if (W.chest && inZone(W.chest.x, W.chest.y, W.chest.r)) zone = 'chest';
       else if (W.hall && inZone(W.hall.x, W.hall.padY, W.hall.r)) zone = 'hall';
+      else if (W.board && inZone(W.board.x, W.board.padY, W.board.r)) zone = 'board';
       else if (W.smelter && inZone(W.smelter.x, W.smelter.padY, W.smelter.r)) zone = 'smelter';
       else if (W.pickup && inZone(W.pickup.x, W.pickup.y, W.pickup.r)) zone = 'pickup';
       else for (const p of W.plots) {
@@ -536,6 +538,7 @@
     SF.Smelter.update(dt);
     SF.Food.update(dt);
     SF.Fuel.update(dt);
+    SF.Contracts.update(dt); SF.demandUpdate(dt);
     SF.Haul.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
@@ -593,6 +596,7 @@
     for (const tr of W.trails) Rn.trail(ctx, tr, th);
     Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
+    if (W.board) Rn.boardPad(ctx, W.board, t);
     if (W.smelter) {
       Rn.pickupPad(ctx, W.pickup, t, P.zone === 'pickup', SF.Smelter.oreInHall());
     }
@@ -611,6 +615,7 @@
     } else list.push({ y: C.depot.y, fn: () => Rn.lander(ctx, t, depotGlow) });
     if (W.hall) {
       list.push({ y: W.hall.y, fn: () => Rn.hall(ctx, W.hall, t, P.zone === 'hall') });
+      if (W.board) list.push({ y: W.board.y, fn: () => Rn.board(ctx, W.board, t, P.zone === 'board') });
       SF.Hub.arrivals().forEach(a => { if (a.h == null) return; const p0 = SF.Hub.pads()[a.pad], pd = { x: p0.x + (a.i ? (a.i % 2 ? 1 : -1) * Math.ceil(a.i / 2) * 26 : 0), y: p0.y + (a.i ? 4 : 0) }; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, a, t) }); });
     }
     list.push({ y: C.upgradePad.y, fn: () => Rn.upgradePad(ctx, t, P.zone === 'upgrade') });

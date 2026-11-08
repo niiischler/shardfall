@@ -26,20 +26,55 @@ SF.Hub = (function () {
     return true;
   }
 
-  // Sale value when the hall is full: Halcyon's refinery and your perks apply.
-  function overflowValue(code) {
+  // Sale value when the hall is full: Halcyon's refinery, your perks and the current demand apply.
+  function overflowValue(code, base) {
     const home = SF.state.worlds[C.home], ref = home && home.plots.ref && home.plots.ref.built;
-    return SF.resValue(code) * (ref ? C.refineryMult : 1) * (1 + C.perks.sale * SF.state.stars);
+    return SF.resValue(code) * (ref ? C.refineryMult : 1) * (1 + C.perks.sale * SF.state.stars) * (base ? 1 : SF.demandMult(code));
   }
+
+  // How much of a material the hall keeps before it sells the rest: the whole hall, or less if you chose so.
+  const sellStep = code => (SF.state.sellAt || {})[code] | 0;
+  const keepCap = code => Math.round(hallCap() * H.sellAt[sellStep(code)]);
+  function cycleSell(code) {
+    const m = SF.state.sellAt || (SF.state.sellAt = {}), n = (sellStep(code) + 1) % H.sellAt.length;
+    if (n) m[code] = n; else delete m[code];
+    // What is now over the limit is sold right away.
+    const over = hold(code) - keepCap(code);
+    if (over > 0) {
+      SF.state.hold[code] -= over; if (!SF.state.hold[code]) delete SF.state.hold[code];
+      const v = deliver(code, over), h = SF.World.hall;
+      if (v && h) SF.earnFx(v, h.x, h.y - 90);
+    }
+    SF.Audio.store(2); SF.save(); SF.UI.refresh();
+  }
+  // Materials the hall is selling right now (seconds left to show it), and when it last said so above the hall.
+  const selling = {}, told = {};
+  // A lot under construction on Halcyon still needs this material.
+  const wanted = code => {
+    const home = SF.state.worlds[C.home];
+    return !!home && Object.values(home.plots).some(p => p.kind && !p.built && p.needs && p.needs[code] > (p.res && p.res[code] || 0));
+  };
 
   // Put n items into the hall; whatever does not fit is sold. Returns the credits earned.
   function deliver(code, n) {
-    const s = SF.state, room = Math.max(0, hallCap() - hold(code)), keep = Math.min(room, n), sold = n - keep;
+    const s = SF.state, room = Math.max(0, keepCap(code) - hold(code)), keep = Math.min(room, n), sold = n - keep;
     if (keep) s.hold[code] = hold(code) + keep;
     if (!sold) return 0;
     const v = sold * overflowValue(code);
+    SF.demandHit(code, sold);
     s.credits += v; s.totalEarned += v; s.lifetime += v;
+    selling[code] = 3;
+    const h = SF.World.hall;
+    if (h && s.planet === C.home && !(told[code] > 0)) {
+      told[code] = 8;
+      const need = wanted(code);
+      SF.FX.pop(h.x, h.y - 200, (hold(code) >= hallCap() ? 'Hall full: ' : 'Over your limit: ') + SF.res(code).plural.toLowerCase() + ' sold' + (need ? ' (a building needs them!)' : ''), need ? '#ff6b6b' : '#ffb340', 16, { life: 2.2 });
+    }
     return v;
+  }
+  function tickSelling(dt) {
+    for (const c in selling) if ((selling[c] -= dt) <= 0) delete selling[c];
+    for (const c in told) if ((told[c] -= dt) <= 0) delete told[c];
   }
 
   function deliverAll(items) {
@@ -215,6 +250,7 @@ SF.Hub = (function () {
 
   // ---------- update ----------
   function update(dt) {
+    tickSelling(dt);
     const s = SF.state;
     // Rockets from an older save that were already in the air simply arrive.
     if (s.inbound.length) { for (const f of s.inbound) deliverAll(f.items); s.inbound.length = 0; }
@@ -323,7 +359,7 @@ SF.Hub = (function () {
   function enter() {}
 
   return {
-    arrivals, padLabel, inFlight, phase, pads, padOf, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
+    arrivals, padLabel, inFlight, phase, pads, padOf, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue, keepCap, cycleSell, sellStep, isSelling: c => selling[c] > 0, wanted,
     rk, rockets, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
   };
 })();
