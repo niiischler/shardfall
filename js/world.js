@@ -36,6 +36,19 @@
       W._mask = null;
       W.generate();
       W.pattern = W.groundPattern(ctx, W.planet.theme);
+      W.biomes = W.makeBiomes();
+    },
+
+    // Ground texture and scenery for every outer region, chosen by its resource.
+    makeBiomes() {
+      const R = rng(777 + SF.state.planet * 131), out = [];
+      const avoid = W.nodes.map(n => ({ x: n.x, y: n.y, r: 70 })).concat(W.plots.map(p => ({ x: p.x, y: p.y + 20, r: C.plotR + 70 })));
+      for (const reg of W.regions) {
+        const key = reg.res != null && W.res(reg.res).biome, b = key && SF.Biomes.BIOMES[key];
+        if (!b) continue;
+        out.push({ reg, b, tex: SF.Biomes.texture(reg, b, 31 + SF.state.planet * 17 + reg.res), decor: SF.Biomes.scatter(reg, b, R, avoid) });
+      }
+      return out;
     },
 
     res(i) { return W.planet.resources[i]; },

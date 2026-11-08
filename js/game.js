@@ -519,6 +519,11 @@
     worldTransform(ctx, sh);
     const L = cam.x - vw / 2 / zoom - 60, T = cam.y - vh / 2 / zoom - 60, Wd = vw / zoom + 120, Ht = vh / zoom + 120;
     ctx.fillStyle = W.pattern; ctx.fillRect(L, T, Wd, Ht);
+    const inView = (x, y, m) => x > L - m && x < L + Wd + m && y > T - m && y < T + Ht + m;
+    for (const bm of W.biomes) {
+      const tx = bm.tex;
+      if (tx.x < L + Wd && tx.x + tx.size > L && tx.y < T + Ht && tx.y + tx.size > T) ctx.drawImage(tx.canvas, tx.x, tx.y, tx.size, tx.size);
+    }
 
     Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
@@ -527,6 +532,7 @@
 
     // y-sorted objects
     const list = [];
+    for (const bm of W.biomes) for (const d of bm.decor) if (inView(d.x, d.y, 140)) list.push({ y: d.y, fn: () => SF.Biomes.draw(ctx, d, t) });
     for (const n of W.nodes) if (n.x > L - 80 && n.x < L + Wd + 80 && n.y > T - 40 && n.y < T + Ht + 140) list.push({ y: n.y, fn: () => Rn.node(ctx, n, t) });
     if (SF.hubActive()) {
       list.push({ y: C.depot.y, fn: () => Rn.warehouse(ctx, t, depotGlow, SF.Hub.whCount(ws)) });
@@ -547,6 +553,7 @@
     list.sort((a, b) => a.y - b.y);
     for (const o of list) o.fn();
 
+    for (const bm of W.biomes) if (W.isOpen(bm.reg)) SF.Biomes.ambient(ctx, bm.reg, bm.b, t);
     FX.drawParticles(ctx);
     for (const d of drones) Rn.drone(ctx, d, t);
 
