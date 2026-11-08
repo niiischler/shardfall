@@ -1114,7 +1114,7 @@ SF.Render = (function () {
       ctx.fillStyle = '#ffd36b'; ctx.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, r = i % 2 ? 9 : 12; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#3a3f48'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, TAU); ctx.fill(); ctx.restore();
       ctx.fillStyle = '#3a3f48'; ctx.fillRect(x - 20, y - 28, 40, 28);
-      belt(ctx, x - 20, y + 4, x + 70, y + 4, t, 12);
+      beltRun(ctx, { x: x - 20, y: y + 4 }, { x: x + 70, y: y + 4 }, t, 0);
       label(ctx, 'BELT FACTORY', x, y + 28, 13, '#dfe5ee');
     },
     habitat(ctx, p, t) {

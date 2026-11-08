@@ -597,7 +597,8 @@
     for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
-    for (const o of list) o.fn();
+    // One broken drawing must never take the rest of the frame (fog, particles, flyers) with it.
+    for (const o of list) { try { o.fn(); } catch (e) { if (!o.warned) console.error(e); } }
 
     for (const bm of W.biomes) if (W.isOpen(bm.reg)) SF.Biomes.ambient(ctx, bm.reg, bm.b, t);
     FX.drawParticles(ctx);
