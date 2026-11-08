@@ -918,6 +918,29 @@ SF.Render = (function () {
     label(ctx, p.desc, p.x, p.y + 30, 12, 'rgba(255,244,232,0.85)', 600);
   }
 
+  // A worn trail from the landing site out to a region: packed earth with a few stones along it.
+  function trail(ctx, tr, th) {
+    const { a, b } = tr, l = Math.hypot(b.x - a.x, b.y - a.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
+    ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(ang);
+    const w = C.trailWidth * 0.95;
+    const g = ctx.createLinearGradient(0, -w, 0, w);
+    g.addColorStop(0, 'rgba(70,45,30,0)'); g.addColorStop(0.2, 'rgba(70,45,30,0.3)'); g.addColorStop(0.5, 'rgba(95,65,42,0.4)'); g.addColorStop(0.8, 'rgba(70,45,30,0.3)'); g.addColorStop(1, 'rgba(70,45,30,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(-30, 0); ctx.quadraticCurveTo(0, -w, 60, -w); ctx.lineTo(l - 60, -w); ctx.quadraticCurveTo(l + 40, -w * 0.6, l + 60, 0); ctx.quadraticCurveTo(l + 40, w * 0.6, l - 60, w); ctx.lineTo(60, w); ctx.quadraticCurveTo(0, w, -30, 0); ctx.fill();
+    // footprints of a path: two faint ruts and scattered pebbles
+    ctx.strokeStyle = 'rgba(40,25,18,0.22)'; ctx.lineWidth = 6; ctx.setLineDash([22, 16]);
+    for (const o of [-18, 18]) { ctx.beginPath(); ctx.moveTo(20, o); ctx.lineTo(l - 20, o); ctx.stroke(); }
+    ctx.setLineDash([]);
+    let seed = Math.abs(Math.round(l + ang * 1000)) % 233280 + 1;
+    const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for (let x = 30; x < l - 20; x += 26) {
+      const y = (rnd() - 0.5) * w * 1.3, r = 2 + rnd() * 3;
+      ctx.fillStyle = rnd() > 0.5 ? 'rgba(255,244,232,0.16)' : 'rgba(40,25,20,0.2)';
+      ctx.beginPath(); ctx.ellipse(x, y, r * 1.4, r, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // An empty lot in New Haven: a fenced square with a plus, waiting for you to pick a building.
   function lotMarking(ctx, p, t, active) {
     const s = C.plotR * 1.7;
@@ -1686,5 +1709,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { item, here, foodCar, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { item, here, trail, foodCar, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

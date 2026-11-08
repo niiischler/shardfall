@@ -569,6 +569,7 @@
       if (tx.x < L + Wd && tx.x + tx.size > L && tx.y < T + Ht && tx.y + tx.size > T) ctx.drawImage(tx.canvas, tx.x, tx.y, tx.size, tx.size);
     }
 
+    for (const tr of W.trails) Rn.trail(ctx, tr, th);
     Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
     if (W.smelter) {

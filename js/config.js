@@ -10,6 +10,7 @@ SF.CFG = {
   plotR: 62,
   gateRadius: 590,                     // gates sit on the home edge, facing their region
   spotRadius: 400,                     // other buildings sit between the gates
+  trailWidth: 85,                      // half width of the clear trail from the landing site to each region
 
   upgrades: {
     cap:   { name: 'Cargo Pack',     base: 200, growth: 1.55, max: 15 },

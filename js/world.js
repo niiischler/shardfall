@@ -20,6 +20,12 @@
     return Math.min(a, b) - h * h * k * 0.25;
   }
 
+  // Distance from a point to a line segment.
+  function segDist(x, y, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, k = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(x - a.x - dx * k, y - a.y - dy * k);
+  }
+
   const W = SF.World = {
     nodes: [], regions: [], plots: [], planet: null,
 
@@ -46,6 +52,7 @@
     makeBiomes() {
       const R = rng(777 + SF.state.planet * 131), out = [];
       const avoid = W.nodes.map(n => ({ x: n.x, y: n.y, r: 70 })).concat(W.plots.map(p => ({ x: p.x, y: p.y + 20, r: C.plotR + 70 })));
+      for (const t of W.trails || []) for (let k = 0; k <= 1; k += 0.05) avoid.push({ x: t.a.x + (t.b.x - t.a.x) * k, y: t.a.y + (t.b.y - t.a.y) * k, r: C.trailWidth + 30 });
       for (const reg of W.regions) {
         const key = reg.res != null && W.res(reg.res).biome, b = key && SF.Biomes.BIOMES[key];
         if (!b) continue;
@@ -88,6 +95,13 @@
         for (let k = 0; k <= 1; k += 0.1) avoid.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, r: 80 });
       }
       if (!W.planet.home) avoid.push({ x: C.hub.pad.x, y: C.hub.pad.y, r: 110 });
+      // A clear trail from the landing site to every other region; the quarters between get denser instead.
+      W.trails = W.regions.filter(r => r.unlock).map(r => {
+        const a = Math.atan2(r.y, r.x), k = C.gateRadius + 300;
+        return { a: { x: Math.cos(a) * 150, y: Math.sin(a) * 150 }, b: { x: Math.cos(a) * k, y: Math.sin(a) * k } };
+      });
+      const onTrail = (x, y) => W.trails.some(t => segDist(x, y, t.a, t.b) < C.trailWidth);
+      const field = W.planet.field;
       for (const reg of W.regions) {
         if (reg.res == null) continue;
         const def = W.res(reg.res);
@@ -95,8 +109,9 @@
         while (placed < def.count && tries++ < 4000) {
           const a = R() * TAU, d = Math.sqrt(R()) * (reg.r - 70);
           const x = reg.x + Math.cos(a) * d, y = reg.y + Math.sin(a) * d;
-          if (avoid.some(o => Math.hypot(o.x - x, o.y - y) < o.r)) continue;
-          if (W.nodes.some(n => Math.hypot(n.x - x, n.y - y) < 100)) continue;
+          if (avoid.some(o => Math.hypot(o.x - x, o.y - y) < o.r) || onTrail(x, y)) continue;
+          if (reg.id === 'r0' && field && !field(x, y)) continue;
+          if (W.nodes.some(n => Math.hypot(n.x - x, n.y - y) < (reg.id === 'r0' ? 82 : 92))) continue;
           // Each node must sit in its own region only, never in an overlap.
           const home = W.regions.find(rg => Math.hypot(rg.x - x, rg.y - y) < rg.r - 30);
           if (home !== reg) continue;

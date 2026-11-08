@@ -149,6 +149,8 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
     from Halcyon (it also flies a supply run when the pantry runs low). Crew without food stop working. Until a
     canteen stands, crew simply eat raw sunfruit from the hall.
 - Sounds from the hall and the smelter are only as loud as they are close to you.
+- Every planet has clear trails from the landing site to each region; resources grow in the quarters between them.
+  On Halcyon, sunfruit grows only in the west field, so you no longer harvest by accident on the way around.
 
 Progress saves automatically to `localStorage` (under 1 KB). The menu (top right) has a reset.
 Saves from earlier versions are migrated automatically.
