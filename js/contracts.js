@@ -14,7 +14,7 @@ SF.Contracts = (function () {
       const pi = +k, pl = SF.PLANETS[pi];
       pl.resources.forEach((r, t) => { if (t <= 2 && !r.liquid) out.push(pi * 10 + t); });
     }
-    for (const c in SF.INGOTS) if ((SF.state.hold[c] || 0) > 0 || SF.state.smelt.hand > 0) out.push(+c);
+    for (const c in SF.INGOTS) if ((SF.state.hold[c] || 0) > 0 || SF.state.smelt.q[c - 100] > 0) out.push(+c);
     return out;
   }
 

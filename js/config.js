@@ -52,7 +52,7 @@ SF.CFG = {
     meal: 30, drink: 20, per: 3, cookEvery: 2, cap: 60,     // input codes, items per serving, seconds per item cooked, stock cap
     eatEvery: 70, drinkEvery: 55, low: 0.25,                // a full meter lasts this long; below `low` they go for more
     walkHome: 30, walkAway: 8,                              // work lost walking to the canteen / warehouse while you are elsewhere
-    driver: 12000, drivers: 2, carSpeed: 230,               // delivery car drivers at the canteen
+    driver: 12000,                                          // retired delivery cars: old saves get this back per car
     pantry: 3,                                              // servings per crew member each supply run brings out
     feast: 50, elixir: 51, fine: 2,                         // Edenia food: moonmelon feasts and nectar elixirs keep crew full twice as long
   },
@@ -63,7 +63,7 @@ SF.CFG = {
     rocketCap: 50, flight: 11, unload: 3,       // seconds each way, seconds on the hall pad
     away: 25,                                   // whole round trip: flight + unload + flight
     pad: { x: 205, y: 55 },                     // cargo rocket pad beside the warehouse, clear of the belts
-    chest: { base: 40, step: 40, cost: 8000, growth: 1.85, max: 8 },   // portable chest, total items
+    chest: { cost: 8000, growth: 1.85 },   // retired portable chest: only old saves read this, to refund upgrades
     hall:  { base: 150, step: 150, cost: 20000, growth: 1.9, max: 8 },  // Halcyon hall, per resource
     wh:    { base: 200, step: 150, cost: 15000, growth: 1.9, max: 8 },  // warehouse on each other planet, total items (cost x planet multiplier)
     hallAt: { x: 300, y: -290 },
@@ -94,12 +94,12 @@ SF.CFG = {
 
   // Smelter on Halcyon: iron and copper ore from the hall become ingots for building.
   smelter: {
-    at: { x: -300, y: -270 }, pickup: { x: 110, y: -205 },  // smelter, and the ore pickup pad beside the hall
-    road: [{ x: -130, y: -238 }, { x: 25, y: -238 }],        // where the tractor stops: smelter hopper, ore pickup
+    at: { x: -300, y: -270 },                               // the smelter, docked to the hall by two belts
+    oreBelt: [{ x: 196, y: -292 }, { x: 196, y: -262 }, { x: -160, y: -262 }, { x: -160, y: -372 }, { x: -194, y: -372 }],   // hall -> hopper
+    barBelt: [{ x: -230, y: -236 }, { x: 226, y: -236 }, { x: 226, y: -292 }],   // furnace -> hall
+    feedEvery: 0.35,                                        // seconds between two ore taken out of the hall
     ores: [12, 22], queue: 60, every: 1.4,                  // ore waiting in the furnace, seconds per ingot
-    byHand: 20,                                            // ore you bring yourself before you can hire a driver
-    driver: 15000, tractor: { cap: 16, speed: 150, load: 0.12 },
-    hauler: 40000, haulLane: 30, outCap: 40,                // second driver: ingots from the tray to the hall
+    refund: { driver: 15000, hauler: 40000 },               // old saves: hired smelter drivers are paid back
     heat: { base: 8000, growth: 1.8, max: 5, boost: 0.4 },  // furnace upgrades
   },
 };

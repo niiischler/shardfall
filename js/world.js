@@ -35,15 +35,13 @@
       SF.Save.ensureWorld(SF.state, SF.state.planet);
       const L = SF.layoutPlanet(W.planet);
       W.regions = L.regions; W.plots = SF.applyLots(L.plots, SF.ws());
-      // Halcyon has the big hall; other planets get the portable chest once Halcyon is reached.
+      // Halcyon has the big hall.
       const rocket = W.plot('launch'), H = C.hub.hallAt;
-      W.chest = SF.hubActive() ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;
       W.hall = W.planet.home ? { x: H.x, y: H.y, r: 62, padY: H.y + 70 } : null;
       const B = C.contracts.at;
       W.board = W.planet.home ? { x: B.x, y: B.y, r: C.contracts.r, padY: B.y + 50 } : null;
       const S = C.smelter;
       W.smelter = W.planet.home ? { x: S.at.x, y: S.at.y, r: 58, padY: S.at.y + 80 } : null;
-      W.pickup = W.planet.home ? { x: S.pickup.x, y: S.pickup.y, r: 46 } : null;
       W._mask = null;
       W.generate();
       W.pattern = W.groundPattern(ctx, W.planet.theme);
@@ -80,7 +78,6 @@
       ];
       W.plots.forEach(p => avoid.push({ x: p.x, y: p.y + 20, r: C.plotR + 80 }));
       W.nodes = [];
-      if (W.chest) avoid.push({ x: W.chest.x, y: W.chest.y, r: 110 });
       if (W.hall) avoid.push({ x: W.hall.x, y: W.hall.y - 60, r: 260 });
       if (W.board) avoid.push({ x: W.board.x, y: W.board.y, r: 110 });
       // keep every possible conveyor route clear of nodes
@@ -92,10 +89,12 @@
         }
       }
       if (W.smelter) {
-        avoid.push({ x: W.smelter.x + 30, y: W.smelter.y - 20, r: 210 }, { x: W.pickup.x, y: W.pickup.y + 30, r: 110 });
-        // keep the tractor's track clear
-        const [a, b] = C.smelter.road;
-        for (let k = 0; k <= 1; k += 0.1) avoid.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, r: 80 });
+        avoid.push({ x: W.smelter.x + 30, y: W.smelter.y - 20, r: 210 });
+        // keep the belts between the hall and the smelter clear
+        for (const pts of [C.smelter.oreBelt, C.smelter.barBelt]) for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1], b = pts[i];
+          for (let k = 0; k <= 1; k += 0.1) avoid.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, r: 50 });
+        }
       }
       if (!W.planet.home) avoid.push({ x: C.hub.pad.x, y: C.hub.pad.y, r: 110 });
       // A clear trail from the landing site to every other region; the quarters between get denser instead.

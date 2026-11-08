@@ -1,5 +1,5 @@
 // Game rules and the main loop: move, harvest, carry, deliver, build, travel.
-// Home-base systems (chest, crew, belts) live in home.js.
+// Home-base systems (crew, belts) live in home.js.
 (function () {
   const C = SF.CFG, W = SF.World, FX = SF.FX, A = SF.Audio, Rn = SF.Render;
   const TAU = Math.PI * 2;
@@ -234,7 +234,7 @@
   function plotVisible(p) { return (!p.requires || SF.ws().plots[p.requires].built) && (!p.research || SF.R(p.research) > 0); }
   SF.plotVisible = plotVisible;
 
-  // Paid off in credits and, for home buildings, in materials from the chest.
+  // Paid off in credits and, for home buildings, in materials from the hall.
   SF.plotDone = (p, st) => p.cost - st.paid < 0.01 && Object.keys(p.needs || {}).every(c => (st.res[c] || 0) >= p.needs[c]);
 
   function build(p) {
@@ -333,13 +333,26 @@
     SF.UI.refresh();
     if (perks) SF.UI.showArrival(perks);
     else FX.pop(P.x, P.y - 120, 'Welcome to ' + SF.planetName(), W.planet.theme.accent, 26, { life: 2.4, vy: -16 });
-    // The chest came along: unpack it into the hall.
-    if (SF.state.planet === C.home && SF.Hub.chestCount()) {
-      const r = SF.Hub.unpackChest(), h = W.hall;
-      FX.pop(h.x, h.y - 160, `Chest unpacked: ${r.n} items`, '#ffd36b', 20, { life: 2.2 });
-      if (r.credits) SF.earnFx(r.credits, h.x, h.y - 130);
-      save();
+    // Landing at home: whatever you carried from the other planets goes straight into the hall
+    // (and anything still in an old save's chest with it).
+    if (SF.state.planet === C.home) homeUnpack();
+  }
+
+  function homeUnpack() {
+    const s = SF.state, items = Object.assign({}, s.chest || {});
+    s.chest = {};
+    const keep = [];
+    for (const code of s.stack) {
+      if (Math.floor((code % 100) / 10) === C.home) keep.push(code); else items[code] = (items[code] || 0) + 1;
     }
+    const n = Object.values(items).reduce((a, b) => a + b, 0);
+    if (!n) return;
+    s.stack = keep;
+    P.stackFx.length = keep.length;
+    const r = SF.Hub.deliverAll(items), h = W.hall;
+    FX.pop(h.x, h.y - 160, `Unpacked into the hall: ${r.n} items`, '#ffd36b', 20, { life: 2.2 });
+    if (r.credits) SF.earnFx(r.credits, h.x, h.y - 130);
+    save();
   }
 
   function updateLaunch(dt) {
@@ -408,11 +421,9 @@
       const inZone = (x, y, r) => Math.hypot(P.x - x, (P.y - y) * 1.5) < r;
       if (inZone(C.dropZone.x, C.dropZone.y, C.dropZone.r)) zone = 'drop';
       else if (inZone(C.upgradePad.x, C.upgradePad.y, C.upgradePad.r)) zone = 'upgrade';
-      else if (W.chest && inZone(W.chest.x, W.chest.y, W.chest.r)) zone = 'chest';
       else if (W.hall && inZone(W.hall.x, W.hall.padY, W.hall.r)) zone = 'hall';
       else if (W.board && inZone(W.board.x, W.board.padY, W.board.r)) zone = 'board';
       else if (W.smelter && inZone(W.smelter.x, W.smelter.padY, W.smelter.r)) zone = 'smelter';
-      else if (W.pickup && inZone(W.pickup.x, W.pickup.y, W.pickup.r)) zone = 'pickup';
       else for (const p of W.plots) {
         if (!plotVisible(p)) continue;
         const ps = ws.plots[p.id];
@@ -422,17 +433,13 @@
     }
     if (zone !== P.zone) { P.zone = zone; SF.UI.setZone(zone); }
 
-    // unload cargo, one item at a time: drop off, chest or hall
-    if ((zone === 'drop' || zone === 'chest' || zone === 'hall') && s.stack.length) {
+    // unload cargo, one item at a time: drop off or hall
+    if ((zone === 'drop' || zone === 'hall') && s.stack.length) {
       P.deliverT -= dt;
       while (P.deliverT <= 0 && s.stack.length) {
         const from = Rn.stackSlot(P, s.stack.length - 1), code = s.stack[s.stack.length - 1];
         if (zone === 'drop' && SF.Hub.whFull()) {
           if (!P.chestWarned) { P.chestWarned = true; A.full(); FX.pop(C.depot.x, C.depot.y - 120, 'Warehouse full! Wait for the rocket or expand it', '#ff8f5a', 16, { life: 1.6 }); }
-          break;
-        }
-        if (zone === 'chest' && !SF.Hub.storeChest(code, from.x, from.y)) {
-          if (!P.chestWarned) { P.chestWarned = true; A.full(); FX.pop(W.chest.x, W.chest.y - 90, 'Chest full! Upgrade it here', '#ff8f5a', 16, { life: 1.4 }); }
           break;
         }
         s.stack.pop();
@@ -459,25 +466,11 @@
         fly(code, from.x, from.y, () => ({ x: W.smelter.x + 87, y: W.smelter.y - 96 }), { dur: 0.4, arc: 60, onArrive() { A.store(SF.Smelter.queued()); } });
         P.smeltT += 0.07;
       }
-      // ...and finished ingots from the tray go onto your back, for the hall.
-      if (!s.stack.some(c => SF.Smelter.isOre(c)) && free > 0 && SF.Smelter.ready() > 0) {
-        P.ingotT = (P.ingotT || 0) - dt;
-        if (P.ingotT <= 0) { P.ingotT = 0.08; const c = SF.Smelter.takeIngot(); if (c != null) toStack(c, W.smelter.x - 82, W.smelter.y - 30, 0); }
-      }
     } else { P.smeltT = 0; P.smeltWarned = false; }
 
-    // ore pickup beside the hall: load iron and copper ore into your pack
-    if (zone === 'pickup' && free > 0) {
-      P.pickT = (P.pickT || 0) - dt;
-      if (P.pickT <= 0) {
-        P.pickT = 0.08;
-        const c = SF.Smelter.takeOre();
-        if (c != null) toStack(c, W.pickup.x, W.pickup.y - 30, 0);
-      }
-    }
     comboT -= dt; if (comboT <= 0) combo = 0;
 
-    // pay into a build plot: credits, then materials from the chest
+    // pay into a build plot: credits, then materials from the hall
     if (zone && zone.startsWith('plot:') && W.plot(zone.slice(5)).kind !== 'lot') {
       const p = W.plot(zone.slice(5)), ps = ws.plots[p.id];
       const left = p.cost - ps.paid;
@@ -598,7 +591,7 @@
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
     if (W.board) Rn.boardPad(ctx, W.board, t);
     if (W.smelter) {
-      Rn.pickupPad(ctx, W.pickup, t, P.zone === 'pickup', SF.Smelter.oreInHall());
+      Rn.smelterBelts(ctx, t);
     }
     Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt), t);
     // stock riding on the belts, under everything that stands
@@ -619,20 +612,14 @@
       SF.Hub.arrivals().forEach(a => { if (a.h == null) return; const p0 = SF.Hub.pads()[a.pad], pd = { x: p0.x + (a.i ? (a.i % 2 ? 1 : -1) * Math.ceil(a.i / 2) * 26 : 0), y: p0.y + (a.i ? 4 : 0) }; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, a, t) }); });
     }
     list.push({ y: C.upgradePad.y, fn: () => Rn.upgradePad(ctx, t, P.zone === 'upgrade') });
-    if (W.chest) list.push({ y: W.chest.y, fn: () => Rn.chest(ctx, W.chest, t, P.zone === 'chest') });
     for (const p of W.plots) if (ws.plots[p.id].built) {
       const lift = p.kind === 'launch' && launch ? rocketLift() + 0.001 : 0;
       list.push({ y: p.y, fn: () => Rn.building(ctx, p, ws.plots[p.id], t, P.zone === 'bld:' + p.id, lift) });
     }
     if (W.smelter) {
       list.push({ y: W.smelter.y, fn: () => Rn.smelter(ctx, W.smelter, t, P.zone === 'smelter', SF.state.smelt.q, SF.Smelter.queued() > 0) });
-      const tr = SF.Smelter.tractor;
-      if (tr) list.push({ y: tr.y, fn: () => Rn.tractor(ctx, tr, t) });
-      const hl = SF.Smelter.hauler;
-      if (hl) list.push({ y: hl.y, fn: () => Rn.tractor(ctx, hl, t) });
     }
     for (const id in SF.Haul.live) { const v = SF.Haul.live[id]; list.push({ y: v.y, fn: () => Rn.vehicle(ctx, v, t) }); }
-    for (const car of SF.Food.cars) list.push({ y: car.y, fn: () => Rn.foodCar(ctx, car, t) });
     for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
