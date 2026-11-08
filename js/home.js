@@ -80,7 +80,7 @@ SF.Home = (function () {
   function installBelt(id) {
     const st = SF.ws().plots[id];
     const need = C.conveyor.needs;
-    if (st.belt || !hasFactory() || Object.keys(need).some(c => available(c) < need[c])) { SF.Audio.nope(); return false; }
+    if (st.belt || SF.World.plot(id).research || !hasFactory() || Object.keys(need).some(c => available(c) < need[c])) { SF.Audio.nope(); return false; }
     for (const c in need) spendMaterial(c, need[c]);
     st.belt = true;
     const p = SF.World.plot(id);
@@ -165,7 +165,7 @@ SF.Home = (function () {
     }
     if (m.state === 'return') {
       goal = dropPoint();
-      if (Math.hypot(goal.x - m.x, goal.y - m.y) < 20 && m.incoming === 0) { unload(m); m.state = 'seek'; }
+      if (Math.hypot(goal.x - m.x, goal.y - m.y) < 20 && m.incoming === 0 && (SF.World.hall || !SF.Hub.whFull())) { unload(m); m.state = 'seek'; }
     }
     if (goal) {
       const dx = goal.x - m.x, dy = goal.y - m.y, l = Math.hypot(dx, dy);
@@ -189,7 +189,7 @@ SF.Home = (function () {
       if (w.work >= workTime(w.job)) {
         w.work -= workTime(w.job);
         const pi = jobPlanet(w), ws = s.worlds[pi];
-        if (pi !== C.home && ws) SF.Hub.toWarehouse(w.job, ws); else SF.Hub.deliver(w.job, 1);
+        if (pi !== C.home && ws) { if (!SF.Hub.whFull(ws)) SF.Hub.toWarehouse(w.job, ws); } else SF.Hub.deliver(w.job, 1);
       }
     });
 

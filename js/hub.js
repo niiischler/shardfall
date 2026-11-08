@@ -11,6 +11,20 @@ SF.Hub = (function () {
   const upCost = (u, lvl) => Math.round(u.cost * Math.pow(u.growth, lvl));
   const chestCost = () => upCost(H.chest, SF.state.chestLvl);
   const hallCost = () => upCost(H.hall, SF.state.hallLvl);
+  // Warehouses on the other planets hold a limited number of items in total. When one is full, drones, belts,
+  // drivers and crew wait (and you cannot unload) until the cargo rocket takes a load away.
+  const whCap = ws => H.wh.base + H.wh.step * ((ws || SF.ws()).whLvl || 0);
+  const whFull = ws => { ws = ws || SF.ws(); return SF.hubActive() || ws !== SF.ws() ? whCount(ws) >= whCap(ws) : false; };
+  const whCost = () => Math.round(upCost(H.wh, SF.ws().whLvl || 0) * SF.mult());
+  function upgradeWarehouse() {
+    const ws = SF.ws();
+    if (!SF.hubActive() || (ws.whLvl || 0) >= H.wh.max || !SF.spend(whCost())) return false;
+    ws.whLvl = (ws.whLvl || 0) + 1;
+    SF.FX.burst(C.depot.x, C.depot.y - 40, ['#ffd36b', '#fff4e8'], 30, { z: 30, speed: 240, size: 4 });
+    SF.FX.pop(C.depot.x, C.depot.y - 140, 'Warehouse holds ' + whCap(ws), '#ffd36b', 18);
+    SF.save(); SF.UI.refresh();
+    return true;
+  }
 
   // Sale value when the hall is full: Halcyon's refinery and your perks apply.
   function overflowValue(code) {
@@ -109,7 +123,7 @@ SF.Hub = (function () {
       while (ws.droneT >= C.drone.awayEvery) {
         ws.droneT -= C.drone.awayEvery;
         ws.droneTurn = ((ws.droneTurn || 0) + 1) % tiers.length;
-        toWarehouse(pi * 10 + tiers[ws.droneTurn], ws);
+        if (!whFull(ws)) toWarehouse(pi * 10 + tiers[ws.droneTurn], ws);
       }
     }
     for (const p of L.plots) {
@@ -117,13 +131,15 @@ SF.Hub = (function () {
       if (p.kind !== 'producer' || !st || !st.built) continue;
       const ps = SF.producerStats(p, st);
       st.t = (st.t || 0) + dt;
-      if (st.belt) {
-        while (st.t >= ps.every) { st.t -= ps.every; toWarehouse(pi * 10 + p.helper.res, ws); }
-        if (st.pile > 0) { toWarehouse(pi * 10 + p.helper.res, ws); st.pile--; }
-        continue;
-      }
       while (st.t >= ps.every) { st.t -= ps.every; if (st.pile < ps.cap) st.pile++; }
-      if (st.driver) SF.Haul.away(pi, p, st, dt, c => toWarehouse(c, ws));
+      // A belt moves one item per belt step (faster with belt upgrades); a driver brings full loads.
+      if (st.belt && !whFull(ws)) {
+        const be = SF.beltEvery(st);
+        st.beltT = (st.beltT || 0) + dt;
+        while (st.beltT >= be && st.pile > 0 && !whFull(ws)) { st.beltT -= be; st.pile--; toWarehouse(pi * 10 + p.helper.res, ws); }
+        if (!st.pile) st.beltT = Math.min(st.beltT, be);
+      }
+      if (st.driver && !whFull(ws)) SF.Haul.away(pi, p, st, dt, c => toWarehouse(c, ws));
     }
   }
 
@@ -275,6 +291,6 @@ SF.Hub = (function () {
 
   return {
     arrivals, padLabel, inFlight, phase, pads, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
-    rk, toWarehouse, whCount, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
+    rk, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
   };
 })();

@@ -125,6 +125,8 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   material (more with upgrades); anything beyond that is sold for credits.
 - On the other planets the drop off becomes a **warehouse** with a **cargo rocket**. Drop offs, drones and belts fill it;
   when 50 items are loaded it flies to the hall by itself (or launch it early from the warehouse panel).
+  A warehouse holds 200 items (expand it in the warehouse panel); when it is full, drones, belts, drivers, crew
+  and you wait until the rocket takes a load away.
 - The **material chest** now travels with you and stands next to your rocket on the other planets. Fill it and it
   empties into the hall when you fly home. Upgrade it at the chest for more room.
 - Home buildings cost credits **and materials** from the hall (shown under the plot), e.g. the Haven Bridge needs logs from Verdra.
@@ -139,8 +141,10 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   - **Habitat** (any number, each pricier): 2 beds each. Hire crew there and tap a job for each crew member
     (any of the three cheapest resources of any planet). On the planet you are on, crew harvest like drones and carry
     it to the hall or warehouse; elsewhere they fill their planet's warehouse (1 every 8 s).
-  - **Belt Factory** (iron + copper ingots): unlocks conveyor belts. Install one at any sawmill, mine or excavator
-    for 10 iron ingots; it runs into a side input of the warehouse and carries the stock there by itself.
+  - **Belt Factory** (iron + copper ingots): unlocks conveyor belts. Install one at a planet's original sawmill, mine
+    or excavator for 30 iron ingots; it runs into a side input of the warehouse and carries the stock there by itself.
+    Researched machines stand too far out for a belt and need a driver. After researching "Faster belts" (machines
+    tree), the Belt Factory lists every belt on every planet and you choose which ones to upgrade (up to level 3).
   - **Research Lab**: four trees (rocket technology, autonomous harvesting, industry, machines). Each level costs credits plus
     materials from the hall: faster and bigger cargo rockets, faster drones that carry more and hit harder, faster
     producers, faster crew and better recipes.
