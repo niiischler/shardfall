@@ -37,6 +37,7 @@ SF.UI = (function () {
       list.push('Warehouses: drop offs on the other planets now fill cargo rockets that fly to the hall on Halcyon');
       list.push('Material chest: comes with you to the other planets');
       list.push('Smelter: turns iron and copper ore into the ingots your buildings need');
+      list.push('New Haven: choose for yourself what to build on each lot (habitats, belt factory, research lab, canteen)');
     }
     return list;
   }
@@ -130,7 +131,7 @@ SF.UI = (function () {
     if (s.totalEarned === 0) return s.stack.length >= st.cap ? 'Pack full. Carry it to the DROP OFF pad' : 'Harvest more, then carry it to the DROP OFF pad';
     if (s.stack.length >= st.cap) return 'Pack full. Head to the DROP OFF pad';
     if (!SF.atHome() && ws.plots.launch.built) return 'The rocket is ready. Stand on the launch pad to fly on';
-    const next = SF.World.plots.filter(p => SF.plotVisible(p) && !ws.plots[p.id].built).sort((a, b) => a.cost - b.cost)[0];
+    const next = SF.World.plots.filter(p => SF.plotVisible(p) && !ws.plots[p.id].built && p.kind !== 'lot').sort((a, b) => a.cost - b.cost)[0];
     if (next) {
       const missing = Object.keys(next.needs || {}).filter(c => (ws.plots[next.id].res[c] || 0) < next.needs[c]).map(c => SF.res(+c).plural);
       const bars = Object.keys(next.needs || {}).some(c => SF.isIngot(+c) && (ws.plots[next.id].res[c] || 0) < next.needs[c] && !(s.hold[c] > 0));
@@ -139,6 +140,7 @@ SF.UI = (function () {
       return `Next: stand on the ${next.name} plot to build it (${fmt(next.cost - ws.plots[next.id].paid)} left)`;
     }
     if (SF.hubActive()) return 'Harvest and unload at the WAREHOUSE. Full cargo rockets fly to the hall on Halcyon';
+    if (SF.World.plots.some(p => p.kind === 'lot' && SF.plotVisible(p))) return 'New Haven has empty lots: stand on one to choose a building';
     if (SF.atHome()) return 'Fly to other planets for materials, or hire crew in the habitats';
     return 'Everything is built. Max out your upgrades!';
   }
@@ -149,6 +151,8 @@ SF.UI = (function () {
     producer: p => [producerCard(p), beltCard(p)],
     launch: () => (SF.atHome() ? travelCards() : [launchCard()]),
     habitat: () => crewCards(),
+    lab: () => researchCards(),
+    canteen: () => canteenCards(),
   };
   const hasPanel = p => !!PANELS[p.kind];
 
@@ -158,7 +162,11 @@ SF.UI = (function () {
     else if (zone === 'hall') openPanel('Halcyon hall', hallCards());
     else if (zone === 'smelter') openPanel('Smelter', smelterCards());
     else if (zone === 'drop' && SF.hubActive()) openPanel('Warehouse', warehouseCards());
-    else if (zone && zone.startsWith('bld:')) {
+    else if (zone && zone.startsWith('plot:') && SF.World.plot(zone.slice(5)).lot) {
+      const p = SF.World.plot(zone.slice(5));
+      if (p.kind === 'lot') openPanel('Build on this lot', buildCards(p));
+      else openPanel(p.name + ' under construction', [cancelCard(p)]);
+    } else if (zone && zone.startsWith('bld:')) {
       const p = SF.World.plot(zone.slice(4));
       openPanel(p.kind === 'launch' ? (SF.atHome() ? 'Rocket: choose a planet' : 'Launch pad') : p.name, PANELS[p.kind](p));
     } else closePanel();
@@ -277,12 +285,100 @@ SF.UI = (function () {
     ];
   }
 
+  // ---------- New Haven build menu ----------
+  const matList = needs => Object.keys(needs).map(c => `${needs[c]} ${SF.res(+c).plural.toLowerCase()}`).join(', ');
+  const matHave = needs => Object.keys(needs).map(c => {
+    const have = SF.state.hold[c] || 0, ok = have >= needs[c];
+    return `<li class="${ok ? '' : 'short'}"><i style="background:${SF.res(+c).color}"></i>${Math.min(have, needs[c])}/${needs[c]} ${SF.res(+c).plural}</li>`;
+  }).join('');
+
+  function buildCards(p) {
+    return Object.keys(SF.BUILDS).map(kind => {
+      const b = SF.BUILDS[kind];
+      const btn = card('build-' + kind, b.name, () => SF.Home.chooseLot(p.id, kind), false);
+      btn.insertAdjacentHTML('beforeend', '<ul class="res-list mats"></ul>');
+      return {
+        btn,
+        update(r) {
+          const q = SF.Home.quote(kind), ok = SF.Home.canChoose(kind);
+          fill(r.btn, kind === 'habitat' ? `${SF.homeCount('habitat')} built or planned` : ok ? 'One per base' : 'Already built or planned', b.desc, q.cost);
+          r.btn.querySelector('.mats').innerHTML = matHave(q.needs);
+          r.btn.disabled = !ok;
+          r.btn.classList.toggle('poor', false);
+        },
+      };
+    });
+  }
+
+  function cancelCard(p) {
+    const btn = card('cancel-lot', 'Build something else', () => SF.Home.cancelLot(p.id), true);
+    btn.querySelector('.card-cost').innerHTML = '<b></b>';
+    return {
+      btn,
+      update(r) {
+        const st = SF.ws().plots[p.id];
+        r.btn.querySelector('.card-lvl').textContent = `${SF.UI.fmt(st.paid || 0)} / ${SF.UI.fmt(p.cost)} paid`;
+        r.btn.querySelector('.card-eff').textContent = `Still needs ${matList(Object.fromEntries(Object.keys(p.needs).map(c => [c, Math.max(0, p.needs[c] - (st.res[c] || 0))]).filter(e => e[1] > 0))) || 'only credits'}. Cancelling gives back every credit and material paid in so far.`;
+      },
+    };
+  }
+
+  // ---------- research lab ----------
+  function researchCards() {
+    const cards = [];
+    for (const tree of SF.RESEARCH) {
+      const head = info('tree-' + tree.id, `<span class="card-name" style="color:${tree.color}">${tree.name}</span>`);
+      head.classList.add('tree-head');
+      cards.push({ btn: head, update() {} });
+      for (const n of tree.nodes) {
+        const btn = card('res-' + n.id, n.name, () => SF.Research.research(n.id), false);
+        btn.style.setProperty('--tint', tree.color);
+        btn.classList.add('research');
+        btn.insertAdjacentHTML('beforeend', '<ul class="res-list mats"></ul>');
+        cards.push({
+          btn,
+          update(r) {
+            const l = SF.R(n.id), max = SF.Research.maxed(n), lock = SF.Research.locked(n), c = SF.Research.cost(n);
+            fill(r.btn, max ? 'MAX' : lock ? `Needs ${SF.Research.node(n.after).name}` : `Lv ${l} → ${l + 1}`, max ? n.eff(l) : `${n.eff(l + 1)}`, max || lock ? null : c.credits);
+            r.btn.querySelector('.mats').innerHTML = max || lock ? '' : matHave(c.mats);
+            if (!max && !lock) r.btn.classList.toggle('poor', !SF.Research.affordable(n));
+          },
+        });
+      }
+    }
+    return cards;
+  }
+
+  // ---------- canteen ----------
+  function canteenCards() {
+    const F = C.food;
+    return [
+      listCard('canteen-info', 'Kitchen', '', () => {
+        const k = SF.state.kitchen, h = SF.state.hold, per = F.per + SF.R('recipes');
+        const fed = SF.state.crew.filter(w => SF.Food.canWork(w)).length;
+        return {
+          list: `<li><i style="background:#ffb340"></i>${k.meal}/${F.cap} meals</li><li><i style="background:#7fd8ff"></i>${k.drink}/${F.cap} drinks</li>`,
+          text: `Cooks 1 sunfruit into ${per} meals and 1 cactus water into ${per} drinks from the hall (${h[F.meal] || 0} sunfruit, ${h[F.drink] || 0} cactus water there). ` +
+            `${fed} of ${SF.state.crew.length} crew fed and working. Crew on other planets get food from their warehouse; their cargo rocket brings it.`,
+        };
+      }),
+      {
+        btn: card('hire-cook-driver', 'Delivery driver', () => SF.Food.hireDriver(), true),
+        update(r) {
+          const n = SF.state.kitchen.drivers, full = n >= F.drivers;
+          fill(r.btn, `${n} / ${F.drivers} cars`, n ? 'Drives meals and drinks out to the crew on Halcyon, so nobody stops working to walk here.' :
+            'Without a car, crew on Halcyon walk all the way here to eat and drink, and stop working meanwhile.', full ? null : SF.Food.driverCost());
+        },
+      },
+    ];
+  }
+
   function smelterCards() {
     const K = C.smelter, Sm = SF.Smelter;
     return [
       listCard('smelt-info', 'In the furnace', '', () => ({
         list: resList(SF.state.smelt.q, K.queue),
-        text: `1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s and goes straight into the hall. ` +
+        text: `1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s and lands on the tray (${Sm.ready()} / ${K.outCap} ready). ` +
           `Hall: ${SF.state.hold[112] || 0} iron ingots, ${SF.state.hold[122] || 0} copper ingots. ` +
           `Pick ore up at the ORE PICKUP pad beside the hall and bring it here.`,
       })),
@@ -294,6 +390,16 @@ SF.UI = (function () {
           fill(r.btn, ready ? 'Ready to hire' : `Bring ore yourself first: ${s.hand} / ${K.byHand}`,
             'Drives a tractor between the hall and the smelter so you never have to carry ore again.', ready ? K.driver : null);
           if (!ready) { r.btn.querySelector('.card-cost b').textContent = SF.UI.fmt(K.driver); r.btn.classList.add('poor'); }
+        },
+      },
+      {
+        btn: card('hire-hauler', 'Ingot hauler', () => Sm.hireHauler(), true),
+        update(r) {
+          const s = SF.state.smelt;
+          if (s.hauler) { fill(r.btn, 'Hired', 'Drives the finished ingots from the smelter to the hall on their own, even while you are away.', null); r.btn.querySelector('.card-cost b').textContent = ''; return; }
+          fill(r.btn, s.driver ? 'Ready to hire' : 'Hire the tractor driver first',
+            `Brings the finished ingots to the hall. Until then they wait here (${Sm.ready()} ready): stand here with room in your pack to take them.`, s.driver ? Sm.haulCost() : null);
+          if (!s.driver) { r.btn.querySelector('.card-cost b').textContent = SF.UI.fmt(Sm.haulCost()); r.btn.classList.add('poor'); }
         },
       },
       {
@@ -315,15 +421,16 @@ SF.UI = (function () {
         const ws = SF.ws(), r = Hb.rk(ws);
         return {
           list: resList(Object.assign({}, ws.wh || {})),
-          text: r.away > 0 ? `Rocket is away, back in ${Math.ceil(r.away)}s. Stock waits here.` :
-            `Rocket loaded ${r.n} / ${C.hub.rocketCap}. It flies to Halcyon by itself when full.`,
+          text: (SF.Food.crewOn(SF.state.planet) ? `Crew pantry: ${SF.Food.pantry(SF.state.planet).meal} meals, ${SF.Food.pantry(SF.state.planet).drink} drinks. ` : '') +
+            (r.away > 0 ? `Rocket is away, back in ${Math.ceil(r.away)}s. Stock waits here.` :
+            `Rocket loaded ${r.n} / ${SF.rocketCap()}. It flies to Halcyon by itself when full.`),
         };
       }),
       {
         btn,
         update(b) {
           const r = Hb.rk(SF.ws());
-          b.btn.querySelector('.card-lvl').textContent = r.away > 0 ? 'Away' : `${r.n} / ${C.hub.rocketCap} loaded`;
+          b.btn.querySelector('.card-lvl').textContent = r.away > 0 ? 'Away' : `${r.n} / ${SF.rocketCap()} loaded`;
           b.btn.querySelector('.card-eff').textContent = 'Send what is loaded now instead of waiting for a full rocket.';
           b.btn.querySelector('.card-cost b').textContent = '';
           b.btn.disabled = r.away > 0 || !r.n;
@@ -360,19 +467,26 @@ SF.UI = (function () {
       update(r) {
         const n = SF.state.crew.length, cap = SF.Home.crewCap(), full = n >= cap;
         fill(r.btn, `${n} / ${cap} beds`, full ? 'All beds are taken. Build another habitat for more crew.' :
-          `Crew harvest their job's resource. On the planet you are on you see them at work; elsewhere they ship 1 to the hall every ${C.crew.workEvery}s. Each eats 1 ${SF.res(C.crew.food).name.toLowerCase()} from the hall every ${C.crew.eatEvery}s.`, full ? null : SF.hireCost());
+          `Crew harvest their job's resource. On the planet you are on you see them at work; elsewhere they fill that planet's warehouse (1 every ${C.crew.workEvery}s). ` +
+          (SF.Food.on() ? 'They eat meals and drink from the canteen.' : `Each eats 1 ${SF.res(C.crew.food).name.toLowerCase()} from the hall every ${C.crew.eatEvery}s until you build a canteen.`), full ? null : SF.hireCost());
       },
     }];
+    // Each crew member: a status line and every job at a glance, grouped by planet. One tap picks it.
     SF.state.crew.forEach((w, i) => {
-      const btn = card('crew-' + i, 'Crew ' + (i + 1), () => SF.Home.nextJob(i));
-      btn.querySelector('.card-cost').innerHTML = '<b>Change job</b>';
+      const rows = SF.PLANETS.map((pl, pi) => `<div class="job-row"><span class="job-planet">${pl.name}</span>` +
+        pl.resources.slice(0, 3).map(r => `<button type="button" class="job-chip" data-job="${pi * 10 + r.tier}"><i style="background:${r.color}"></i>${r.plural}</button>`).join('') + '</div>').join('');
+      const div = info('crew-' + i, `<span class="card-name">Crew ${i + 1}</span><span class="card-lvl"></span><span class="card-eff"></span><div class="jobs">${rows}</div>`);
+      div.querySelectorAll('.job-chip').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); if (SF.Home.setJob(i, +b.dataset.job)) SF.Audio.pick(3); }));
       cards.push({
-        btn,
+        btn: div,
         update(r) {
-          const R = SF.res(w.job), pl = SF.planet(Math.floor(w.job / 10));
+          const R = SF.res(w.job), pl = SF.planet(Math.floor(w.job / 10)), need = SF.Food.status(w);
           r.btn.querySelector('.card-lvl').textContent = `${R.plural} · ${pl.name}`;
-          r.btn.querySelector('.card-eff').textContent = w.hungry ? `Hungry! Bring ${SF.res(C.crew.food).name.toLowerCase()} to the hall.` : 'Working';
-          r.btn.classList.toggle('poor', !!w.hungry);
+          r.btn.querySelector('.card-eff').textContent = need === 'eating' ? 'Gone to eat and drink' : need ? `${need[0].toUpperCase() + need.slice(1)}! ` +
+            (SF.Food.on() ? (Math.floor(w.job / 10) === C.home ? 'The canteen needs sunfruit and cactus water in the hall.' : `Their cargo rocket brings food from the canteen to the ${pl.name} warehouse.`) :
+              `Bring ${SF.res(C.crew.food).name.toLowerCase()} to the hall.`) : 'Working';
+          r.btn.classList.toggle('poor', !!need && need !== 'eating');
+          r.btn.querySelectorAll('.job-chip').forEach(b => b.classList.toggle('on', +b.dataset.job === w.job));
         },
       });
     });

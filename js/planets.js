@@ -93,10 +93,6 @@ SF.PLANETS = [
     // Buildings of the home base. needs = materials from the hall, by resource code (ingots: 112 iron, 122 copper).
     homePlots: [
       { id: 'g4', kind: 'gate', name: 'Haven Bridge', desc: 'Opens New Haven', cost: 25000, needs: { 10: 40 }, requires: 'g3' },
-      { id: 'fac', kind: 'factory', name: 'Belt Factory', desc: 'Conveyor belts for producers', cost: 30000, needs: { 112: 40, 122: 20 }, requires: 'g4', at: [-210, -150] },
-      { id: 'hab1', kind: 'habitat', name: 'Habitat', desc: 'Room for 2 crew', cost: 15000, needs: { 10: 50, 21: 30 }, requires: 'g4', at: [210, -150] },
-      { id: 'hab2', kind: 'habitat', name: 'Habitat II', desc: 'Room for 2 more crew', cost: 30000, needs: { 10: 80, 21: 60, 0: 40 }, requires: 'hab1', at: [-210, 170] },
-      { id: 'hab3', kind: 'habitat', name: 'Habitat III', desc: 'Room for 2 more crew', cost: 60000, needs: { 10: 120, 21: 90, 3: 30 }, requires: 'hab2', at: [210, 170] },
     ],
   },
 ];
@@ -158,6 +154,11 @@ SF.layoutPlanet = function (planet) {
       const [x, y] = h.at ? [reg.x + h.at[0], reg.y + h.at[1]] : at(sett, C.gateRadius);
       plots.push(Object.assign({}, h, { x: Math.round(x), y: Math.round(y) }));
     }
+    // Empty building lots in New Haven: you choose what goes where (see SF.BUILDS).
+    C.haven.lots.forEach(([dx, dy], i) => plots.push({
+      id: 'L' + (i + 1), kind: 'lot', lot: true, name: 'Building lot', desc: 'Stand here to choose a building', cost: 0,
+      requires: 'g4', x: Math.round(reg.x + dx), y: Math.round(reg.y + dy),
+    }));
   } else {
     for (const id of ['h1', 'ref', 'h2', 'launch']) {
       if (id === 'ref') { plot('ref', 'refinery', 'Refinery', 'Everything sells for +50%', ...spot()); continue; }
@@ -168,3 +169,22 @@ SF.layoutPlanet = function (planet) {
   }
   return { regions, plots };
 };
+
+// What a lot in New Haven shows once you chose a building for it (its kind, price and materials live in the save).
+SF.applyLots = function (plots, ws) {
+  for (const p of plots) {
+    if (!p.lot) continue;
+    const st = ws && ws.plots[p.id], b = st && st.kind && SF.BUILDS[st.kind];
+    if (b) Object.assign(p, { kind: st.kind, name: b.name, desc: b.desc, cost: st.cost, needs: st.needs });
+    else Object.assign(p, { kind: 'lot', name: 'Building lot', desc: 'Stand here to choose a building', cost: 0, needs: null });
+  }
+  return plots;
+};
+
+// How many buildings of a kind stand (or are planned) on Halcyon.
+SF.homeCount = function (kind, builtOnly) {
+  const ws = SF.state.worlds[SF.CFG.home];
+  if (!ws) return 0;
+  return Object.values(ws.plots).filter(st => st.kind === kind && (!builtOnly || st.built)).length;
+};
+SF.homeHas = kind => SF.homeCount(kind, true) > 0;

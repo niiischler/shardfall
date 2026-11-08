@@ -201,3 +201,24 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
   #panel, .sheet { transition: none; }
   .card.bought, .card.denied { animation: none; }
 }
+
+/* build menu, research and job picker */
+.card .mats { margin: 6px 0 0; gap: 4px; }
+.card .mats li { padding: 2px 8px; font-size: 0.72rem; }
+.card .mats li.short { color: var(--ember); background: rgba(255, 143, 90, 0.12); }
+.card.info.tree-head { grid-column: 1 / -1; padding: 6px 12px; min-height: 0; background: transparent; border-color: transparent; }
+.card.info.tree-head .card-name { font-size: 0.95rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.card.research { border-color: var(--tint, var(--line)); }
+.card.research .card-name { color: var(--tint, var(--sand)); }
+.jobs { display: grid; gap: 6px; margin-top: 8px; }
+.job-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.job-planet { width: 72px; font: 600 0.72rem/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.job-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(255, 244, 232, 0.06); color: var(--sand); font: 600 0.78rem/1 var(--body);
+}
+.job-chip i { width: 9px; height: 9px; border-radius: 2px; transform: rotate(45deg); }
+.job-chip:hover { background: rgba(255, 244, 232, 0.14); }
+.job-chip.on { border-color: var(--credit); background: rgba(255, 211, 107, 0.2); color: var(--credit); }
+@media (max-width: 600px) { .job-planet { width: 100%; } }
+.card.info.tree-head .card-key { display: none; }

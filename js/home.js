@@ -1,35 +1,64 @@
-// Home-base systems: hired crew, conveyor belts. Storage and shipping live in hub.js.
+// Home-base systems: New Haven lots, hired crew, conveyor belts. Storage and shipping live in hub.js,
+// crew food in food.js, research in research.js.
 SF.Home = (function () {
   const C = SF.CFG;
   const SUITS = ['#ffd27a', '#9be36a', '#8fd3ff', '#ff9cc2', '#c9a6ff', '#ffab4a'];
   const workers = [];           // crew working on the planet you are on, drawn and simulated
 
-  const homeWorld = () => SF.state.worlds[C.home];
-  const built = id => !!(homeWorld() && homeWorld().plots[id] && homeWorld().plots[id].built);
-
   // Jobs a crew member can take: the three cheapest resources of every planet.
   const jobs = () => SF.PLANETS.flatMap((p, pi) => p.resources.slice(0, 3).map(r => pi * 10 + r.tier));
+  const jobPlanet = w => Math.floor(w.job / 10);
 
-  function crewCap() {
-    if (!homeWorld()) return 0;
-    return SF.PLANETS[C.home].homePlots.filter(h => h.kind === 'habitat' && built(h.id)).length * C.crew.perHabitat;
-  }
-
-  function hasFactory() { return built('fac'); }
-
+  function crewCap() { return SF.homeCount('habitat', true) * C.crew.perHabitat; }
+  function hasFactory() { return SF.homeHas('factory'); }
   function hold(code) { return SF.state.hold[code] || 0; }
 
+  // ---------- New Haven lots ----------
+  // What a lot would cost if you chose `kind` for it now.
+  function quote(kind) {
+    const b = SF.BUILDS[kind], n = SF.homeCount(kind);
+    return { cost: b.cost(n), needs: b.needs(n) };
+  }
+  const canChoose = kind => !SF.BUILDS[kind].unique || SF.homeCount(kind) === 0;
+
+  function chooseLot(id, kind) {
+    const st = SF.ws().plots[id];
+    if (!st || st.kind || st.built || !canChoose(kind)) { SF.Audio.nope(); return false; }
+    const q = quote(kind);
+    Object.assign(st, { kind, cost: q.cost, needs: q.needs, paid: 0, res: {} });
+    SF.applyLots(SF.World.plots, SF.ws());
+    const p = SF.World.plot(id);
+    SF.Audio.buy(); SF.FX.pop(p.x, p.y - 90, SF.BUILDS[kind].name + ' planned', '#fff4e8', 20);
+    SF.save(); SF.UI.setZone(SF.player.zone); SF.UI.refresh();
+    return true;
+  }
+
+  // Changing your mind: everything paid so far comes back.
+  function cancelLot(id) {
+    const st = SF.ws().plots[id];
+    if (!st || !st.kind || st.built) return false;
+    SF.state.credits += st.paid || 0;
+    for (const c in st.res || {}) SF.state.hold[c] = hold(c) + st.res[c];
+    Object.assign(st, { kind: undefined, cost: undefined, needs: undefined, paid: 0, res: {} });
+    SF.applyLots(SF.World.plots, SF.ws());
+    SF.Audio.store(3);
+    SF.save(); SF.UI.setZone(SF.player.zone); SF.UI.refresh();
+    return true;
+  }
+
+  // ---------- crew ----------
   function hire() {
     if (SF.state.crew.length >= crewCap() || !SF.spend(SF.hireCost())) return false;
-    SF.state.crew.push({ job: C.crew.food, food: 1 });
+    SF.state.crew.push({ job: C.crew.food, food: 1, water: 1 });
     SF.FX.pop(SF.player.x, SF.player.y - 100, 'Crew member hired', '#fff4e8', 18);
     SF.save(); SF.UI.refresh();
     return true;
   }
 
-  function nextJob(i) {
-    const list = jobs(), w = SF.state.crew[i];
-    w.job = list[(list.indexOf(w.job) + 1) % list.length];
+  function setJob(i, code) {
+    const w = SF.state.crew[i];
+    if (!w || !jobs().includes(code)) return false;
+    w.job = code; w.away = 0;
     SF.save(); SF.UI.refresh();
     return true;
   }
@@ -71,12 +100,27 @@ SF.Home = (function () {
   }
 
   // Walks to the nearest node of its job, chops it like a drone would, and carries the haul back.
+  // When hungry or thirsty it walks to the canteen (or the warehouse pantry) unless a delivery car comes.
   function updateWorker(m, dt) {
     const w = SF.state.crew[m.i], k = C.crew;
     m.swing = Math.max(0, m.swing - dt * 3.5);
-    m.hungry = w.hungry;
-    if (w.hungry) { m.state = 'idle'; return; }
+    m.need = SF.Food.status(w);
+    if (m.state !== 'eat' && SF.Food.wantsWalk(w)) {
+      if (m.target && m.target.claimed === m) m.target.claimed = null;
+      m.target = null; m.state = 'eat'; m.eatT = 1.2;
+    }
+    if (!SF.Food.canWork(w) && m.state !== 'eat') { m.state = 'idle'; return; }
+    if (m.state === 'idle') m.state = 'seek';
     let goal = null;
+    if (m.state === 'eat') {
+      const spot = SF.Food.eatSpot(jobPlanet(w));
+      goal = spot;
+      if (!spot || Math.hypot(spot.x - m.x, spot.y - m.y) < 24) {
+        goal = null;
+        m.eatT -= dt;
+        if (m.eatT <= 0) { SF.Food.refill(w, jobPlanet(w)); m.state = SF.Food.canWork(w) ? 'seek' : 'eat'; m.eatT = 1.5; }
+      }
+    }
     if (m.state === 'seek') {
       if (m.cargo.length + m.incoming >= m.cap) m.state = 'return';
       else {
@@ -107,9 +151,8 @@ SF.Home = (function () {
         m.face = n.x >= m.x ? 1 : -1;
         m.hitT -= dt;
         if (m.hitT <= 0) {
-          m.hitT = k.hitEvery; m.swing = 1;
-          const near = Math.max(0, 1 - Math.hypot(n.x - SF.player.x, n.y - SF.player.y) / 600) * 0.5;
-          SF.hitNode(n, 1 + n.res * 0.5, m, near);
+          m.hitT = k.hitEvery / (1 + 0.25 * SF.R('training')); m.swing = 1;
+          SF.hitNode(n, (1 + n.res * 0.5) * (1 + 0.25 * SF.R('training')), m, SF.near(n.x, n.y) * 0.5);
         }
       }
     }
@@ -120,7 +163,7 @@ SF.Home = (function () {
     if (goal) {
       const dx = goal.x - m.x, dy = goal.y - m.y, l = Math.hypot(dx, dy);
       if (l > 2) {
-        const sp = Math.min(k.speed, l * 4);
+        const sp = Math.min(k.speed * (m.state === 'eat' ? 1.3 : 1), l * 4);
         m.x += dx / l * sp * dt; m.y += dy / l * sp * dt; m.walk += dt * sp / 14;
         if (Math.abs(dx) > 1) m.face = dx > 0 ? 1 : -1;
       }
@@ -128,20 +171,19 @@ SF.Home = (function () {
     }
   }
 
-  // Crew work everywhere, all the time. Each eats sunfruit from the hall. Crew whose job is on
-  // the planet you are on work there for real; the others ship their haul straight to the hall.
+  // Crew work everywhere, all the time, as long as they are fed. Crew whose job is on the planet you
+  // are on work there for real; the others fill their planet's warehouse (or the hall on Halcyon).
   function update(dt) {
     const s = SF.state, k = C.crew, here = s.planet;
     s.crew.forEach((w, i) => {
-      w.food -= dt / k.eatEvery;
-      if (w.food < 0) {
-        if (hold(k.food) > 0) { s.hold[k.food]--; w.food += 1; }
-        else { w.food = 0; w.hungry = true; return; }
+      SF.Food.tick(w, dt, jobPlanet(w) === here);
+      if (jobPlanet(w) === here || !SF.Food.canWork(w)) return;
+      w.work = (w.work || 0) + dt * (1 + 0.25 * SF.R('training'));
+      if (w.work >= k.workEvery) {
+        w.work -= k.workEvery;
+        const pi = jobPlanet(w), ws = s.worlds[pi];
+        if (pi !== C.home && ws) SF.Hub.toWarehouse(w.job, ws); else SF.Hub.deliver(w.job, 1);
       }
-      w.hungry = false;
-      if (Math.floor(w.job / 10) === here) return;
-      w.work = (w.work || 0) + dt;
-      if (w.work >= k.workEvery) { w.work -= k.workEvery; SF.Hub.deliver(w.job, 1); }
     });
 
     // Keep one worker per crew member whose job is here; drop the rest.
@@ -153,7 +195,7 @@ SF.Home = (function () {
       }
     }
     s.crew.forEach((w, i) => {
-      if (Math.floor(w.job / 10) !== here || workers.some(m => m.i === i)) return;
+      if (jobPlanet(w) !== here || workers.some(m => m.i === i)) return;
       const p = dropPoint(), a = Math.random() * Math.PI * 2;
       workers.push({ i, job: w.job, x: p.x + Math.cos(a) * 40, y: p.y + Math.sin(a) * 20, home: { x: p.x + Math.cos(a) * 70, y: p.y + 40 + Math.sin(a) * 20 },
         state: 'seek', target: null, cargo: [], incoming: 0, cap: k.cap, hitT: 0, swing: 0, walk: 0, face: 1, suit: SUITS[i % SUITS.length] });
@@ -163,5 +205,5 @@ SF.Home = (function () {
 
   function enter() { workers.length = 0; }
 
-  return { workers, jobs, crewCap, hasFactory, hold, available, hire, nextJob, installBelt, update, enter };
+  return { workers, jobs, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
 })();

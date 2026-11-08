@@ -49,11 +49,13 @@ SF.Hub = (function () {
   }
   const whCount = ws => Object.values(ws.wh || {}).reduce((a, b) => a + b, 0);
 
-  function launchCargo(pi) {
+  function launchCargo(pi, supply) {
     pi = pi == null ? SF.state.planet : pi;
     const ws = SF.state.worlds[pi], r = rk(ws);
-    if (!r.n || r.away > 0) return false;
-    r.away = H.away; r.out = 0;
+    if ((!r.n && !supply) || r.away > 0) return false;
+    // The trip length is fixed at lift-off, so research during a flight never makes a rocket jump.
+    r.fl = SF.rocketFlight(); r.total = 2 * r.fl + H.unload;
+    r.away = r.total; r.out = 0; r.food = null; r.packed = false;
     if (pi === SF.state.planet) {
       SF.Audio.rocket(0.8); SF.FX.shake(0.3);
       SF.FX.pop(H.pad.x, H.pad.y - 170, 'Cargo rocket launched to Halcyon', '#ffd36b', 18, { life: 1.6 });
@@ -63,10 +65,12 @@ SF.Hub = (function () {
   }
 
   // Seconds since lift-off, and where in its trip a rocket is.
-  const elapsed = r => H.away - r.away;
+  const fl = r => r.fl || H.flight;
+  const total = r => r.total || H.away;
+  const elapsed = r => total(r) - r.away;
   function phase(r) {
     if (r.away <= 0) return 'home';
-    const e = elapsed(r), F = H.flight;
+    const e = elapsed(r), F = fl(r);
     if (e < F) return 'out';
     if (e < F + H.unload) return 'unload';
     return 'back';
@@ -74,7 +78,7 @@ SF.Hub = (function () {
 
   // Unload into the hall bit by bit while the rocket stands on its pad.
   function unloadStep(pi, r) {
-    const want = Math.min(r.n, Math.ceil(r.n * Math.min(1, (elapsed(r) - H.flight) / H.unload)));
+    const want = Math.min(r.n, Math.ceil(r.n * Math.min(1, (elapsed(r) - fl(r)) / H.unload)));
     let credits = 0, moved = 0;
     while (r.out < want) {
       const code = +Object.keys(r.load).find(c => r.load[c] > 0);
@@ -87,8 +91,9 @@ SF.Hub = (function () {
       }
     }
     if (moved && SF.state.planet === C.home) {
-      const h = SF.World.hall;
-      SF.Audio.store(SF.state.hold[C.crew.food] || moved);
+      // Only as loud as the hall is close: across the map you hardly hear it.
+      const h = SF.World.hall, v = SF.near(h.x, h.y);
+      if (v > 0.02) SF.Audio.store(SF.state.hold[C.crew.food] || moved, v);
       if (credits) SF.earnFx(credits, h.x, h.y - 130);
     }
   }
@@ -100,7 +105,7 @@ SF.Hub = (function () {
     if (ws.drones > 0) {
       // Drones take turns between the resources of every open region.
       const tiers = L.regions.filter(r => r.res != null && (!r.unlock || (ws.plots[r.unlock] && ws.plots[r.unlock].built))).map(r => r.res);
-      ws.droneT = (ws.droneT || 0) + dt * ws.drones;
+      ws.droneT = (ws.droneT || 0) + dt * ws.drones * (SF.droneSpeed() / C.drone.speed) * (0.5 + 0.5 * SF.dronePower()) * (SF.droneCap() / C.drone.cap);
       while (ws.droneT >= C.drone.awayEvery) {
         ws.droneT -= C.drone.awayEvery;
         ws.droneTurn = ((ws.droneTurn || 0) + 1) % tiers.length;
@@ -185,14 +190,16 @@ SF.Hub = (function () {
         r.away = Math.max(0, r.away - dt);
         const now = phase(r);
         // Even after a long frame (or a tab in the background) the cargo always arrives.
-        if (elapsed(r) >= H.flight && r.out < r.n) unloadStep(pi, r);
-        if (r.away <= 0) { r.load = {}; r.n = 0; r.out = 0; }
-        if (s.planet === C.home && before === 'out' && H.flight - elapsed(r) < 2.4 && !r.heard) { r.heard = true; SF.Audio.land(0.6); }
+        if (elapsed(r) >= fl(r) && r.out < r.n) unloadStep(pi, r);
+        // Leaving Halcyon: take food out to the crew working on that planet.
+        if (elapsed(r) >= fl(r) + H.unload && !r.packed) { r.packed = true; r.food = SF.Food.pack(pi); }
+        if (r.away <= 0) { SF.Food.unpack(pi, r.food); r.load = {}; r.n = 0; r.out = 0; r.food = null; r.packed = false; }
+        if (s.planet === C.home && before === 'out' && fl(r) - elapsed(r) < 2.4 && !r.heard) { r.heard = true; const h = SF.World.hall; SF.Audio.land(0.6 * SF.near(h.x, h.y)); }
         if (now !== 'out') r.heard = false;
         continue;
       }
       // Load the warehouse stock into the rocket: animated where you are, instantly elsewhere.
-      while (r.n < H.rocketCap && whCount(ws) > 0 && (!here || loadT <= 0)) {
+      while (r.n < SF.rocketCap() && whCount(ws) > 0 && (!here || loadT <= 0)) {
         // Take turns between the resources in stock, so a fast one never starves the others.
         const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0).sort((a, b) => a - b);
         r.turn = ((r.turn || 0) + 1) % keys.length;
@@ -201,7 +208,9 @@ SF.Hub = (function () {
         r.load[code] = (r.load[code] || 0) + 1; r.n++;
         if (here) { loadT = 0.1; SF.fly(code, C.depot.x + 40, C.depot.y - 30, () => ({ x: H.pad.x, y: H.pad.y - 60 }), { dur: 0.4, arc: 40 }); break; }
       }
-      if (r.n >= H.rocketCap) launchCargo(pi);
+      if (r.n >= SF.rocketCap()) launchCargo(pi);
+      // Its crew is running out of food: fly now with whatever is loaded.
+      else if (SF.Food.needsSupply(pi)) launchCargo(pi, true);
     }
   }
 
@@ -211,7 +220,7 @@ SF.Hub = (function () {
     for (const k in SF.state.worlds) {
       const pi = +k, r = SF.state.worlds[k].rk;
       if (pi === C.home || !r || r.away <= 0) continue;
-      const e = elapsed(r), F = H.flight, U = H.unload;
+      const e = elapsed(r), F = fl(r), U = H.unload;
       let h = null, fire = false;
       if (e >= F - 2.4 && e < F) { h = Math.pow(F - e, 2) * 90; fire = true; }
       else if (e >= F && e < F + U) h = 0;
@@ -226,10 +235,10 @@ SF.Hub = (function () {
     const ws = SF.state.worlds[pi], name = SF.planetName(pi);
     if (!ws) return [name.toUpperCase(), 'not visited yet'];
     const r = rk(ws), p = phase(r), e = elapsed(r);
-    if (p === 'out') return [name.toUpperCase(), `lands in ${Math.ceil(H.flight - e)}s`];
+    if (p === 'out') return [name.toUpperCase(), `lands in ${Math.ceil(fl(r) - e)}s`];
     if (p === 'unload') return [name.toUpperCase(), 'unloading'];
     if (p === 'back') return [name.toUpperCase(), `back on ${name} in ${Math.ceil(r.away)}s`];
-    return [name.toUpperCase(), `loading ${r.n}/${H.rocketCap}`];
+    return [name.toUpperCase(), `loading ${r.n}/${SF.rocketCap()}`];
   }
 
   const inFlight = () => Object.keys(SF.state.worlds).filter(k => +k !== C.home && SF.state.worlds[k].rk && SF.state.worlds[k].rk.away > 0).length;
@@ -238,7 +247,7 @@ SF.Hub = (function () {
   function cargoLift() {
     const r = rk(SF.ws());
     if (r.away <= 0) return 0;
-    const gone = H.away - r.away;
+    const gone = total(r) - r.away;
     if (gone < 2.5) return Math.pow(gone, 2) * 120;
     if (r.away < 2.5) return Math.pow(r.away, 2) * 120;
     return null;               // out of sight

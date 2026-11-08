@@ -28,7 +28,7 @@
       W.planet = SF.planet();
       SF.Save.ensureWorld(SF.state, SF.state.planet);
       const L = SF.layoutPlanet(W.planet);
-      W.regions = L.regions; W.plots = L.plots;
+      W.regions = L.regions; W.plots = SF.applyLots(L.plots, SF.ws());
       // Halcyon has the big hall; other planets get the portable chest once Halcyon is reached.
       const rocket = W.plot('launch'), H = C.hub.hallAt;
       W.chest = SF.hubActive() ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;

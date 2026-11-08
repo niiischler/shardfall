@@ -131,13 +131,24 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   Pick ore up at the **ORE PICKUP** pad beside the hall, carry it to the smelter, and the ingots go into the hall.
   After 20 ore brought by hand you can hire a **tractor driver** who runs the ore over by themselves (also while you
   are away). "Hotter furnace" upgrades make it smelt faster.
-- **New Haven** (behind the bridge) is the expansion area:
+- The smelter's finished ingots wait on its tray. Stand at the smelter with room in your pack to take them to the hall,
+  or hire the (pricier) **ingot hauler**, who drives them over by tractor.
+- **New Haven** (behind the bridge) has nine empty lots. Stand on one and pick what to build there; the lot then
+  becomes a construction site paid with credits and materials from the hall ("Build something else" refunds it):
+  - **Habitat** (any number, each pricier): 2 beds each. Hire crew there and tap a job for each crew member
+    (any of the three cheapest resources of any planet). On the planet you are on, crew harvest like drones and carry
+    it to the hall or warehouse; elsewhere they fill their planet's warehouse (1 every 8 s).
   - **Belt Factory** (iron + copper ingots): unlocks conveyor belts. Install one at any sawmill, mine or excavator
     for 10 iron ingots; it runs into a side input of the warehouse and carries the stock there by itself.
-  - **Habitats** (logs, sandstone, ...): 2 beds each. Hire crew there and pick a job (any of the three cheapest
-    resources of any planet). On the planet you are on, crew walk to their resource, harvest it like drones and carry
-    it to the hall or warehouse. Elsewhere they ship 1 unit to the hall every 8 s. Each eats 1 sunfruit from the hall
-    every 40 s; without sunfruit they go hungry and stop.
+  - **Research Lab**: three trees (rocket technology, autonomous harvesting, industry). Each level costs credits plus
+    materials from the hall: faster and bigger cargo rockets, faster drones that carry more and hit harder, faster
+    producers, faster crew and better recipes.
+  - **Canteen**: cooks sunfruit into meals and cactus water into drinks. Crew then need both. On Halcyon they walk to
+    the canteen to eat (and stop working meanwhile) unless you hire **delivery drivers**, whose cars bring the food
+    out to them. Crew on other planets eat from their warehouse's pantry, which the cargo rocket fills on its way back
+    from Halcyon (it also flies a supply run when the pantry runs low). Crew without food stop working. Until a
+    canteen stands, crew simply eat raw sunfruit from the hall.
+- Sounds from the hall and the smelter are only as loud as they are close to you.
 
 Progress saves automatically to `localStorage` (under 1 KB). The menu (top right) has a reset.
 Saves from earlier versions are migrated automatically.
@@ -149,9 +160,11 @@ index.html        page shell and HUD markup
 css/style.css     HUD, panels, overlays
 js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, producers, crew
 js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
-js/home.js        crew (working on the current planet) and conveyor belts
+js/home.js        New Haven lots, crew (working on the current planet) and conveyor belts
 js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall, the portable chest
-js/smelter.js     smelter on Halcyon: ore to ingots, ore pickup, tractor driver
+js/smelter.js     smelter on Halcyon: ore to ingots, ore pickup, tractor driver, ingot hauler
+js/food.js        canteen, crew meals and drinks, delivery cars, pantry supply runs
+js/research.js    research lab trees and their effects
 js/audio.js       WebAudio synth sound effects, one sound set per material (no audio files)
 js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults
