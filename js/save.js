@@ -22,7 +22,7 @@ SF.Save = {
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
       worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
       smelt: { q: {}, out: {}, hauler: false, hand: 0, driver: false, heat: 0, t: 0 },
-      research: {}, charted: {}, contracts: { list: [], done: 0, swap: 0 }, demand: {}, sellAt: {}, fuel: 0, fuelUse: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
+      research: {}, charted: {}, contracts: { list: [], done: 0, swap: 0 }, demand: {}, sellAt: {}, fuel: 0, fuelUse: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, t: 0 }, fab: { belts: {}, m: [], n: 0 },
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -55,7 +55,7 @@ SF.Save = {
     s.credits = Math.max(0, num(data.credits, 0));
     s.totalEarned = num(data.totalEarned, 0);
     if (data.lvl) for (const k in s.lvl) s.lvl[k] = Math.max(0, num(data.lvl[k], 0) | 0);
-    const valid = c => typeof c === 'number' && c >= 0 && !!(SF.INGOTS[c] || (SF.PLANETS[Math.floor(c / 10)] && SF.PLANETS[Math.floor(c / 10)].resources[c % 10]));
+    const valid = c => typeof c === 'number' && c >= 0 && !!(SF.INGOTS[c] || SF.PARTS[c] || (SF.PLANETS[Math.floor(c / 10)] && SF.PLANETS[Math.floor(c / 10)].resources[c % 10]));
     if (Array.isArray(data.stack)) s.stack = data.stack.filter(valid);
     if (data.player && isFinite(data.player.x) && isFinite(data.player.y)) s.player = { x: data.player.x, y: data.player.y };
     if (data.hold) for (const c in data.hold) if (valid(+c) && data.hold[c] > 0) s.hold[c] = data.hold[c] | 0;
@@ -129,9 +129,39 @@ SF.Save = {
         const res = into.plots[id].res;
         for (const ore of [12, 22]) if (pi === SF.CFG.home && res[ore]) { res[ore + 100] = (res[ore + 100] || 0) + res[ore]; delete res[ore]; }
       }
+      // Buildings in New Haven's free build area: each one remembers its grid cell. Saves from the fixed-lot days
+      // put a building where its lot was; empty old lots simply disappear.
+      if (pi === SF.CFG.home && w.plots) for (const id in w.plots) {
+        const p = w.plots[id];
+        if (!/^L\d+$/.test(id) || !p || !SF.BUILDS[p.kind]) continue;
+        let at = Array.isArray(p.at) && p.at.length === 2 && isFinite(p.at[0]) && isFinite(p.at[1]) ? [p.at[0] | 0, p.at[1] | 0] : null;
+        if (!at) {
+          const L = SF.CFG.haven.lots[(+id.slice(1)) - 1], F = SF.CFG.fab;
+          if (!L) continue;
+          at = [Math.round(L[0] / F.G - F.bld.w / 2), Math.round((L[1] + 20) / F.G - F.bld.h)];
+        }
+        const res = counts(p.res);
+        for (const ore of [12, 22]) if (res[ore]) { res[ore + 100] = (res[ore + 100] || 0) + res[ore]; delete res[ore]; }
+        into.plots[id] = { paid: num(p.paid, 0), built: !!p.built, lvl: num(p.lvl, 0) | 0, pile: 0, res, kind: p.kind, cost: num(p.cost, 0), needs: counts(p.needs), at };
+      }
     }
+    s.fab = SF.Save.fab(data.fab);
     this.ensureWorld(s, s.planet);
     return s;
+  },
+
+  // The free build area: belts (cell -> direction) and placed machines. Items riding the belts are not saved.
+  fab(d) {
+    const f = { belts: {}, m: [], n: 0 }, ok = c => typeof c === 'number' && (SF.INGOTS[c] || SF.PARTS[c] || (SF.PLANETS[Math.floor(c / 10)] && SF.PLANETS[Math.floor(c / 10)].resources[c % 10]));
+    if (!d) return f;
+    if (d.belts) for (const k in d.belts) if (/^-?\d+,-?\d+$/.test(k) && [0, 1, 2, 3].includes(d.belts[k])) f.belts[k] = d.belts[k];
+    const cnt = o => { const r = {}; if (o) for (const c in o) if (ok(+c) && o[c] > 0) r[c] = o[c] | 0; return r; };
+    if (Array.isArray(d.m)) for (const m of d.m) {
+      if (!m || !SF.CFG.fab.kinds[m.k] || !isFinite(m.c) || !isFinite(m.r)) continue;
+      f.m.push({ id: m.id | 0, k: m.k, c: m.c | 0, r: m.r | 0, rot: (m.rot | 0) & 3, rec: SF.RECIPES.some(q => q.id === m.rec) ? m.rec : null, sel: ok(m.sel) ? m.sel : null, in: cnt(m.in), out: cnt(m.out), t: 0 });
+    }
+    f.n = Math.max(d.n | 0, ...f.m.map(m => m.id));
+    return f;
   },
 
   // First release saved resource names and four fixed plots.
@@ -164,7 +194,7 @@ SF.Save = {
       const plots = {}, w = s.worlds[k];
       for (const id in w.plots) {
         const p = w.plots[id], res = Object.keys(p.res || {}).length ? p.res : undefined;
-        if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, mk: p.mk || undefined, driver: p.driver || undefined, beltLvl: p.beltLvl || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined };
+        if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, mk: p.mk || undefined, driver: p.driver || undefined, beltLvl: p.beltLvl || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined, at: p.at };
       }
       const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
       const pack = q => (q && (q.n || q.away || q.kind) ? { load: q.load, kind: q.kind || undefined, n: q.n, out: q.out || undefined, away: Math.round(q.away * 10) / 10 || undefined, fl: q.fl, total: q.total, model: q.away ? q.model : undefined, food: q.food || undefined } : undefined);
@@ -178,6 +208,7 @@ SF.Save = {
       crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 100) / 100, water: Math.round((w.water == null ? 1 : w.water) * 100) / 100 })),
       kitchen: { meal: s.kitchen.meal, drink: s.kitchen.drink, feast: s.kitchen.feast || undefined, elixir: s.kitchen.elixir || undefined },
       refunded: undefined,
+      fab: { belts: s.fab.belts, m: s.fab.m.map(m => ({ id: m.id, k: m.k, c: m.c, r: m.r, rot: m.rot || undefined, rec: m.rec || undefined, sel: m.sel, in: Object.keys(m.in || {}).length ? m.in : undefined, out: Object.keys(m.out || {}).length ? m.out : undefined })), n: s.fab.n },
       demand: Object.fromEntries(Object.entries(s.demand || {}).map(([c, d]) => [c, Math.round(d * 1000) / 1000])),
       contracts: Object.assign({}, s.contracts, { swap: Math.round((s.contracts && s.contracts.swap) || 0) }),
       inbound: s.inbound.map(f => ({ t: Math.round(f.t * 10) / 10, items: f.items, from: f.from })),

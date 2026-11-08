@@ -47,8 +47,9 @@ SF.Home = (function () {
     if (!st || !st.kind || st.built) return false;
     SF.state.credits += st.paid || 0;
     for (const c in st.res || {}) SF.state.hold[c] = hold(c) + st.res[c];
-    Object.assign(st, { kind: undefined, cost: undefined, needs: undefined, paid: 0, res: {} });
-    SF.applyLots(SF.World.plots, SF.ws());
+    // A building in the free build area simply goes away and frees its ground.
+    if (st.at) { delete SF.ws().plots[id]; SF.Fab.syncLots(); }
+    else { Object.assign(st, { kind: undefined, cost: undefined, needs: undefined, paid: 0, res: {} }); SF.applyLots(SF.World.plots, SF.ws()); }
     SF.Audio.store(3);
     SF.save(); SF.UI.setZone(SF.player.zone); SF.UI.refresh();
     return true;

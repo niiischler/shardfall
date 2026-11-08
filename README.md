@@ -141,8 +141,17 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   "Hotter furnace" upgrades make it smelt faster.
 - Older saves: the smelter's tractor driver and ingot hauler, the canteen's delivery cars and chest upgrades were
   retired when transport got simpler. Their price is paid back once, and the chest's contents go into the hall.
-- **New Haven** (behind the bridge) has nine empty lots. Stand on one and pick what to build there; the lot then
-  becomes a construction site paid with credits and materials from the hall ("Build something else" refunds it):
+- **New Haven** (behind the bridge) is a free build area. Tap the hammer button (or press B) on Halcyon for build mode:
+  click or tap places things on the grid, dragging lays belts, WASD or two fingers move the view, Turn (R) sets the
+  direction, Move and Remove (full refund) tidy up, Done (B or Esc) lets you walk again.
+  - **Belts** (1 iron ingot per tile) carry items cell by cell and bend wherever you drag them.
+  - **Hall output** puts one chosen material from the hall onto the belt at its yellow arrow.
+  - **Fabricator** makes one recipe (n inputs to m outputs) from whatever its belts bring in on any side: iron and
+    copper ingots from ore, gears, copper wire, glass panes and circuits (wire + iron). Parts leave at its arrow.
+  - **Hall input** takes everything a belt brings into the hall, where parts sell well and show up in contracts.
+  - Belts and machines need the Belt Factory. Walk up to a machine (or tap it in build mode) to set it up.
+  - **Buildings** go anywhere in the area too; each starts as a construction site paid with credits and materials
+    from the hall ("Build something else" refunds it). Buildings from older saves stay where their lot was:
   - **Habitat** (any number, each pricier): 2 beds each. Hire crew there and tap a job for each crew member
     (any of the three cheapest resources of any planet). On the planet you are on, crew harvest like drones and carry
     it to the hall or warehouse; elsewhere they fill their planet's warehouse (1 every 8 s).
@@ -194,6 +203,7 @@ js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, prod
 js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
 js/home.js        New Haven lots, crew (working on the current planet) and conveyor belts
 js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall
+js/factory.js     New Haven's free build area: placing, belts, fabricators, hall output/input, build mode
 js/contracts.js   contract board on Halcyon: orders paid from the hall
 js/smelter.js     smelter on Halcyon: ore to ingots, belts to and from the hall
 js/food.js        canteen, crew meals and drinks, pantry supply runs

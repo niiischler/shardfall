@@ -14,7 +14,7 @@
   const cam = { x: 0, y: 0 };
   let combo = 0, comboT = 0, depotGlow = 0, smokeT = 0, saveT = 0, time = 0;
   let launch = null; // { t, dest } while the rocket is lifting off
-  let canvas, ctx, fog, fctx, dpr = 1, vw = 0, vh = 0, zoom = 1;
+  let canvas, ctx, fog, fctx, dpr = 1, vw = 0, vh = 0, zoom = 1, zv = 1;   // zv: zoom in use (build mode looks from further out)
 
   // ---------- state ----------
   function serialize() {
@@ -31,7 +31,7 @@
     P.incoming = 0; P.stackFx = []; P.zone = null; P.hidden = false;
     flyers.length = 0; drones.length = 0;
     cam.x = P.x; cam.y = P.y - 30;
-    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter(); SF.Food.enter(); SF.Haul.enter();
+    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter(); SF.Food.enter(); SF.Haul.enter(); SF.Fab.enterWorld();
     document.documentElement.style.setProperty('--accent', W.planet.theme.accent);
   }
 
@@ -376,7 +376,7 @@
     }
 
     // movement (frozen during launch)
-    const v = launch ? { x: 0, y: 0 } : SF.Input.vector();
+    const v = launch || SF.Fab.mode.on ? { x: 0, y: 0 } : SF.Input.vector();
     const k = Math.min(1, dt * 12);
     P.vx += (v.x * st.speed - P.vx) * k;
     P.vy += (v.y * st.speed - P.vy) * k;
@@ -417,7 +417,7 @@
 
     // zones
     let zone = null;
-    if (!launch) {
+    if (!launch && !SF.Fab.mode.on) {
       const inZone = (x, y, r) => Math.hypot(P.x - x, (P.y - y) * 1.5) < r;
       if (inZone(C.dropZone.x, C.dropZone.y, C.dropZone.r)) zone = 'drop';
       else if (inZone(C.upgradePad.x, C.upgradePad.y, C.upgradePad.r)) zone = 'upgrade';
@@ -430,6 +430,7 @@
         if (!ps.built && inZone(p.x, p.y, C.plotR)) { zone = 'plot:' + p.id; break; }
         if (ps.built && SF.UI.hasPanel(p) && inZone(p.x, p.y + 40, 54)) { zone = 'bld:' + p.id; break; }
       }
+      if (!zone) { const m = SF.Fab.machineAt(P.x, P.y); if (m) zone = 'fab:' + m.id; }
     }
     if (zone !== P.zone) { P.zone = zone; SF.UI.setZone(zone); }
 
@@ -532,6 +533,7 @@
     SF.Food.update(dt);
     SF.Fuel.update(dt);
     SF.Contracts.update(dt); SF.demandUpdate(dt);
+    SF.Fab.update(dt);
     SF.Haul.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
@@ -551,6 +553,7 @@
     // camera leads slightly in the walking direction, or follows the rocket
     let fx = P.x + P.vx * 0.22, fy = P.y - 30 + P.vy * 0.22;
     if (launch) { const p = W.plot('launch'); fx = p.x; fy = p.y - 80 - rocketLift() * 0.6; }
+    else if (SF.Fab.mode.on) { fx = SF.Fab.mode.cam.x; fy = SF.Fab.mode.cam.y; }
     cam.x += (fx - cam.x) * Math.min(1, dt * 5);
     cam.y += (fy - cam.y) * Math.min(1, dt * 5);
 
@@ -570,15 +573,16 @@
   }
 
   function worldTransform(c, sh) {
-    c.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * (vw / 2 - cam.x * zoom + sh.x), dpr * (vh / 2 - cam.y * zoom + sh.y));
+    c.setTransform(dpr * zv, 0, 0, dpr * zv, dpr * (vw / 2 - cam.x * zv + sh.x), dpr * (vh / 2 - cam.y * zv + sh.y));
   }
 
   function draw() {
     const t = time, ws = SF.ws(), sh = FX.offset(t), th = W.planet.theme;
+    zv = zoom * (SF.Fab.mode.on ? 0.75 : 1);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = th.backdrop; ctx.fillRect(0, 0, canvas.width, canvas.height);
     worldTransform(ctx, sh);
-    const L = cam.x - vw / 2 / zoom - 60, T = cam.y - vh / 2 / zoom - 60, Wd = vw / zoom + 120, Ht = vh / zoom + 120;
+    const L = cam.x - vw / 2 / zv - 60, T = cam.y - vh / 2 / zv - 60, Wd = vw / zv + 120, Ht = vh / zv + 120;
     ctx.fillStyle = W.pattern; ctx.fillRect(L, T, Wd, Ht);
     const inView = (x, y, m) => x > L - m && x < L + Wd + m && y > T - m && y < T + Ht + m;
     for (const bm of W.biomes) {
@@ -594,6 +598,7 @@
       Rn.smelterBelts(ctx, t);
     }
     Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt), t);
+    SF.Fab.drawGround(ctx, t, inView);
     // stock riding on the belts, under everything that stands
     for (const f of flyers) if (f.path && f.t >= 0 && !f.pipe) { const q = Rn.along(f.path, f.t * Rn.routeLen(f.path)); Rn.item(ctx, f.code, q.x, q.y - 6, 1); }
     for (const p of W.plots) if (plotVisible(p) && !ws.plots[p.id].built) Rn.plotMarking(ctx, p, ws.plots[p.id], t, P.zone === 'plot:' + p.id);
@@ -620,6 +625,7 @@
       list.push({ y: W.smelter.y, fn: () => Rn.smelter(ctx, W.smelter, t, P.zone === 'smelter', SF.state.smelt.q, SF.Smelter.queued() > 0) });
     }
     for (const id in SF.Haul.live) { const v = SF.Haul.live[id]; list.push({ y: v.y, fn: () => Rn.vehicle(ctx, v, t) }); }
+    SF.Fab.drawList(list, ctx, t, P.zone && P.zone.startsWith('fab:') ? +P.zone.slice(4) : null);
     for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
@@ -658,7 +664,8 @@
     }
 
     FX.drawPops(ctx);
-    if (!launch) drawGuide(t);
+    SF.Fab.drawOverlay(ctx, t);
+    if (!launch && !SF.Fab.mode.on) drawGuide(t);
 
     // fade to white as the rocket leaves
     if (launch && launch.t > 2.2) {
@@ -668,7 +675,7 @@
     }
 
     const j = SF.Input.joy;
-    if (j.active && !launch) {
+    if (j.active && !launch && !SF.Fab.mode.on) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.fillStyle = 'rgba(255,244,232,0.12)'; ctx.strokeStyle = 'rgba(255,244,232,0.4)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(j.ox, j.oy, SF.Input.R, 0, TAU); ctx.fill(); ctx.stroke();
@@ -729,12 +736,18 @@
     resize();
     window.addEventListener('resize', resize);
     SF.Input.attach(canvas, () => SF.UI.dismissIntro());
+    SF.Input.setHook(SF.Fab.pointer);
+    window.addEventListener('keydown', e => { if (SF.UI.panelOpen && SF.UI.panelOpen()) return; if (SF.Fab.key(e)) e.preventDefault(); else if (e.code === 'KeyB' && !SF.Fab.mode.on && e.target === document.body && SF.state.planet === C.home && SF.Fab.unlocked()) SF.Fab.enter(); });
     SF.UI.init();
     document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
     window.addEventListener('pagehide', save);
     if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(serialize);
     if (!running) { running = true; requestAnimationFrame(t => { last = t; frame(t); }); }
   }
+
+  // Screen point (CSS pixels) to world point, and the zoom in use: for build mode's pointer.
+  SF.toWorld = (sx, sy) => { const r = canvas.getBoundingClientRect(); return { x: cam.x + (sx - r.left - vw / 2) / zv, y: cam.y + (sy - r.top - vh / 2) / zv }; };
+  SF.viewZoom = () => zv;
 
   SF.boot = function () {
     const h = window.claude && window.claude.hot;

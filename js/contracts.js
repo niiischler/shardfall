@@ -15,6 +15,8 @@ SF.Contracts = (function () {
       pl.resources.forEach((r, t) => { if (t <= 2 && !r.liquid) out.push(pi * 10 + t); });
     }
     for (const c in SF.INGOTS) if ((SF.state.hold[c] || 0) > 0 || SF.state.smelt.q[c - 100] > 0) out.push(+c);
+    // Parts once a fabricator makes them.
+    for (const c in SF.PARTS) if ((SF.state.hold[c] || 0) > 0 || SF.state.fab.m.some(m => { const r = SF.Fab.recipe(m); return r && r.out[c]; })) out.push(+c);
     return out;
   }
 
