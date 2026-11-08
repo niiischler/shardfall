@@ -29,9 +29,10 @@
       SF.Save.ensureWorld(SF.state, SF.state.planet);
       const L = SF.layoutPlanet(W.planet);
       W.regions = L.regions; W.plots = L.plots;
-      // The material chest stands next to the rocket on the home planet.
-      const rocket = W.plot('launch');
-      W.chest = W.planet.home ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;
+      // Halcyon has the big hall; other planets get the portable chest once Halcyon is reached.
+      const rocket = W.plot('launch'), H = C.hub.hallAt;
+      W.chest = SF.hubActive() ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;
+      W.hall = W.planet.home ? { x: H.x, y: H.y, r: 62, padY: H.y + 70 } : null;
       W._mask = null;
       W.generate();
       W.pattern = W.groundPattern(ctx, W.planet.theme);
@@ -55,6 +56,8 @@
       W.plots.forEach(p => avoid.push({ x: p.x, y: p.y + 20, r: C.plotR + 80 }));
       W.nodes = [];
       if (W.chest) avoid.push({ x: W.chest.x, y: W.chest.y, r: 110 });
+      if (W.hall) avoid.push({ x: W.hall.x, y: W.hall.y - 40, r: 230 });
+      if (!W.planet.home) avoid.push({ x: C.hub.pad.x, y: C.hub.pad.y, r: 110 });
       for (const reg of W.regions) {
         if (reg.res == null) continue;
         const def = W.res(reg.res);
@@ -174,6 +177,13 @@
     },
   };
 
+  // A lumpy outline around the origin, used by rock-like nodes.
+  function blob(R, k, r, j) {
+    const pts = [];
+    for (let i = 0; i < k; i++) { const a = i / k * TAU; pts.push([Math.cos(a) * r * (1 - j / 2 + R() * j), Math.sin(a) * r * (1 - j / 2 + R() * j)]); }
+    return pts;
+  }
+
   // Each node shape gets its own random details, fixed by the seed.
   function makeNode(def, reg, x, y, R) {
     const n = { res: def.tier, code: SF.state.planet * 10 + def.tier, def, region: reg, x, y, r: def.r, hp: def.hp, maxHp: def.hp,
@@ -185,15 +195,90 @@
         for (let i = 0; i < k; i++) n.prisms.push({ ox: (R() - 0.5) * 30, a: (R() - 0.5) * 0.9, w: 9 + R() * 7, h: 22 + R() * 34, oy: R() * 6 });
         n.prisms.sort((a, b) => a.oy - b.oy || a.h - b.h);
         n.prisms.push({ ox: 0, a: (R() - 0.5) * 0.15, w: 15, h: 52 + R() * 14, oy: 3 });
+        n.pebbles = [];
+        for (let i = 0; i < 5; i++) n.pebbles.push({ x: (R() - 0.5) * 56, y: 2 + R() * 6, s: 2 + R() * 3, a: R() * TAU });
         break;
       }
-      case 'rock': {
-        n.pts = [];
-        for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; n.pts.push([Math.cos(a) * n.r * (0.85 + R() * 0.3), Math.sin(a) * n.r * (0.85 + R() * 0.3)]); }
+      case 'magma': {
+        n.pts = blob(R, 10, n.r, 0.25);
+        n.cracks = [];
+        for (let i = 0; i < 3; i++) {
+          let x = (R() - 0.5) * n.r, y = -n.r * 0.4 - R() * n.r * 0.6;
+          const c = [[x, y]];
+          for (let j = 0; j < 3; j++) { x += (R() - 0.5) * 16; y += 6 + R() * 8; c.push([x, y]); }
+          n.cracks.push(c);
+        }
+        break;
+      }
+      case 'icespire': {
+        n.spires = [];
+        for (let i = 0; i < 6; i++) n.spires.push({ ox: (i - 2.5) * 9 + (R() - 0.5) * 6, h: 34 + R() * 30 + (i === 2 || i === 3 ? 26 : 0), w: 7 + R() * 5, a: (R() - 0.5) * 0.5 });
+        n.spires.sort((a, b) => a.h - b.h);
+        n.sparks = [];
+        for (let i = 0; i < 4; i++) n.sparks.push({ x: (R() - 0.5) * 40, y: -20 - R() * 60, p: R() * TAU });
+        break;
+      }
+      case 'ironrock':
+        n.slabs = [{ w: n.r * 1.1, h: 22, ox: 0 }, { w: n.r * 0.85, h: 20, ox: (R() - 0.5) * 8 }, { w: n.r * 0.55, h: 16, ox: (R() - 0.5) * 10 }];
+        n.lumps = [];
+        for (let i = 0; i < 6; i++) n.lumps.push({ x: (R() - 0.5) * n.r * 1.4, y: -8 - R() * 50, s: 3 + R() * 4 });
+        n.streaks = [];
+        for (let i = 0; i < 4; i++) n.streaks.push({ x: (R() - 0.5) * n.r * 1.4, y: -10 - R() * 40, l: 8 + R() * 12 });
+        break;
+      case 'resin':
+        n.w = 24 + R() * 6;
+        n.drips = [];
+        for (let i = 0; i < 4; i++) n.drips.push({ x: (i < 2 ? -1 : 1) * (n.w - 4) + (R() - 0.5) * 6, y: -10 - R() * 22, s: 4 + R() * 3 });
+        break;
+      case 'goldvein':
+        n.pts = blob(R, 9, n.r, 0.35).map(([x, y]) => [x, y * (y < 0 ? 1.5 : 1)]);
         n.veins = [];
-        for (let i = 0; i < 4; i++) n.veins.push({ x: (R() - 0.5) * n.r * 1.1, y: -n.r * 0.6 - R() * n.r * 0.7, s: 5 + R() * 5, a: R() * TAU });
+        for (let i = 0; i < 3; i++) {
+          let x = (R() - 0.5) * n.r, y = -n.r * 1.4 + R() * 10;
+          const c = [[x, y]];
+          for (let j = 0; j < 4; j++) { x += (R() - 0.5) * 18; y += 9 + R() * 6; c.push([x, y]); }
+          n.veins.push(c);
+        }
+        n.nuggets = [];
+        for (let i = 0; i < 5; i++) n.nuggets.push({ x: (R() - 0.5) * n.r * 1.2, y: -12 - R() * n.r * 1.1, s: 3 + R() * 3, p: R() * TAU });
+        break;
+      case 'mesa':
+        n.w = n.r * 1.05; n.h = 40 + R() * 16;
+        n.jag = [];
+        for (let i = 0; i < 12; i++) n.jag.push((R() - 0.5) * 6);
+        n.pebbles = [];
+        for (let i = 0; i < 5; i++) n.pebbles.push({ x: (R() - 0.5) * n.r * 2.4, y: 2 + R() * 6, s: 2 + R() * 4 });
+        break;
+      case 'malachite':
+        n.pts = blob(R, 9, n.r * 0.9, 0.2);
+        n.bubbles = [];
+        for (let i = 0; i < 7; i++) n.bubbles.push({ x: (R() - 0.5) * n.r * 1.3, y: -n.r * 0.6 - R() * n.r * 0.8, r: 7 + R() * 7 });
+        n.bubbles.sort((a, b) => a.y - b.y);
+        break;
+      case 'geode':
+        n.points = [];
+        for (let i = 0; i < 14; i++) n.points.push({ a: i / 14 * TAU, l: 5 + R() * 6 });
+        n.tilt = (R() - 0.5) * 0.2;
+        break;
+      case 'palm':
+        n.h = 70 + R() * 20; n.lean = (R() - 0.5) * 30;
+        n.fronds = [];
+        for (let i = 0; i < 7; i++) n.fronds.push({ a: -Math.PI / 2 + (i - 3) * 0.48 + (R() - 0.5) * 0.2, l: 34 + R() * 12 });
+        n.fruits = 3 + Math.floor(R() * 2);
+        break;
+      case 'coral': {
+        n.branches = [];
+        const grow = (x, y, a, l, d) => {
+          const x2 = x + Math.cos(a) * l, y2 = y + Math.sin(a) * l;
+          n.branches.push({ x, y, x2, y2, w: 4 + d * 2.2 });
+          if (d > 0) for (const s of [-1, 1]) if (R() > 0.15) grow(x2, y2, a + s * (0.35 + R() * 0.3), l * (0.62 + R() * 0.15), d - 1);
+        };
+        for (let i = 0; i < 3; i++) grow((i - 1) * 12, -2, -Math.PI / 2 + (i - 1) * 0.35, 20 + R() * 6, 2);
         break;
       }
+      case 'conch':
+        n.flip = R() > 0.5 ? 1 : -1;
+        break;
       case 'clam':
         n.spikes = [];
         for (let i = 0; i < 7; i++) n.spikes.push({ a: Math.PI + (i + 0.5) / 7 * Math.PI, l: 10 + R() * 9 });

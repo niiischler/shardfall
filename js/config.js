@@ -29,13 +29,22 @@ SF.CFG = {
   perks: { sale: 0.25, cap: 10, speed: 15 },
   tools: {
     pick:  { name: 'Plasma Pick', mult: 1 },
-    axe:   { name: 'Ion Axe',     mult: 2,   stars: 1, nodes: ['tree', 'bush', 'mushroom', 'cactus'] },
-    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['rock', 'crystal', 'bones', 'clam'] },
+    axe:   { name: 'Ion Axe',     mult: 2,   stars: 1, nodes: ['tree', 'palm', 'resin', 'bush', 'mushroom', 'cactus'] },
+    drill: { name: 'Sonic Drill', mult: 1.8, stars: 2, nodes: ['crystal', 'magma', 'icespire', 'ironrock', 'goldvein', 'mesa', 'malachite', 'geode', 'bones', 'clam', 'coral', 'conch'] },
   },
 
   home: 3,                             // index of the home planet; travel opens there
   conveyor: { needs: { 12: 10 } },     // 10 iron ore per producer
-  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, eatEvery: 40, food: 30 },
+  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
+
+  // Once Halcyon is reached, other planets ship by cargo rocket instead of selling.
+  hub: {
+    rocketCap: 50, flight: 14, away: 26,        // seconds to Halcyon, seconds until the rocket is back
+    pad: { x: 175, y: -20 },                    // cargo rocket pad next to the warehouse
+    chest: { base: 40, step: 40, cost: 3000, growth: 1.7, max: 8 },   // portable chest, total items
+    hall:  { base: 150, step: 150, cost: 6000, growth: 1.7, max: 8 },  // Halcyon hall, per resource
+    hallAt: { x: 300, y: -290 },
+  },
 };
 
 // Resources are identified everywhere by a code: planet index * 10 + tier.
@@ -48,6 +57,9 @@ SF.atHome = () => SF.state.planet >= SF.CFG.home || SF.state.homeReached;
 
 // The current planet's buildings and drones (each planet keeps its own once you can travel).
 SF.ws = () => SF.state.worlds[SF.state.planet];
+
+// True on a campaign planet once Halcyon is reached: the drop off becomes a warehouse.
+SF.hubActive = () => SF.state.homeReached && SF.state.planet !== SF.CFG.home;
 
 SF.stats = function () {
   const l = SF.state.lvl, s = Math.min(SF.state.stars, 3), k = SF.CFG.perks;

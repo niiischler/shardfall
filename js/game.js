@@ -31,7 +31,7 @@
     P.incoming = 0; P.stackFx = []; P.zone = null; P.hidden = false;
     flyers.length = 0; drones.length = 0;
     cam.x = P.x; cam.y = P.y - 30;
-    SF.Home.enter();
+    SF.Home.enter(); SF.Hub.enter();
     document.documentElement.style.setProperty('--accent', W.planet.theme.accent);
   }
 
@@ -62,6 +62,23 @@
   }
   SF.earn = earn;
 
+  // Credits that come from somewhere other than the drop off (the hall selling overflow).
+  SF.earnFx = function (v, x, y) {
+    A.coin(combo++); comboT = 0.6;
+    FX.pop(x + (Math.random() - 0.5) * 40, y, '+' + SF.UI.fmt(v), '#ffd36b', 18);
+    FX.burst(x, y + 30, ['#ffd36b', '#fff1bf'], 4, { z: 6, speed: 90, up: 220, shape: 'coin', size: 4, life: 0.7 });
+    SF.UI.bump();
+  };
+
+  // Whatever reaches the drop off: sold on the spot, or stored for the cargo rocket once Halcyon is reached.
+  function deposit(code) {
+    if (!SF.hubActive()) { earn(code); return; }
+    SF.Hub.toWarehouse(code);
+    depotGlow = 1;
+    A.store(SF.Hub.whCount(SF.ws()));
+  }
+  SF.deposit = deposit;
+
   function toStack(code, sx, sy, delay) {
     P.incoming++;
     fly(code, sx, sy, () => Rn.stackSlot(P, SF.state.stack.length), {
@@ -80,7 +97,7 @@
     const R = n.def;
     FX.sparks(n.x + (who.x - n.x) * 0.3, n.y, 26, [R.color, '#ffffff'], 6);
     FX.burst(n.x, n.y, [R.color, R.dark], 3, { z: 26, speed: 120, size: 3.5 });
-    A.hit(loud);
+    A.hit(R.snd, loud);
     if (n.hp <= 0) breakNode(n, who, loud);
   }
 
@@ -89,7 +106,7 @@
     n.alive = false; n.regrowT = R.regrow; n.hp = 0;
     if (n.claimed) { n.claimed.target = null; n.claimed = null; }
     FX.burst(n.x, n.y, [R.color, R.dark, '#ffffff'], 18, { z: 30, speed: 210, size: 5 });
-    A.brk(loud);
+    A.brk(R.snd, loud);
     if (loud > 0.5) FX.shake(0.22);
     const isPlayer = who === P;
     const free = isPlayer ? SF.stats().cap - SF.state.stack.length - P.incoming : who.cap - who.cargo.length - who.incoming;
@@ -104,6 +121,8 @@
     }
     if (isPlayer) FX.pop(n.x, n.y - 70, `+${k} ${k === 1 ? R.name : R.plural}`, R.color, 15, { life: 0.9 });
   }
+
+  SF.hitNode = hitNode;
 
   // ---------- drones ----------
   function spawnDrone(x, y) {
@@ -158,7 +177,7 @@
     if (d.state === 'return') {
       goal = { x: C.dropZone.x, y: C.dropZone.y - 20 };
       if (Math.hypot(goal.x - d.x, goal.y - d.y) < 34 && d.incoming === 0) {
-        d.cargo.forEach((code, i) => fly(code, d.x, d.y - 40, depotTarget, { delay: i * 0.08, dur: 0.4, arc: 50, onArrive(f) { earn(f.code); } }));
+        d.cargo.forEach((code, i) => fly(code, d.x, d.y - 40, depotTarget, { delay: i * 0.08, dur: 0.4, arc: 50, onArrive(f) { deposit(f.code); } }));
         d.cargo = [];
         d.state = 'seek';
       }
@@ -196,7 +215,7 @@
         st.beltT = 0.8; st.pile--;
         fly(code, p.x, p.y + 40, () => ({ x: C.dropZone.x, y: C.dropZone.y }), {
           dur: Math.hypot(p.x - C.dropZone.x, p.y + 40 - C.dropZone.y) / 110, arc: 8, linear: true,
-          onArrive(f) { fly(f.code, C.dropZone.x, C.dropZone.y, depotTarget, { dur: 0.35, arc: 40, onArrive(g) { earn(g.code); } }); },
+          onArrive(f) { fly(f.code, C.dropZone.x, C.dropZone.y, depotTarget, { dur: 0.35, arc: 40, onArrive(g) { deposit(g.code); } }); },
         });
       }
     }
@@ -291,6 +310,13 @@
     SF.UI.refresh();
     if (perks) SF.UI.showArrival(perks);
     else FX.pop(P.x, P.y - 120, 'Welcome to ' + SF.planetName(), W.planet.theme.accent, 26, { life: 2.4, vy: -16 });
+    // The chest came along: unpack it into the hall.
+    if (SF.state.planet === C.home && SF.Hub.chestCount()) {
+      const r = SF.Hub.unpackChest(), h = W.hall;
+      FX.pop(h.x, h.y - 160, `Chest unpacked: ${r.n} items`, '#ffd36b', 20, { life: 2.2 });
+      if (r.credits) SF.earnFx(r.credits, h.x, h.y - 130);
+      save();
+    }
   }
 
   function updateLaunch(dt) {
@@ -360,6 +386,7 @@
       if (inZone(C.dropZone.x, C.dropZone.y, C.dropZone.r)) zone = 'drop';
       else if (inZone(C.upgradePad.x, C.upgradePad.y, C.upgradePad.r)) zone = 'upgrade';
       else if (W.chest && inZone(W.chest.x, W.chest.y, W.chest.r)) zone = 'chest';
+      else if (W.hall && inZone(W.hall.x, W.hall.padY, W.hall.r)) zone = 'hall';
       else for (const p of W.plots) {
         if (!plotVisible(p)) continue;
         const ps = ws.plots[p.id];
@@ -369,17 +396,22 @@
     }
     if (zone !== P.zone) { P.zone = zone; SF.UI.setZone(zone); }
 
-    // unload cargo, one item at a time: sell at the drop zone, store at the chest
-    if ((zone === 'drop' || zone === 'chest') && s.stack.length) {
+    // unload cargo, one item at a time: drop off, chest or hall
+    if ((zone === 'drop' || zone === 'chest' || zone === 'hall') && s.stack.length) {
       P.deliverT -= dt;
       while (P.deliverT <= 0 && s.stack.length) {
-        const from = Rn.stackSlot(P, s.stack.length - 1), code = s.stack.pop();
+        const from = Rn.stackSlot(P, s.stack.length - 1), code = s.stack[s.stack.length - 1];
+        if (zone === 'chest' && !SF.Hub.storeChest(code, from.x, from.y)) {
+          if (!P.chestWarned) { P.chestWarned = true; A.full(); FX.pop(W.chest.x, W.chest.y - 90, 'Chest full! Upgrade it here', '#ff8f5a', 16, { life: 1.4 }); }
+          break;
+        }
+        s.stack.pop();
         P.stackFx.length = s.stack.length;
-        if (zone === 'drop') fly(code, from.x, from.y, depotTarget, { dur: 0.36, arc: 50, onArrive(f) { earn(f.code); } });
-        else SF.Home.store(code, from.x, from.y);
+        if (zone === 'drop') fly(code, from.x, from.y, depotTarget, { dur: 0.36, arc: 50, onArrive(f) { deposit(f.code); } });
+        else if (zone === 'hall') SF.Hub.storeHall(code, from.x, from.y);
         P.deliverT += Math.max(0.03, 0.085 - s.stack.length * 0.0012);
       }
-    } else P.deliverT = 0;
+    } else { P.deliverT = 0; P.chestWarned = false; }
     comboT -= dt; if (comboT <= 0) combo = 0;
 
     // pay into a build plot: credits, then materials from the chest
@@ -401,13 +433,15 @@
         if (P.matT <= 0) {
           P.matT = 0.05;
           // Every material flows in at once, in chunks so big orders still take about a second.
+          let moved = false;
           for (const c in p.needs) {
             const want = p.needs[c] - (ps.res[c] || 0), n = Math.min(want, s.hold[c] || 0, Math.ceil(p.needs[c] / 25));
             if (n <= 0) continue;
-            s.hold[c] -= n; ps.res[c] = (ps.res[c] || 0) + n;
+            s.hold[c] -= n; ps.res[c] = (ps.res[c] || 0) + n; moved = true;
             fly(+c, P.x, P.y - 60, () => ({ x: p.x, y: p.y }), { dur: 0.35, arc: 50 });
           }
-          A.pay();
+          // Only sound while something actually moves; silence means a material is missing.
+          if (moved) A.pay();
         }
       }
       if (SF.plotDone(p, ps)) build(p);
@@ -437,6 +471,7 @@
     while (bay && drones.length < ws.drones) spawnDrone(bay.x, bay.y);
     for (const d of drones) updateDrone(d, dt);
     SF.Home.update(dt);
+    SF.Hub.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i];
@@ -485,21 +520,29 @@
     const L = cam.x - vw / 2 / zoom - 60, T = cam.y - vh / 2 / zoom - 60, Wd = vw / zoom + 120, Ht = vh / zoom + 120;
     ctx.fillStyle = W.pattern; ctx.fillRect(L, T, Wd, Ht);
 
-    Rn.dropZone(ctx, t, P.zone === 'drop');
+    Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
+    if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
     Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt).map(p => ({ x: p.x, y: p.y + 40 })), t);
     for (const p of W.plots) if (plotVisible(p) && !ws.plots[p.id].built) Rn.plotMarking(ctx, p, ws.plots[p.id], t, P.zone === 'plot:' + p.id);
 
     // y-sorted objects
     const list = [];
     for (const n of W.nodes) if (n.x > L - 80 && n.x < L + Wd + 80 && n.y > T - 40 && n.y < T + Ht + 140) list.push({ y: n.y, fn: () => Rn.node(ctx, n, t) });
-    list.push({ y: C.depot.y, fn: () => Rn.lander(ctx, t, depotGlow) });
+    if (SF.hubActive()) {
+      list.push({ y: C.depot.y, fn: () => Rn.warehouse(ctx, t, depotGlow, SF.Hub.whCount(ws)) });
+      list.push({ y: C.hub.pad.y, fn: () => Rn.cargoPad(ctx, t, SF.Hub.rk(ws), SF.Hub.cargoLift()) });
+    } else list.push({ y: C.depot.y, fn: () => Rn.lander(ctx, t, depotGlow) });
+    if (W.hall) {
+      list.push({ y: W.hall.y, fn: () => Rn.hall(ctx, W.hall, t, P.zone === 'hall') });
+      SF.Hub.landings.forEach(l => { const pd = SF.Hub.pads()[l.pad]; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, l, t) }); });
+    }
     list.push({ y: C.upgradePad.y, fn: () => Rn.upgradePad(ctx, t, P.zone === 'upgrade') });
     if (W.chest) list.push({ y: W.chest.y, fn: () => Rn.chest(ctx, W.chest, t, P.zone === 'chest') });
     for (const p of W.plots) if (ws.plots[p.id].built) {
       const lift = p.kind === 'launch' && launch ? rocketLift() + 0.001 : 0;
       list.push({ y: p.y, fn: () => Rn.building(ctx, p, ws.plots[p.id], t, P.zone === 'bld:' + p.id, lift) });
     }
-    for (const m of SF.Home.walkers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
+    for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
     for (const o of list) o.fn();
@@ -559,7 +602,7 @@
   function guideTarget() {
     const s = SF.state, ws = SF.ws(), cap = SF.stats().cap;
     const foreign = s.stack.some(c => Math.floor(c / 10) !== s.planet);
-    if (W.chest && foreign) return W.chest;
+    if (W.hall && foreign) return { x: W.hall.x, y: W.hall.padY };
     if (s.stack.length >= cap * 0.6 && s.stack.length > 0) return C.dropZone;
     for (const p of W.plots) {
       if (!plotVisible(p)) continue;

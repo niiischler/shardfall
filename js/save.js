@@ -19,7 +19,7 @@ SF.Save = {
       v: this.VERSION, planet: 0, stars: 0, homeReached: false, lifetime: 0, muted: false,
       credits: 0, totalEarned: 0, lvl: { cap: 0, drill: 0, speed: 0 },
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
-      worlds: {}, hold: {}, crew: [],
+      worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -49,6 +49,11 @@ SF.Save = {
     if (Array.isArray(data.stack)) s.stack = data.stack.filter(valid);
     if (data.player && isFinite(data.player.x) && isFinite(data.player.y)) s.player = { x: data.player.x, y: data.player.y };
     if (data.hold) for (const c in data.hold) if (valid(+c) && data.hold[c] > 0) s.hold[c] = data.hold[c] | 0;
+    const counts = (o) => { const r = {}; if (o) for (const c in o) if (valid(+c) && o[c] > 0) r[c] = o[c] | 0; return r; };
+    s.chest = counts(data.chest);
+    s.chestLvl = Math.max(0, num(data.chestLvl, 0) | 0);
+    s.hallLvl = Math.max(0, num(data.hallLvl, 0) | 0);
+    if (Array.isArray(data.inbound)) s.inbound = data.inbound.filter(f => f && f.items).map(f => ({ t: num(f.t, 0), items: counts(f.items), from: num(f.from, 0) | 0 }));
     if (Array.isArray(data.crew)) s.crew = data.crew.filter(w => w && valid(w.job)).map(w => ({ job: w.job, food: num(w.food, 0) }));
     s.worlds = {};
     if (data.worlds) for (const k in data.worlds) {
@@ -57,6 +62,8 @@ SF.Save = {
       this.ensureWorld(s, pi);
       const into = s.worlds[pi];
       into.drones = Math.max(0, num(w.drones, 0) | 0);
+      into.wh = counts(w.wh);
+      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: Object.values(load).reduce((a, b) => a + b, 0), away: Math.max(0, num(w.rk.away, 0)) }; }
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
         if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, res: p.res || {} });
@@ -98,11 +105,14 @@ SF.Save = {
         const p = w.plots[id], res = Object.keys(p.res || {}).length ? p.res : undefined;
         if (p.paid || p.built || p.lvl || p.pile || res) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, res };
       }
-      worlds[k] = { plots, drones: w.drones || undefined };
+      const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
+      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, away: Math.round(w.rk.away * 10) / 10 || undefined } : undefined;
+      worlds[k] = { plots, drones: w.drones || undefined, wh, rk };
     }
     return Object.assign({}, s, {
       credits: Math.round(s.credits * 100) / 100, totalEarned: Math.round(s.totalEarned), lifetime: Math.round(s.lifetime),
       worlds, crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 10) / 10 })),
+      inbound: s.inbound.map(f => ({ t: Math.round(f.t * 10) / 10, items: f.items, from: f.from })),
     });
   },
 

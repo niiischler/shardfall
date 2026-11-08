@@ -120,14 +120,20 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
 ## Halcyon, the home planet
 
 - From now on nothing resets. The rocket flies you to any planet and back; finished planets stay fully built.
-- Your cargo comes with you. The **material chest** next to the rocket stores whatever you unload there.
-- Home buildings cost credits **and materials** from the chest (shown under the plot), e.g. the Haven Bridge needs logs from Verdra.
+- Your cargo comes with you. Unload materials at the **Halcyon Hall** (behind the lander). It holds 150 of each
+  material (more with upgrades); anything beyond that is sold for credits.
+- On the other planets the drop off becomes a **warehouse** with a **cargo rocket**. Drop offs, drones and belts fill it;
+  when 50 items are loaded it flies to the hall by itself (or launch it early from the warehouse panel).
+- The **material chest** now travels with you and stands next to your rocket on the other planets. Fill it and it
+  empties into the hall when you fly home. Upgrade it at the chest for more room.
+- Home buildings cost credits **and materials** from the hall (shown under the plot), e.g. the Haven Bridge needs logs from Verdra.
 - **New Haven** (behind the bridge) is the expansion area:
   - **Belt Factory** (iron + copper): unlocks conveyor belts. Install one at any sawmill, mine or excavator
-    for 10 iron ore; it then carries the stock to the drop off and sells it by itself.
+    for 10 iron ore; it then carries the stock to the drop off (or warehouse) by itself.
   - **Habitats** (logs, sandstone, ...): 2 beds each. Hire crew there and pick a job (any of the three cheapest
-    resources of any planet). Crew ship 1 unit to the chest every 8 s and eat 1 sunfruit from the chest every 40 s.
-    Without sunfruit they go hungry and stop.
+    resources of any planet). On the planet you are on, crew walk to their resource, harvest it like drones and carry
+    it to the hall or warehouse. Elsewhere they ship 1 unit to the hall every 8 s. Each eats 1 sunfruit from the hall
+    every 40 s; without sunfruit they go hungry and stop.
 
 Progress saves automatically to `localStorage` (under 1 KB). The menu (top right) has a reset.
 Saves from earlier versions are migrated automatically.
@@ -139,8 +145,9 @@ index.html        page shell and HUD markup
 css/style.css     HUD, panels, overlays
 js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, producers, crew
 js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
-js/home.js        home planet systems: material chest, crew, conveyor belts
-js/audio.js       WebAudio synth sound effects (no audio files)
+js/home.js        crew (working on the current planet) and conveyor belts
+js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall, the portable chest
+js/audio.js       WebAudio synth sound effects, one sound set per material (no audio files)
 js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults
 js/fx.js          particles, floating numbers, screen shake
@@ -151,9 +158,11 @@ js/game.js        rules and main loop
 ```
 
 To rebalance, edit `js/config.js` and the `SF.TIERS` table in `js/planets.js`.
-To add a planet, add an entry to `SF.PLANETS`: pick a node look (crystal, rock, clam, tree,
-mushroom, bush, cactus, bones) and an item look (gem, chunk, orb, log, cap, drop, bone) for each
-resource, plus colours. New looks go into `NODES` / `ITEMS` in `render.js`.
+To add a planet, add an entry to `SF.PLANETS`: pick a node look (`NODES` in `render.js`, e.g. crystal,
+magma, icespire, ironrock, resin, goldvein, mesa, malachite, geode, palm, coral, conch, tree, bush, cactus),
+an item look (`ITEMS`), a sound (`snd`: glass, stone, metal, gold, magma, ice, wood, palm, resin, squish,
+water, shell, bone, coral, sun) and colours. `hard` makes a planet's rarer resources tougher; `pace`
+scales its building prices.
 
 All art is drawn with canvas shapes; there are no image files.
 

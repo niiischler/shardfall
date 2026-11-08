@@ -1,8 +1,8 @@
-// Home-base systems on Halcyon: the material chest, hired crew, conveyor belts.
+// Home-base systems: hired crew, conveyor belts. Storage and shipping live in hub.js.
 SF.Home = (function () {
   const C = SF.CFG;
   const SUITS = ['#ffd27a', '#9be36a', '#8fd3ff', '#ff9cc2', '#c9a6ff', '#ffab4a'];
-  const walkers = [];
+  const workers = [];           // crew working on the planet you are on, drawn and simulated
 
   const homeWorld = () => SF.state.worlds[C.home];
   const built = id => !!(homeWorld() && homeWorld().plots[id] && homeWorld().plots[id].built);
@@ -18,24 +18,6 @@ SF.Home = (function () {
   function hasFactory() { return built('fac'); }
 
   function hold(code) { return SF.state.hold[code] || 0; }
-  function take(needs) {
-    for (const c in needs) if (hold(c) < needs[c]) return false;
-    for (const c in needs) SF.state.hold[c] -= needs[c];
-    return true;
-  }
-
-  // Put a carried item into the chest.
-  function store(code, x, y) {
-    const c = SF.World.chest;
-    SF.fly(code, x, y, () => ({ x: c.x, y: c.y - 40 }), {
-      dur: 0.36, arc: 50,
-      onArrive(f) {
-        SF.state.hold[f.code] = hold(f.code) + 1;
-        SF.Audio.pick(hold(f.code) % 11);
-        SF.FX.pop(c.x + (Math.random() - 0.5) * 30, c.y - 80, '+1 ' + SF.res(f.code).name, SF.res(f.code).color, 14, { life: 0.8 });
-      },
-    });
-  }
 
   function hire() {
     if (SF.state.crew.length >= crewCap() || !SF.spend(SF.hireCost())) return false;
@@ -54,7 +36,9 @@ SF.Home = (function () {
 
   function installBelt(id) {
     const st = SF.ws().plots[id];
-    if (st.belt || !hasFactory() || !take(C.conveyor.needs)) { SF.Audio.nope(); return false; }
+    const need = C.conveyor.needs;
+    if (st.belt || !hasFactory() || Object.keys(need).some(c => hold(c) < need[c])) { SF.Audio.nope(); return false; }
+    for (const c in need) SF.state.hold[c] -= need[c];
     st.belt = true;
     const p = SF.World.plot(id);
     SF.Audio.build(); SF.FX.shake(0.3);
@@ -64,44 +48,113 @@ SF.Home = (function () {
     return true;
   }
 
-  // Crew work everywhere, all the time: each eats sunfruit from the chest and ships their job's resource home.
-  function update(dt) {
-    const s = SF.state, k = C.crew;
-    for (const w of s.crew) {
-      w.food -= dt / k.eatEvery;
-      if (w.food < 0) {
-        if (hold(k.food) > 0) { s.hold[k.food]--; w.food += 1; }
-        else { w.food = 0; w.hungry = true; continue; }
+  // Where a worker brings what they gathered: the hall on Halcyon, the warehouse elsewhere.
+  function dropPoint() {
+    const h = SF.World.hall;
+    return h ? { x: h.x, y: h.padY } : { x: C.dropZone.x, y: C.dropZone.y };
+  }
+
+  function unload(m) {
+    const h = SF.World.hall;
+    m.cargo.forEach((code, i) => {
+      if (h) SF.Hub.storeHall(code, m.x, m.y - 40);
+      else SF.fly(code, m.x, m.y - 40, () => ({ x: C.depot.x, y: C.depot.y - 30 }), { delay: i * 0.08, dur: 0.4, arc: 40, onArrive(f) { SF.deposit(f.code); } });
+    });
+    m.cargo = [];
+  }
+
+  // Walks to the nearest node of its job, chops it like a drone would, and carries the haul back.
+  function updateWorker(m, dt) {
+    const w = SF.state.crew[m.i], k = C.crew;
+    m.swing = Math.max(0, m.swing - dt * 3.5);
+    m.hungry = w.hungry;
+    if (w.hungry) { m.state = 'idle'; return; }
+    let goal = null;
+    if (m.state === 'seek') {
+      if (m.cargo.length + m.incoming >= m.cap) m.state = 'return';
+      else {
+        if (!m.target || !m.target.alive) {
+          m.target = null;
+          let best = null, bd = Infinity;
+          for (const n of SF.World.nodes) {
+            if (n.code !== w.job || !n.alive || n.claimed || !SF.World.nodeOpen(n) || n === SF.player.target) continue;
+            const d = Math.hypot(n.x - m.x, n.y - m.y);
+            if (d < bd) { bd = d; best = n; }
+          }
+          if (best) { m.target = best; best.claimed = m; }
+        }
+        if (m.target) {
+          goal = { x: m.target.x + (m.x < m.target.x ? -1 : 1) * (m.target.r + 14), y: m.target.y + 6 };
+          if (Math.hypot(goal.x - m.x, goal.y - m.y) < 10) { m.state = 'work'; m.hitT = 0.4; }
+        } else if (m.cargo.length) m.state = 'return';
+        else goal = m.home;
       }
-      w.hungry = false;
-      w.work = (w.work || 0) + dt;
-      if (w.work >= k.workEvery) { w.work -= k.workEvery; s.hold[w.job] = hold(w.job) + 1; }
     }
-    // Wandering crew on the home planet.
-    const reg = SF.World.regions.find(r => r.settlement);
-    const show = SF.state.planet === C.home && reg && SF.World.isOpen(reg) ? s.crew.length : 0;
-    while (walkers.length < show) {
-      const i = walkers.length;
-      walkers.push({ x: reg.x + (Math.random() - 0.5) * 200, y: reg.y + (Math.random() - 0.5) * 120, tx: reg.x, ty: reg.y, walk: 0, face: 1, wait: 0, suit: SUITS[i % SUITS.length], i });
-    }
-    walkers.length = show;
-    for (const m of walkers) {
-      const w = s.crew[m.i];
-      m.hungry = w && w.hungry;
-      if (m.wait > 0) { m.wait -= dt; continue; }
-      const dx = m.tx - m.x, dy = m.ty - m.y, l = Math.hypot(dx, dy);
-      if (l < 6) {
-        const a = Math.random() * Math.PI * 2, d = Math.random() * (reg.r - 120);
-        m.tx = reg.x + Math.cos(a) * d; m.ty = reg.y + Math.sin(a) * d * 0.7; m.wait = 1 + Math.random() * 3;
-        continue;
+    if (m.state === 'work') {
+      const n = m.target;
+      if (!n || !n.alive) {
+        if (n && n.claimed === m) n.claimed = null;
+        m.target = null;
+        m.state = m.cargo.length + m.incoming >= m.cap ? 'return' : 'seek';
+      } else {
+        m.face = n.x >= m.x ? 1 : -1;
+        m.hitT -= dt;
+        if (m.hitT <= 0) {
+          m.hitT = k.hitEvery; m.swing = 1;
+          const near = Math.max(0, 1 - Math.hypot(n.x - SF.player.x, n.y - SF.player.y) / 600) * 0.5;
+          SF.hitNode(n, 1 + n.res * 0.5, m, near);
+        }
       }
-      const sp = m.hungry ? 30 : 70;
-      m.x += dx / l * sp * dt; m.y += dy / l * sp * dt; m.walk += dt * sp / 14;
-      if (Math.abs(dx) > 1) m.face = dx > 0 ? 1 : -1;
+    }
+    if (m.state === 'return') {
+      goal = dropPoint();
+      if (Math.hypot(goal.x - m.x, goal.y - m.y) < 20 && m.incoming === 0) { unload(m); m.state = 'seek'; }
+    }
+    if (goal) {
+      const dx = goal.x - m.x, dy = goal.y - m.y, l = Math.hypot(dx, dy);
+      if (l > 2) {
+        const sp = Math.min(k.speed, l * 4);
+        m.x += dx / l * sp * dt; m.y += dy / l * sp * dt; m.walk += dt * sp / 14;
+        if (Math.abs(dx) > 1) m.face = dx > 0 ? 1 : -1;
+      }
+      SF.World.constrain(m, 14);
     }
   }
 
-  function enter() { walkers.length = 0; }
+  // Crew work everywhere, all the time. Each eats sunfruit from the hall. Crew whose job is on
+  // the planet you are on work there for real; the others ship their haul straight to the hall.
+  function update(dt) {
+    const s = SF.state, k = C.crew, here = s.planet;
+    s.crew.forEach((w, i) => {
+      w.food -= dt / k.eatEvery;
+      if (w.food < 0) {
+        if (hold(k.food) > 0) { s.hold[k.food]--; w.food += 1; }
+        else { w.food = 0; w.hungry = true; return; }
+      }
+      w.hungry = false;
+      if (Math.floor(w.job / 10) === here) return;
+      w.work = (w.work || 0) + dt;
+      if (w.work >= k.workEvery) { w.work -= k.workEvery; SF.Hub.deliver(w.job, 1); }
+    });
 
-  return { walkers, jobs, crewCap, hasFactory, hold, store, hire, nextJob, installBelt, update, enter };
+    // Keep one worker per crew member whose job is here; drop the rest.
+    for (let j = workers.length - 1; j >= 0; j--) {
+      const m = workers[j], w = s.crew[m.i];
+      if (!w || w.job !== m.job) {
+        if (m.target && m.target.claimed === m) m.target.claimed = null;
+        workers.splice(j, 1);
+      }
+    }
+    s.crew.forEach((w, i) => {
+      if (Math.floor(w.job / 10) !== here || workers.some(m => m.i === i)) return;
+      const p = dropPoint(), a = Math.random() * Math.PI * 2;
+      workers.push({ i, job: w.job, x: p.x + Math.cos(a) * 40, y: p.y + Math.sin(a) * 20, home: { x: p.x + Math.cos(a) * 70, y: p.y + 40 + Math.sin(a) * 20 },
+        state: 'seek', target: null, cargo: [], incoming: 0, cap: k.cap, hitT: 0, swing: 0, walk: 0, face: 1, suit: SUITS[i % SUITS.length] });
+    });
+    for (const m of workers) updateWorker(m, dt);
+  }
+
+  function enter() { workers.length = 0; }
+
+  return { workers, jobs, crewCap, hasFactory, hold, hire, nextJob, installBelt, update, enter };
 })();

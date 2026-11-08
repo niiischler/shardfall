@@ -13,9 +13,11 @@ SF.UI = (function () {
     return String(n);
   }
 
-  const NOUNS = { crystal: 'crystal', rock: 'rock', clam: 'clam', tree: 'tree', mushroom: 'mushroom', bush: 'bush', cactus: 'cactus', bones: 'fossil' };
+  const NOUNS = { crystal: 'crystal', clam: 'clam', tree: 'tree', palm: 'palm', mushroom: 'mushroom', bush: 'bush', cactus: 'cactus', bones: 'fossil',
+    magma: 'magma rock', icespire: 'ice spire', ironrock: 'iron boulder', resin: 'resin stump', goldvein: 'gold vein', mesa: 'mesa block', malachite: 'copper lode', geode: 'geode', coral: 'coral', conch: 'shell' };
 
-  const PLURALS = { crystal: 'crystals', rock: 'rocks', clam: 'clams', tree: 'trees', mushroom: 'mushrooms', bush: 'bushes', cactus: 'cacti', bones: 'fossils' };
+  const PLURALS = { crystal: 'crystals', clam: 'clams', tree: 'trees', palm: 'palms', mushroom: 'mushrooms', bush: 'bushes', cactus: 'cacti', bones: 'fossils',
+    magma: 'magma rocks', icespire: 'ice spires', ironrock: 'iron boulders', resin: 'resin stumps', goldvein: 'gold veins', mesa: 'mesa blocks', malachite: 'copper lodes', geode: 'geodes', coral: 'corals', conch: 'shells' };
 
   const effects = {
     cap: l => `Carry ${SF.stats().cap - 5 * SF.state.lvl.cap + 5 * l}`,
@@ -28,9 +30,13 @@ SF.UI = (function () {
     const k = C.perks, list = [`+${k.cap} cargo slots`, `+${k.speed} move speed`, `+${Math.round(k.sale * 100)}% on every sale`];
     for (const key in C.tools) {
       const t = C.tools[key];
-      if (t.stars === stars) list.push(`New tool: ${t.name} (${t.nodes.map(n => PLURALS[n]).join(', ')} break ${t.mult}x faster)`);
+      if (t.stars === stars) list.push(`New tool: ${t.name} (${t.nodes.filter(n => SF.PLANETS.slice(0, stars + 1).some(p => p.resources.some(r => r.node === n))).map(n => PLURALS[n]).join(', ')} break ${t.mult}x faster)`);
     }
-    if (stars === C.home) list.push('Travel: fly between all planets from now on');
+    if (stars === C.home) {
+      list.push('Travel: fly between all planets from now on');
+      list.push('Warehouses: drop offs on the other planets now fill cargo rockets that fly to the hall on Halcyon');
+      list.push('Material chest: comes with you to the other planets');
+    }
     return list;
   }
 
@@ -116,7 +122,8 @@ SF.UI = (function () {
 
   function goalText() {
     const s = SF.state, ws = SF.ws(), st = SF.stats(), home = SF.World.res(0);
-    if (SF.World.chest && s.stack.some(c => Math.floor(c / 10) !== s.planet)) return 'Put materials from other planets into the chest by the rocket';
+    if (SF.World.hall && s.stack.some(c => Math.floor(c / 10) !== s.planet)) return 'Unload materials from other planets at the HALL';
+    if (SF.hubActive() && s.stack.length >= st.cap) return 'Pack full. Unload at the WAREHOUSE (cargo rocket) or the chest';
     if (s.totalEarned === 0 && s.stack.length === 0) return `Stand next to a ${NOUNS[home.node]} to harvest ${home.plural.toLowerCase()}`;
     if (s.totalEarned === 0) return s.stack.length >= st.cap ? 'Pack full. Carry it to the DROP OFF pad' : 'Harvest more, then carry it to the DROP OFF pad';
     if (s.stack.length >= st.cap) return 'Pack full. Head to the DROP OFF pad';
@@ -124,9 +131,10 @@ SF.UI = (function () {
     const next = SF.World.plots.filter(p => SF.plotVisible(p) && !ws.plots[p.id].built).sort((a, b) => a.cost - b.cost)[0];
     if (next) {
       const missing = Object.keys(next.needs || {}).filter(c => (ws.plots[next.id].res[c] || 0) < next.needs[c]).map(c => SF.res(+c).plural);
-      if (missing.length && next.cost - ws.plots[next.id].paid < 1) return `${next.name} needs ${missing.join(', ')}. Fetch them by rocket and fill the chest`;
+      if (missing.length && next.cost - ws.plots[next.id].paid < 1) return `${next.name} needs ${missing.join(', ')}. Ship them to the hall from their planet`;
       return `Next: stand on the ${next.name} plot to build it (${fmt(next.cost - ws.plots[next.id].paid)} left)`;
     }
+    if (SF.hubActive()) return 'Harvest and unload at the WAREHOUSE. Full cargo rockets fly to the hall on Halcyon';
     if (SF.atHome()) return 'Fly to other planets for materials, or hire crew in the habitats';
     return 'Everything is built. Max out your upgrades!';
   }
@@ -142,7 +150,9 @@ SF.UI = (function () {
 
   function setZone(zone) {
     if (zone === 'upgrade') openPanel('Upgrade terminal', upgradeCards());
-    else if (zone === 'chest') openPanel('Material chest', [chestCard()]);
+    else if (zone === 'chest') openPanel('Material chest', chestCards());
+    else if (zone === 'hall') openPanel('Halcyon hall', hallCards());
+    else if (zone === 'drop' && SF.hubActive()) openPanel('Warehouse', warehouseCards());
     else if (zone && zone.startsWith('bld:')) {
       const p = SF.World.plot(zone.slice(4));
       openPanel(p.kind === 'launch' ? (SF.atHome() ? 'Rocket: choose a planet' : 'Launch pad') : p.name, PANELS[p.kind](p));
@@ -217,16 +227,75 @@ SF.UI = (function () {
     };
   }
 
-  function chestCard() {
-    const div = info('chest-info', '<span class="card-name">Stored materials</span><ul class="res-list" id="chest-list"></ul><span class="card-eff">Stand here to unload your pack into the chest. Buildings take their materials from it.</span>');
-    return {
-      btn: div,
-      update() {
-        const ul = div.querySelector('#chest-list'), hold = SF.state.hold;
-        const codes = Object.keys(hold).filter(c => hold[c] > 0).sort((a, b) => a - b);
-        ul.innerHTML = codes.length ? codes.map(c => `<li><i style="background:${SF.res(+c).color}"></i>${hold[c]} ${SF.res(+c).plural}</li>`).join('') : '<li>Empty</li>';
+  const resList = (o, cap) => {
+    const codes = Object.keys(o).filter(c => o[c] > 0).sort((a, b) => a - b);
+    return codes.length ? codes.map(c => `<li><i style="background:${SF.res(+c).color}"></i>${o[c]}${cap ? '/' + cap : ''} ${SF.res(+c).plural}</li>`).join('') : '<li>Empty</li>';
+  };
+
+  function listCard(id, title, text, get) {
+    const div = info(id, `<span class="card-name">${title}</span><ul class="res-list"></ul><span class="card-eff"></span>`);
+    return { btn: div, update() { const r = get(); div.querySelector('ul').innerHTML = r.list; div.querySelector('.card-eff').textContent = r.text || text; } };
+  }
+
+  function chestCards() {
+    const H = C.hub, Hb = SF.Hub;
+    return [
+      listCard('chest-info', 'Material chest', '', () => ({
+        list: resList(SF.state.chest),
+        text: `${Hb.chestCount()} / ${Hb.chestCap()} items. Unload here; it flies home with you and empties into the hall on Halcyon.`,
+      })),
+      {
+        btn: card('up-chest', 'Bigger chest', () => Hb.upgradeChest(), true),
+        update(r) {
+          const l = SF.state.chestLvl, maxed = l >= H.chest.max;
+          fill(r.btn, maxed ? 'MAX' : `Lv ${l} → ${l + 1}`, maxed ? `Holds ${Hb.chestCap()}` : `Holds ${Hb.chestCap()} → ${Hb.chestCap() + H.chest.step}`, maxed ? null : Hb.chestCost());
+        },
       },
-    };
+    ];
+  }
+
+  function hallCards() {
+    const H = C.hub, Hb = SF.Hub;
+    return [
+      listCard('hall-info', 'Stored in the hall', '', () => ({
+        list: resList(SF.state.hold, Hb.hallCap()),
+        text: `Cargo rockets land here. Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.` +
+          (SF.state.inbound.length ? ` ${SF.state.inbound.length} rocket${SF.state.inbound.length > 1 ? 's' : ''} on the way.` : ''),
+      })),
+      {
+        btn: card('up-hall', 'Expand the hall', () => Hb.upgradeHall(), true),
+        update(r) {
+          const l = SF.state.hallLvl, maxed = l >= H.hall.max;
+          fill(r.btn, maxed ? 'MAX' : `Lv ${l} → ${l + 1}`, maxed ? `${Hb.hallCap()} of each` : `${Hb.hallCap()} → ${Hb.hallCap() + H.hall.step} of each material`, maxed ? null : Hb.hallCost());
+        },
+      },
+    ];
+  }
+
+  function warehouseCards() {
+    const Hb = SF.Hub;
+    const btn = card('launch-cargo', 'Launch cargo rocket now', () => Hb.launchCargo(), true);
+    btn.querySelector('.card-cost').innerHTML = '<b></b>';
+    return [
+      listCard('wh-info', 'Warehouse', '', () => {
+        const ws = SF.ws(), r = Hb.rk(ws);
+        return {
+          list: resList(Object.assign({}, ws.wh || {})),
+          text: r.away > 0 ? `Rocket is away, back in ${Math.ceil(r.away)}s. Stock waits here.` :
+            `Rocket loaded ${r.n} / ${C.hub.rocketCap}. It flies to Halcyon by itself when full.`,
+        };
+      }),
+      {
+        btn,
+        update(b) {
+          const r = Hb.rk(SF.ws());
+          b.btn.querySelector('.card-lvl').textContent = r.away > 0 ? 'Away' : `${r.n} / ${C.hub.rocketCap} loaded`;
+          b.btn.querySelector('.card-eff').textContent = 'Send what is loaded now instead of waiting for a full rocket.';
+          b.btn.querySelector('.card-cost b').textContent = '';
+          b.btn.disabled = r.away > 0 || !r.n;
+        },
+      },
+    ];
   }
 
   function launchCard() {
@@ -257,7 +326,7 @@ SF.UI = (function () {
       update(r) {
         const n = SF.state.crew.length, cap = SF.Home.crewCap(), full = n >= cap;
         fill(r.btn, `${n} / ${cap} beds`, full ? 'All beds are taken. Build another habitat for more crew.' :
-          `Crew work on their own on any planet and ship 1 resource to the chest every ${C.crew.workEvery}s. Each eats 1 ${SF.res(C.crew.food).name.toLowerCase()} from the chest every ${C.crew.eatEvery}s.`, full ? null : SF.hireCost());
+          `Crew harvest their job's resource. On the planet you are on you see them at work; elsewhere they ship 1 to the hall every ${C.crew.workEvery}s. Each eats 1 ${SF.res(C.crew.food).name.toLowerCase()} from the hall every ${C.crew.eatEvery}s.`, full ? null : SF.hireCost());
       },
     }];
     SF.state.crew.forEach((w, i) => {
@@ -268,7 +337,7 @@ SF.UI = (function () {
         update(r) {
           const R = SF.res(w.job), pl = SF.planet(Math.floor(w.job / 10));
           r.btn.querySelector('.card-lvl').textContent = `${R.plural} · ${pl.name}`;
-          r.btn.querySelector('.card-eff').textContent = w.hungry ? `Hungry! Put ${SF.res(C.crew.food).name.toLowerCase()} in the chest.` : 'Working';
+          r.btn.querySelector('.card-eff').textContent = w.hungry ? `Hungry! Bring ${SF.res(C.crew.food).name.toLowerCase()} to the hall.` : 'Working';
           r.btn.classList.toggle('poor', !!w.hungry);
         },
       });
