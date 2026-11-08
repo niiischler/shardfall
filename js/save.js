@@ -85,7 +85,7 @@ SF.Save = {
       if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0, fl: num(w.rk.fl, 0) || undefined, total: num(w.rk.total, 0) || undefined, food: w.rk.food && { meal: num(w.rk.food.meal, 0) | 0, drink: num(w.rk.food.drink, 0) | 0 } }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
-        if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, mk: p.mk ? 1 : 0, res: p.res || {} });
+        if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, mk: p.mk ? 1 : 0, driver: !!p.driver, res: p.res || {} });
         if (p && SF.BUILDS[p.kind] && p.needs) Object.assign(into.plots[id], { kind: p.kind, cost: num(p.cost, 0), needs: counts(p.needs) });
         // Home buildings used to take raw ore; what was already paid in counts as ingots.
         const res = into.plots[id].res;
@@ -126,7 +126,7 @@ SF.Save = {
       const plots = {}, w = s.worlds[k];
       for (const id in w.plots) {
         const p = w.plots[id], res = Object.keys(p.res || {}).length ? p.res : undefined;
-        if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, mk: p.mk || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined };
+        if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, mk: p.mk || undefined, driver: p.driver || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined };
       }
       const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
       const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined, fl: w.rk.fl, total: w.rk.total, food: w.rk.food || undefined } : undefined;

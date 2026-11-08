@@ -26,9 +26,9 @@ SF.PLANETS = [
       { slot: 'h1', kind: 'drones', name: 'Drone Bay', unit: 'Drone', desc: 'Drones harvest for you' },
     ],
     machines: [
-      { res: 0, style: 'excavator', name: 'Crystal Drill', desc: 'Drills shards on its own', research: 'autoKelvos' },
-      { res: 1, style: 'excavator', name: 'Magma Pump', desc: 'Pumps ember ore on its own', research: 'autoKelvos' },
-      { res: 2, style: 'sawmill', name: 'Glowcap Farm', desc: 'Grows glowcaps on its own', research: 'autoKelvos' },
+      { res: 0, style: 'crystaldrill', name: 'Crystal Drill', desc: 'Drills shards on its own', research: 'autoKelvos' },
+      { res: 1, style: 'pump', name: 'Magma Pump', desc: 'Pumps ember ore on its own', research: 'autoKelvos' },
+      { res: 2, style: 'glowfarm', name: 'Glowcap Farm', desc: 'Grows glowcaps on its own', research: 'autoKelvos' },
     ],
   },
   {
@@ -54,7 +54,7 @@ SF.PLANETS = [
       { slot: 'h2', kind: 'producer', style: 'mine', res: 2, every: 3.5, pile: 10, name: 'Iron Mine', desc: 'Digs iron ore on its own' },
     ],
     machines: [
-      { res: 1, style: 'sawmill', name: 'Berry Picker', desc: 'Picks fire berries on its own', research: 'autoVerdra' },
+      { res: 1, style: 'berryfarm', name: 'Berry Picker', desc: 'Picks fire berries on its own', research: 'autoVerdra' },
     ],
   },
   {
@@ -80,7 +80,7 @@ SF.PLANETS = [
       { slot: 'h2', kind: 'producer', style: 'excavator', res: 1, every: 3, pile: 12, name: 'Excavator', desc: 'Digs sandstone on its own' },
     ],
     machines: [
-      { res: 0, style: 'excavator', name: 'Cactus Condenser', desc: 'Draws cactus water on its own', research: 'autoDune' },
+      { res: 0, style: 'condenser', name: 'Cactus Condenser', desc: 'Draws cactus water on its own', research: 'autoDune' },
       { res: 2, style: 'mine', name: 'Copper Mine', desc: 'Digs copper ore on its own', research: 'autoDune' },
     ],
   },
@@ -104,9 +104,9 @@ SF.PLANETS = [
     ],
     helpers: [],
     machines: [
-      { res: 0, style: 'sawmill', name: 'Sunfruit Orchard', desc: 'Picks sunfruit into the hall', research: 'autoHalcyon' },
-      { res: 1, style: 'excavator', name: 'Coral Farm', desc: 'Grows coral into the hall', research: 'autoHalcyon' },
-      { res: 2, style: 'mine', name: 'Pearl Diver', desc: 'Dives for skyshell pearls into the hall', research: 'autoHalcyon' },
+      { res: 0, style: 'orchard', name: 'Sunfruit Orchard', desc: 'Picks sunfruit into the hall', research: 'autoHalcyon' },
+      { res: 1, style: 'coralfarm', name: 'Coral Farm', desc: 'Grows coral into the hall', research: 'autoHalcyon' },
+      { res: 2, style: 'diver', name: 'Pearl Diver', desc: 'Dives for skyshell pearls into the hall', research: 'autoHalcyon' },
     ],
     // Where the machines stand on Halcyon: [first, second] per resource tier.
     machineSpots: [[[-560, 120], [-520, 380]], [[520, 250], [470, 460]], [[-170, -590], [-430, -500]]],

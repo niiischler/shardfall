@@ -143,13 +143,13 @@ SF.Smelter = (function () {
   }
 
   // While you are elsewhere the driver still makes the trip: a full load every round trip.
-  function updateAway(dt) {
+  function updateAway(dt, dOk = true, hOk = true) {
     const s = sm();
     s.drive = (s.drive || 0) + dt;
     if (s.drive < tripTime()) return;
     s.drive = 0;
-    if (s.driver) for (let i = 0; i < K.tractor.cap && room() > 0; i++) { const c = takeOre(); if (c == null) break; feed(c, false); }
-    if (s.hauler) for (let i = 0; i < K.tractor.cap; i++) { const c = takeIngot(); if (c == null) break; SF.Hub.deliver(c, 1); }
+    if (s.driver && dOk) for (let i = 0; i < K.tractor.cap && room() > 0; i++) { const c = takeOre(); if (c == null) break; feed(c, false); }
+    if (s.hauler && hOk) for (let i = 0; i < K.tractor.cap; i++) { const c = takeIngot(); if (c == null) break; SF.Hub.deliver(c, 1); }
   }
 
   // The hauler loads ingots off the tray at the smelter, drives them over and unloads them into the hall.
@@ -203,8 +203,13 @@ SF.Smelter = (function () {
       m.t = Math.min(m.t + dt, every() * 3);
       while (m.t >= every() && smeltOne()) m.t -= every();
     } else m.t = 0;
-    if (visible()) { if (m.driver) updateTractor(dt); if (m.hauler) updateHauler(dt); }
-    else if (m.driver || m.hauler) updateAway(dt);
+    // Both drivers need meals and drinks; a hungry one parks until fed.
+    const dOk = !m.driver || SF.Food.tickDriver('smelt-driver', C.home, dt);
+    const hOk = !m.hauler || SF.Food.tickDriver('smelt-hauler', C.home, dt);
+    if (visible()) {
+      if (m.driver) { if (dOk) updateTractor(dt); else if (tractor) tractor.wait = SF.Food.driverStatus('smelt-driver') || 'eating'; }
+      if (m.hauler) { if (hOk) updateHauler(dt); else if (hauler) hauler.wait = SF.Food.driverStatus('smelt-hauler') || 'eating'; }
+    } else if ((m.driver && dOk) || (m.hauler && hOk)) updateAway(dt, dOk, hOk);
     if (visible() && queued() > 0) {
       smokeT -= dt;
       if (smokeT <= 0) { smokeT = 0.3; const w = SF.World.smelter; SF.FX.smoke(w.x + 33, w.y, 176); }

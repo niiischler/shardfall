@@ -1052,6 +1052,173 @@ SF.Render = (function () {
     for (let row = 0; row < w && i < n; row++) for (let c = 0; c < w - row && i < n; c++, i++) item(ctx, res, ox + c * 15 + row * 7.5, y - row * 11, 1.1);
   }
 
+  // ---------- machine art (research-unlocked producers) ----------
+  // Each draws around (x, y) = the building's foot; the stock pile and label are added by the producer.
+  function palm(ctx, x, y, h, t, ph) {
+    const sw = Math.sin(t * 1.3 + ph) * 3;
+    ctx.strokeStyle = '#8a5a34'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 6, y - h * 0.5, x + sw, y - h); ctx.stroke();
+    ctx.strokeStyle = 'rgba(58,32,16,0.5)'; ctx.lineWidth = 2;
+    for (let k = 0.2; k < 1; k += 0.18) { const yy = y - h * k; ctx.beginPath(); ctx.moveTo(x - 3 + sw * k, yy); ctx.lineTo(x + 4 + sw * k, yy - 2); ctx.stroke(); }
+    ctx.lineCap = 'butt';
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + (i - 2.5) * 0.55 + Math.sin(t * 1.6 + i + ph) * 0.06, L = 30;
+      ctx.fillStyle = i % 2 ? '#3fae6a' : '#62d08a';
+      ctx.beginPath(); ctx.moveTo(x + sw, y - h);
+      ctx.quadraticCurveTo(x + sw + Math.cos(a) * L * 0.6 - 6, y - h + Math.sin(a) * L * 0.6 - 10, x + sw + Math.cos(a) * L, y - h + Math.sin(a) * L + 12);
+      ctx.quadraticCurveTo(x + sw + Math.cos(a) * L * 0.6 + 6, y - h + Math.sin(a) * L * 0.6, x + sw, y - h); ctx.fill();
+    }
+    for (const [dx, dy] of [[-5, 4], [4, 5], [0, 9]]) { ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(x + sw + dx, y - h + dy, 4.5, 0, TAU); ctx.fill(); }
+  }
+  const MACHINE_ART = {
+    // Sunfruit orchard: a thatched beach hut between palms, a hammock and a crate of fruit.
+    orchard(ctx, x, y, t) {
+      ctx.fillStyle = 'rgba(255,226,160,0.55)'; ctx.beginPath(); ctx.ellipse(x - 4, y - 2, 74, 22, 0, 0, TAU); ctx.fill();
+      palm(ctx, x - 58, y - 6, 92, t, 0);
+      palm(ctx, x + 50, y - 10, 104, t, 2);
+      // hammock between the palms
+      ctx.strokeStyle = '#ffb3c8'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 54, y - 54); ctx.quadraticCurveTo(x, y - 24 + Math.sin(t * 1.5) * 3, x + 48, y - 60); ctx.stroke();
+      // hut on stilts with a palm-leaf roof
+      ctx.strokeStyle = '#6b4325'; ctx.lineWidth = 4;
+      for (const dx of [-22, 18]) { ctx.beginPath(); ctx.moveTo(x + dx, y); ctx.lineTo(x + dx, y - 16); ctx.stroke(); }
+      ctx.fillStyle = '#d9a46a'; ctx.strokeStyle = '#6b4325'; ctx.lineWidth = 2.5;
+      roundRect(ctx, x - 28, y - 46, 52, 32, 3); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(107,67,37,0.45)'; ctx.lineWidth = 1.5;
+      for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(x - 28 + i * 8.7, y - 46); ctx.lineTo(x - 28 + i * 8.7, y - 14); ctx.stroke(); }
+      ctx.fillStyle = '#2a1c16'; roundRect(ctx, x - 8, y - 36, 14, 22, 3); ctx.fill();
+      ctx.fillStyle = '#e3b04a'; ctx.strokeStyle = '#8a5a1a'; ctx.lineWidth = 2;
+      poly(ctx, [[x - 40, y - 42], [x - 2, y - 72], [x + 36, y - 42]]); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(138,90,26,0.6)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.moveTo(x - 36 + i * 11, y - 42); ctx.lineTo(x - 2 + (i - 3) * 3, y - 68); ctx.stroke(); }
+      // flower garland
+      for (let i = 0; i < 5; i++) { ctx.fillStyle = ['#ff6f9c', '#ffd36b', '#ff9cc2'][i % 3]; ctx.beginPath(); ctx.arc(x - 24 + i * 11, y - 44 + Math.sin(i) * 2, 3, 0, TAU); ctx.fill(); }
+      // crate of fruit
+      ctx.fillStyle = '#a8703f'; ctx.strokeStyle = '#5a3a1a'; roundRect(ctx, x + 22, y - 16, 26, 16, 2); ctx.fill(); ctx.stroke();
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(x + 28 + i * 7, y - 18, 4.5, 0, TAU); ctx.fill(); }
+    },
+    // Coral farm: a little lagoon pool with coral racks and bubbles.
+    coralfarm(ctx, x, y, t) {
+      ctx.fillStyle = '#c8a46a'; ctx.beginPath(); ctx.ellipse(x, y - 6, 64, 26, 0, 0, TAU); ctx.fill();
+      const g = ctx.createRadialGradient(x, y - 8, 4, x, y - 8, 56); g.addColorStop(0, '#7ff0e0'); g.addColorStop(1, '#1f9fb0');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y - 8, 54, 20, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) { const k = (t * 0.4 + i / 3) % 1; ctx.globalAlpha = 1 - k; ctx.beginPath(); ctx.ellipse(x, y - 8, 14 + k * 38, 5 + k * 13, 0, 0, TAU); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      for (const [dx, h, c] of [[-30, 26, '#ff9cc2'], [-8, 36, '#ff6f9c'], [16, 28, '#ffb3c8'], [34, 20, '#ff9cc2']]) {
+        ctx.strokeStyle = c; ctx.lineWidth = 5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x + dx, y - 6); ctx.lineTo(x + dx, y - 6 - h); ctx.moveTo(x + dx, y - 6 - h * 0.5); ctx.lineTo(x + dx - 8, y - 6 - h * 0.8); ctx.moveTo(x + dx, y - 6 - h * 0.6); ctx.lineTo(x + dx + 8, y - 6 - h * 0.95); ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
+      // wooden rack across the pool
+      ctx.strokeStyle = '#8a5a34'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(x - 50, y - 44); ctx.lineTo(x + 50, y - 44); ctx.moveTo(x - 46, y - 44); ctx.lineTo(x - 46, y - 8); ctx.moveTo(x + 46, y - 44); ctx.lineTo(x + 46, y - 8); ctx.stroke();
+      for (let i = 0; i < 4; i++) { const k = (t * 0.8 + i / 4) % 1; ctx.fillStyle = `rgba(255,255,255,${0.8 * (1 - k)})`; ctx.beginPath(); ctx.arc(x - 20 + i * 14, y - 12 - k * 30, 2.5, 0, TAU); ctx.fill(); }
+    },
+    // Pearl diver: a jetty with a crane lowering a brass diving bell into the water.
+    diver(ctx, x, y, t) {
+      const g = ctx.createRadialGradient(x + 20, y - 4, 4, x + 20, y - 4, 50); g.addColorStop(0, '#5fd6e8'); g.addColorStop(1, '#1d6f88');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x + 20, y - 4, 50, 18, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#a8703f'; ctx.strokeStyle = '#5a3a1a'; ctx.lineWidth = 2;
+      roundRect(ctx, x - 60, y - 14, 58, 12, 2); ctx.fill(); ctx.stroke();
+      for (const dx of [-54, -10]) { ctx.fillStyle = '#6b4325'; ctx.fillRect(x + dx, y - 4, 5, 10); }
+      // crane
+      ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(x - 34, y - 14); ctx.lineTo(x - 34, y - 90); ctx.lineTo(x + 24, y - 90); ctx.stroke();
+      ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 34, y - 60); ctx.lineTo(x - 6, y - 90); ctx.stroke();
+      const dz = (Math.sin(t * 0.9) * 0.5 + 0.5) * 50;
+      ctx.beginPath(); ctx.moveTo(x + 20, y - 90); ctx.lineTo(x + 20, y - 76 + dz); ctx.stroke();
+      ctx.fillStyle = '#d9a040'; ctx.strokeStyle = '#6a4a12'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x + 20, y - 62 + dz, 13, Math.PI, TAU); ctx.lineTo(x + 33, y - 52 + dz); ctx.lineTo(x + 7, y - 52 + dz); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#9af5ff'; ctx.beginPath(); ctx.arc(x + 20, y - 62 + dz, 5, 0, TAU); ctx.fill();
+      if (dz > 40) for (let i = 0; i < 3; i++) { const k = (t * 1.5 + i / 3) % 1; ctx.fillStyle = `rgba(255,255,255,${1 - k})`; ctx.beginPath(); ctx.arc(x + 14 + i * 6, y - 8 - k * 20, 2, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#5a3a1a'; roundRect(ctx, x - 52, y - 28, 22, 14, 3); ctx.fill();
+      ctx.fillStyle = '#9af5ff'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(x - 46 + i * 5, y - 30, 3, 0, TAU); ctx.fill(); }
+    },
+    // Glowcap farm: a glass dome full of glowing mushrooms.
+    glowfarm(ctx, x, y, t) {
+      ctx.fillStyle = '#3a2a4a'; roundRect(ctx, x - 52, y - 10, 104, 12, 4); ctx.fill();
+      glow(ctx, x, y - 34, 60, 'rgba(182,255,106,0.9)', 0.35 + Math.sin(t * 2) * 0.08);
+      for (const [dx, h, r] of [[-28, 18, 11], [-6, 30, 15], [18, 20, 12], [34, 12, 8]]) {
+        ctx.fillStyle = '#efe6f5'; ctx.fillRect(x + dx - 3, y - 10 - h, 6, h);
+        ctx.fillStyle = '#b6ff6a'; ctx.beginPath(); ctx.ellipse(x + dx, y - 10 - h, r, r * 0.6, 0, Math.PI, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(x + dx - r * 0.4, y - 13 - h - r * 0.2, 2, 0, TAU); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(200,240,255,0.18)'; ctx.strokeStyle = 'rgba(220,245,255,0.8)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(x, y - 10, 50, 58, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(220,245,255,0.35)'; ctx.lineWidth = 1.5;
+      for (const k of [0.45, 0.8]) { ctx.beginPath(); ctx.ellipse(x, y - 10, 50 * k, 58, 0, Math.PI, TAU); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(x - 24, y - 46, 6, 14, 0.5, 0, TAU); ctx.fill();
+      for (let i = 0; i < 4; i++) { const k = (t * 0.5 + i / 4) % 1; ctx.fillStyle = `rgba(182,255,106,${1 - k})`; ctx.beginPath(); ctx.arc(x - 20 + i * 13 + Math.sin(k * 6 + i) * 4, y - 20 - k * 40, 2, 0, TAU); ctx.fill(); }
+    },
+    // Berry picker: trellis rows of berry bushes with a little picking robot.
+    berryfarm(ctx, x, y, t) {
+      ctx.strokeStyle = '#8a5a34'; ctx.lineWidth = 3;
+      for (const row of [-20, 0]) {
+        ctx.beginPath(); ctx.moveTo(x - 56, y + row - 30); ctx.lineTo(x + 40, y + row - 30); ctx.stroke();
+        for (let i = 0; i < 4; i++) {
+          const bx = x - 48 + i * 28, by = y + row;
+          ctx.fillStyle = '#2e7a34'; ctx.beginPath(); ctx.ellipse(bx, by - 16, 15, 14, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#3e9a42'; ctx.beginPath(); ctx.ellipse(bx - 3, by - 20, 10, 9, 0, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#ff5f7a'; for (const [dx, dy] of [[-6, -14], [4, -20], [6, -10], [-2, -24]]) { ctx.beginPath(); ctx.arc(bx + dx, by + dy, 3, 0, TAU); ctx.fill(); }
+        }
+      }
+      const rx = x - 40 + (Math.sin(t * 0.7) * 0.5 + 0.5) * 80;
+      ctx.fillStyle = '#dfe5ee'; ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 2;
+      roundRect(ctx, rx - 10, y + 2, 20, 14, 4); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rx, y + 2); ctx.lineTo(rx + 6, y - 14 + Math.sin(t * 6) * 3); ctx.stroke();
+      ctx.fillStyle = Math.sin(t * 5) > 0 ? '#ff5f7a' : '#9be36a'; ctx.beginPath(); ctx.arc(rx - 4, y + 8, 2.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#a8703f'; ctx.strokeStyle = '#5a3a1a'; roundRect(ctx, x + 40, y - 6, 22, 14, 2); ctx.fill(); ctx.stroke();
+    },
+    // Crystal drill: a rig with a spinning bit sunk into a crystal outcrop.
+    crystaldrill(ctx, x, y, t) {
+      for (const [dx, h, a] of [[-22, 34, -0.3], [-8, 46, 0.05], [8, 30, 0.35]]) {
+        ctx.save(); ctx.translate(x + dx, y - 4); ctx.rotate(a);
+        ctx.fillStyle = '#1e9aa3'; poly(ctx, [[-7, 0], [-7, -h], [0, -h - 10], [7, -h], [7, 0]]); ctx.fill();
+        ctx.fillStyle = '#6ff5e8'; poly(ctx, [[0, 0], [0, -h - 10], [7, -h], [7, 0]]); ctx.fill();
+        ctx.restore();
+      }
+      ctx.strokeStyle = '#4c3a5e'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(x + 10, y); ctx.lineTo(x + 30, y - 100); ctx.lineTo(x + 50, y); ctx.stroke();
+      const dz = Math.abs(Math.sin(t * 2.5)) * 10;
+      ctx.fillStyle = '#c9c2da'; roundRect(ctx, x + 22, y - 96 + dz, 16, 34, 4); ctx.fill();
+      ctx.save(); ctx.translate(x + 30, y - 52 + dz);
+      ctx.fillStyle = '#9aa3ad'; poly(ctx, [[-7, 0], [0, 20], [7, 0]]); ctx.fill();
+      ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 1.5; for (let i = 0; i < 3; i++) { const k = ((t * 6 + i / 3) % 1) * 18; ctx.beginPath(); ctx.moveTo(-6 + k / 3, k); ctx.lineTo(6 - k / 3, k + 3); ctx.stroke(); }
+      ctx.restore();
+      glow(ctx, x + 30, y - 30, 30, 'rgba(111,245,232,0.9)', 0.4 + Math.sin(t * 9) * 0.15);
+      for (let i = 0; i < 4; i++) { const k = (t * 2 + i / 4) % 1; ctx.fillStyle = `rgba(111,245,232,${1 - k})`; ctx.fillRect(x + 30 + (i - 1.5) * k * 30, y - 30 - Math.sin(k * 3) * 16, 3, 3); }
+    },
+    // Magma pump: a nodding pump over a glowing vent, feeding a hot tank.
+    pump(ctx, x, y, t) {
+      glow(ctx, x - 24, y - 6, 40, 'rgba(255,140,60,0.9)', 0.5 + Math.sin(t * 5) * 0.15);
+      ctx.fillStyle = '#3a2634'; ctx.beginPath(); ctx.ellipse(x - 24, y - 4, 24, 9, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ff8f3a'; ctx.beginPath(); ctx.ellipse(x - 24, y - 5, 14, 5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#5e4a72'; poly(ctx, [[x - 6, y], [x + 4, y - 50], [x + 14, y]]); ctx.fill();
+      const a = Math.sin(t * 2) * 0.35;
+      ctx.save(); ctx.translate(x + 4, y - 50); ctx.rotate(a);
+      ctx.fillStyle = '#ffab4a'; ctx.strokeStyle = '#5a2410'; ctx.lineWidth = 2; roundRect(ctx, -44, -5, 70, 10, 3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#c4521f'; poly(ctx, [[-50, -12], [-38, -12], [-38, 14], [-50, 14]]); ctx.fill();
+      ctx.restore();
+      const hx = x + 4 - Math.cos(a) * 44, hy = y - 50 - Math.sin(a) * 44;
+      ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx, hy + 14); ctx.lineTo(x - 24, y - 6); ctx.stroke();
+      ctx.fillStyle = '#9a90b0'; ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 2.5; roundRect(ctx, x + 22, y - 44, 30, 44, 10); ctx.fill(); ctx.stroke();
+      const lv = 0.5 + Math.sin(t * 0.8) * 0.3; ctx.fillStyle = '#ffab4a'; ctx.fillRect(x + 32, y - 8 - 28 * lv, 10, 28 * lv);
+    },
+    // Cactus condenser: a tall tank with spinning fins and dripping water.
+    condenser(ctx, x, y, t) {
+      ctx.fillStyle = '#5f9a4a'; for (const dx of [-46, 46]) { roundRect(ctx, x + dx - 6, y - 34, 12, 34, 6); ctx.fill(); ctx.fillRect(x + dx + (dx < 0 ? -12 : 6), y - 24, 8, 4); }
+      ctx.fillStyle = '#dfe5ee'; ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 2.5;
+      roundRect(ctx, x - 22, y - 76, 44, 76, 12); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#2a7fb8'; const lv = 0.4 + Math.sin(t * 0.6) * 0.25; roundRect(ctx, x - 14, y - 8 - 56 * lv, 28, 56 * lv, 6); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(x - 10, y - 66, 4, 50);
+      ctx.save(); ctx.translate(x, y - 86); ctx.scale(1, 0.35); ctx.rotate(t * 4);
+      ctx.fillStyle = '#9aa3ad'; for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.beginPath(); ctx.ellipse(14, 0, 14, 5, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+      for (let i = 0; i < 2; i++) { const k = (t * 1.2 + i / 2) % 1; ctx.fillStyle = `rgba(127,216,255,${1 - k})`; ctx.beginPath(); ctx.ellipse(x + 26, y - 30 + k * 26, 2.5, 3.5, 0, 0, TAU); ctx.fill(); }
+      ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 22, y - 34); ctx.lineTo(x + 28, y - 34); ctx.lineTo(x + 28, y - 30); ctx.stroke();
+    },
+  };
+
   const BUILDINGS = {
     gate(ctx, p, t) {
       const x = p.x, y = p.y, R = p.res == null ? { color: SF.World.planet.theme.accent } : SF.World.res(p.res);
@@ -1110,6 +1277,8 @@ SF.Render = (function () {
         ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 2; ctx.stroke();
         ctx.fillStyle = '#3a3f48'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, TAU); ctx.fill();
         ctx.restore();
+      } else if (MACHINE_ART[h.style]) {
+        MACHINE_ART[h.style](ctx, x, y, t);
       } else if (h.style === 'mine') {
         ctx.fillStyle = '#5a5258'; ctx.strokeStyle = '#26222a'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.ellipse(x - 10, y - 4, 58, 52, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -1540,6 +1709,68 @@ SF.Render = (function () {
     if (tr.wait) label(ctx, tr.wait, x, y - 82, 11, '#ffab4a', 600);
   }
 
+  // Machine drivers' vehicles: one kind per planet. Cargo rides on the back (behind the driver).
+  function cargoOn(ctx, tr, x, y, back) {
+    tr.cargo.slice(0, 12).forEach((c, i) => item(ctx, c, x + tr.face * (back + (i % 4) * 8), y - Math.floor(i / 4) * 6, 0.75));
+  }
+  function driverHead(ctx, x, y) {
+    ctx.fillStyle = '#f7f6fc'; ctx.beginPath(); ctx.arc(x, y, 6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffb35a'; ctx.beginPath(); ctx.ellipse(x + 2, y, 4, 3.5, 0, 0, TAU); ctx.fill();
+  }
+  function vehicle(ctx, tr, t) {
+    const f = tr.face, x = tr.x, y = tr.y;
+    if (tr.kind === 'tractor') { tractor(ctx, tr, t); return; }
+    if (tr.kind === 'hover') {
+      // Kelvos hover sled: a floating crystal-powered platform.
+      const h = 14 + Math.sin(t * 3 + x * 0.01) * 3;
+      shadow(ctx, x, y + 2, 38, 8);
+      glow(ctx, x, y - 4, 30, 'rgba(111,245,232,0.9)', 0.5);
+      ctx.save(); ctx.translate(x, y - h); ctx.scale(f, 1);
+      ctx.strokeStyle = '#2a1c36'; ctx.lineWidth = 2.5;
+      ctx.fillStyle = '#7d6aa0'; roundRect(ctx, -44, -14, 84, 14, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#6ff5e8'; for (const dx of [-30, 0, 26]) { ctx.beginPath(); ctx.ellipse(dx, 1, 7, 3, 0, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#c9c2da'; ctx.beginPath(); ctx.ellipse(18, -14, 18, 18, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(154,245,255,0.75)'; ctx.beginPath(); ctx.ellipse(22, -18, 10, 9, 0, Math.PI, TAU); ctx.fill();
+      ctx.restore();
+      driverHead(ctx, x + f * 20, y - h - 22);
+      cargoOn(ctx, tr, x, y - h - 20, -38);
+    } else if (tr.kind === 'buggy') {
+      // Duneveil dune buggy: roll cage, balloon tyres and a flag.
+      const bump = Math.abs(Math.sin(tr.walk * 1.1)) * 2;
+      shadow(ctx, x, y + 2, 44, 8);
+      ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+      ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2.5;
+      ctx.fillStyle = '#ffab4a'; poly(ctx, [[-40, -14], [-36, -28], [20, -28], [36, -18], [36, -10], [-40, -10]]); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#3a3f48'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-14, -28); ctx.lineTo(-8, -54); ctx.lineTo(16, -54); ctx.lineTo(22, -28); ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-38, -28); ctx.lineTo(-38, -70); ctx.stroke();
+      ctx.fillStyle = '#ff5f5f'; poly(ctx, [[-38, -70], [-22, -65 + Math.sin(t * 8) * 2], [-38, -60]]); ctx.fill();
+      ctx.restore();
+      driverHead(ctx, x + f * 4, y - bump - 38);
+      ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+      for (const dx of [-26, 24]) wheel(ctx, dx, -10, 12, tr.walk);
+      ctx.restore();
+      cargoOn(ctx, tr, x, y - bump - 34, -34);
+    } else {
+      // Halcyon beach cart: a mint tuk-tuk with a striped canopy.
+      const bump = Math.abs(Math.sin(tr.walk)) * 1;
+      shadow(ctx, x, y + 2, 42, 8);
+      ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+      ctx.strokeStyle = '#1f4a3a'; ctx.lineWidth = 2.5;
+      ctx.fillStyle = '#62d0a8'; roundRect(ctx, -40, -30, 76, 20, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#c99a5a'; roundRect(ctx, -40, -40, 32, 12, 3); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#dfe5ee'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(4, -30); ctx.lineTo(4, -64); ctx.moveTo(32, -30); ctx.lineTo(32, -64); ctx.stroke();
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#fff4e8' : '#ff6f9c'; poly(ctx, [[-2 + i * 10, -64], [8 + i * 10, -64], [10 + i * 10, -56], [i * 10, -56]]); ctx.fill(); }
+      ctx.restore();
+      driverHead(ctx, x + f * 18, y - bump - 42);
+      ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+      for (const dx of [-26, 26]) wheel(ctx, dx, -8, 8, tr.walk);
+      ctx.restore();
+      cargoOn(ctx, tr, x, y - bump - 46, -36);
+    }
+    if (tr.wait) label(ctx, tr.wait, x, y - 86, 11, '#ffab4a', 600);
+  }
+
   // Canteen delivery car: a little green van with a food crate on the back.
   function foodCar(ctx, car, t) {
     const f = car.face, x = car.x, y = car.y, bump = Math.abs(Math.sin(car.walk)) * 1;
@@ -1753,5 +1984,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { item, here, trail, foodCar, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { item, here, trail, foodCar, vehicle, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

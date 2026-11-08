@@ -31,7 +31,7 @@
     P.incoming = 0; P.stackFx = []; P.zone = null; P.hidden = false;
     flyers.length = 0; drones.length = 0;
     cam.x = P.x; cam.y = P.y - 30;
-    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter(); SF.Food.enter();
+    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter(); SF.Food.enter(); SF.Haul.enter();
     document.documentElement.style.setProperty('--accent', W.planet.theme.accent);
   }
 
@@ -212,12 +212,6 @@
         FX.burst(p.x - 20, p.y - 30, [SF.res(code).color, '#fff4e8'], 4, { z: 40, speed: 80, size: 3, life: 0.5 });
       }
     } else st.t = 0;
-    // On Halcyon machines carry their stock straight into the hall.
-    if (W.hall && st.pile > 0) {
-      st.beltT = (st.beltT || 0) - dt;
-      if (st.beltT <= 0) { st.beltT = 0.8; st.pile--; SF.Hub.storeHall(code, p.x - 20, p.y - 30); }
-      return;
-    }
     // A conveyor belt carries the stock to the depot by itself.
     if (st.belt && st.pile > 0) {
       st.beltT = (st.beltT || 0) - dt;
@@ -537,6 +531,7 @@
     SF.Hub.update(dt);
     SF.Smelter.update(dt);
     SF.Food.update(dt);
+    SF.Haul.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i];
@@ -626,6 +621,7 @@
       const hl = SF.Smelter.hauler;
       if (hl) list.push({ y: hl.y, fn: () => Rn.tractor(ctx, hl, t) });
     }
+    for (const id in SF.Haul.live) { const v = SF.Haul.live[id]; list.push({ y: v.y, fn: () => Rn.vehicle(ctx, v, t) }); }
     for (const car of SF.Food.cars) list.push({ y: car.y, fn: () => Rn.foodCar(ctx, car, t) });
     for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
