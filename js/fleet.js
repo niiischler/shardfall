@@ -12,7 +12,7 @@ SF.Fleet = (function () {
   const cap = id => Math.round(SF.rocketBase() * model(id).cap * (1 + R.frame.step * frameLvl(id)));
   // Routes: every planet except Halcyon that you have been to.
   const routes = () => Object.keys(SF.state.worlds).map(Number).filter(pi => pi !== C.home).sort((a, b) => a - b);
-  const locked = id => !!model(id).locked && !SF.PLANETS.some(p => p.liquid);
+  const locked = id => !!model(id).locked && !SF.PLANETS.some((p, pi) => p.liquid && SF.Map.charted(pi));
   const has = () => SF.homeHas('workshop');
 
   function spendHall(credits, mats) {

@@ -113,6 +113,62 @@ SF.PLANETS = [
     // Buildings of the home base. needs = materials from the hall, by resource code (ingots: 112 iron, 122 copper).
     homePlots: [
       { id: 'g4', kind: 'gate', name: 'Haven Bridge', desc: 'Opens New Haven', cost: 25000, needs: { 10: 200 }, requires: 'g3' },
+      // The star map in the main area: every planet at a glance, and the way to far planets.
+      { id: 'map', kind: 'starmap', name: 'Star Map', desc: 'See every planet and chart new ones', cost: 1000000, needs: { 112: 500, 122: 400, 4: 60, 24: 60 }, abs: [360, -590] },
+    ],
+  },
+  // ---------- far planets: found on the star map (Halcyon), charted for credits, then reached by rocket ----------
+  {
+    id: 'petra', name: 'Petra', mult: 3, hard: 0.4, pace: 1.3, far: true, chart: 500000, liquid: true,
+    tagline: 'A tar-black world of oil seeps and gas vents',
+    intro: 'Crude oil bubbles up through the rock and gas hisses from the vents. Liquids run through copper pipes here, and only a Tanker rocket can carry them home.',
+    theme: {
+      ground: '#3b3633', light: 'rgba(120,110,95,0.3)', dark: 'rgba(10,8,8,0.45)',
+      crater: 'rgba(20,16,16,0.6)', rim: 'rgba(150,130,110,0.35)',
+      specks: ['rgba(15,12,12,0.55)', 'rgba(180,160,130,0.35)', 'rgba(255,207,74,0.3)'],
+      detail: 'craters', backdrop: '#141010', fog: 'rgba(10,8,6,0.76)', accent: '#ffcf4a',
+    },
+    regions: [{ angle: 0, dist: 1150, r: 540 }, { angle: 270, dist: 1150, r: 540 }, { angle: 180, dist: 1150, r: 520 }, { angle: 90, dist: 1180, r: 560 }],
+    resources: [
+      { id: 'oil', name: 'Crude oil', plural: 'Crude oil', node: 'oilseep', item: 'canister', snd: 'water', color: '#5a4a6e', dark: '#221a2c', edge: '#0c0812', liquid: true },
+      { id: 'gas', name: 'Natural gas', plural: 'Natural gas', node: 'gasvent', item: 'gastank', snd: 'water', color: '#bfe8ff', dark: '#4a8ab0', edge: '#1a3a52', stone: '#4a4440', liquid: true, region: 'Gas Fields', biome: 'gasfield', gate: 'Field Valve' },
+      { id: 'sulfur', name: 'Sulfur', plural: 'Sulfur', node: 'crystal', item: 'gem', snd: 'glass', color: '#ffe14a', dark: '#b59a10', edge: '#4a3d05', region: 'Sulfur Springs', biome: 'sulfur', gate: 'Springs Ramp' },
+      { id: 'obsidian', name: 'Obsidian', plural: 'Obsidian', node: 'icespire', item: 'icicle', snd: 'ice', color: '#8a78b0', dark: '#2a2040', edge: '#0e0a18', region: 'Glass Plains', biome: 'glassplain', gate: 'Plains Bridge' },
+      { id: 'opal', name: 'Fire opal', plural: 'Fire opals', node: 'geode', item: 'sungem', snd: 'sun', color: '#ff5fa2', dark: '#a01e5a', edge: '#4a0a26', region: 'Opal Caldera', biome: 'volcanic', gate: 'Caldera Lift' },
+    ],
+    helpers: [
+      { slot: 'h1', kind: 'producer', style: 'derrick', res: 0, every: 2.6, pile: 12, pipe: true, name: 'Oil Derrick', desc: 'Pumps crude oil on its own' },
+      { slot: 'h2', kind: 'producer', style: 'gaswell', res: 1, every: 3.2, pile: 12, pipe: true, name: 'Gas Well', desc: 'Taps natural gas on its own' },
+    ],
+    machines: [
+      { res: 2, style: 'crystaldrill', name: 'Sulfur Drill', desc: 'Drills sulfur on its own', research: 'autoPetra' },
+    ],
+  },
+  {
+    id: 'edenia', name: 'Edenia', mult: 3.5, hard: 0.3, pace: 1.4, far: true, chart: 800000,
+    tagline: 'A garden world where everything is edible',
+    intro: 'Moonmelons, nectar blooms and spice trees. Food from Edenia keeps the crew full twice as long, once the canteen cooks it.',
+    theme: {
+      ground: '#5f9a58', light: 'rgba(200,240,160,0.4)', dark: 'rgba(30,80,40,0.3)',
+      crater: 'rgba(70,120,60,0.45)', rim: 'rgba(230,255,200,0.45)',
+      specks: ['rgba(30,70,30,0.45)', 'rgba(255,240,200,0.5)', 'rgba(255,170,220,0.45)'],
+      detail: 'grass', backdrop: '#13301c', fog: 'rgba(10,30,16,0.7)', accent: '#ffa8d8',
+    },
+    regions: [{ angle: 315, dist: 1150, r: 540 }, { angle: 135, dist: 1150, r: 540 }, { angle: 45, dist: 1160, r: 520 }, { angle: 225, dist: 1170, r: 560 }],
+    resources: [
+      { id: 'melon', name: 'Moonmelon', plural: 'Moonmelons', node: 'bush', item: 'fruit', snd: 'squish', color: '#c9f28a', dark: '#5a9a2a', edge: '#23461a', leaf: '#7cc860', leafDark: '#3a7a34', fruit: true },
+      { id: 'nectar', name: 'Dew nectar', plural: 'Dew nectar', node: 'mushroom', item: 'drop', snd: 'squish', color: '#ffc4ec', dark: '#d05aa8', edge: '#5e1a48', stem: '#e8fff0', region: 'Bloom Meadow', biome: 'meadow', gate: 'Meadow Gate' },
+      { id: 'spice', name: 'Spice pod', plural: 'Spice pods', node: 'tree', item: 'berries', snd: 'wood', color: '#ff8a3a', dark: '#b0401a', edge: '#4a1a08', leaf: '#d0602a', leafDark: '#7a2e14', region: 'Spice Terraces', biome: 'grove', gate: 'Terrace Steps' },
+      { id: 'honey', name: 'Honeycomb', plural: 'Honeycomb', node: 'resin', item: 'amber', snd: 'resin', color: '#ffd23a', dark: '#c08a10', edge: '#5a3a06', region: 'Hive Cliffs', biome: 'hive', gate: 'Cliff Lift' },
+      { id: 'truffle', name: 'Star truffle', plural: 'Star truffles', node: 'mushroom', item: 'cap', snd: 'squish', color: '#e0c8ff', dark: '#6a4aa0', edge: '#2a1a4a', stem: '#fff4e8', region: 'Truffle Woods', biome: 'enchanted', gate: 'Woods Path' },
+    ],
+    helpers: [
+      { slot: 'h1', kind: 'drones', name: 'Bee Drone Bay', unit: 'Bee drone', desc: 'Bee drones harvest for you' },
+      { slot: 'h2', kind: 'producer', style: 'glowfarm', res: 1, every: 3, pile: 12, name: 'Nectar Garden', desc: 'Collects dew nectar on its own' },
+    ],
+    machines: [
+      { res: 0, style: 'orchard', name: 'Melon Farm', desc: 'Grows moonmelons on its own', research: 'autoEdenia' },
+      { res: 2, style: 'berryfarm', name: 'Spice Picker', desc: 'Picks spice pods on its own', research: 'autoEdenia' },
     ],
   },
 ];
@@ -171,7 +227,7 @@ SF.layoutPlanet = function (planet) {
     Object.assign(plots.find(p => p.id === 'g3'), { requires: 'g2', cost: Math.round(5000 * m) });
     const reg = regions.find(r => r.settlement);
     for (const h of planet.homePlots) {
-      const [x, y] = h.at ? [reg.x + h.at[0], reg.y + h.at[1]] : at(sett, C.gateRadius);
+      const [x, y] = h.abs ? h.abs : h.at ? [reg.x + h.at[0], reg.y + h.at[1]] : at(sett, C.gateRadius);
       plots.push(Object.assign({}, h, { x: Math.round(x), y: Math.round(y) }));
     }
     // Empty building lots in New Haven: you choose what goes where (see SF.BUILDS).
@@ -182,7 +238,8 @@ SF.layoutPlanet = function (planet) {
   } else {
     for (const id of ['h1', 'ref', 'h2', 'launch']) {
       if (id === 'ref') { plot('ref', 'refinery', 'Refinery', 'Everything sells for +50%', ...spot()); continue; }
-      if (id === 'launch') { plot('launch', 'launch', 'Launch Pad', 'Fly on to a new planet', ...spot()); continue; }
+      // On a far planet your rocket stands ready from the start, so you can always fly home.
+      if (id === 'launch') { plot('launch', 'launch', planet.far ? 'Rocket' : 'Launch Pad', planet.far ? 'Travel to other planets' : 'Fly on to a new planet', ...spot(), planet.far ? { prebuilt: true, requires: null } : {}); continue; }
       const h = planet.helpers.find(x => x.slot === id);
       if (h) plot(id, h.kind, h.name, h.desc, ...spot(), { helper: h });
     }

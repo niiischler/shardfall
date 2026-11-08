@@ -18,6 +18,11 @@ SF.Biomes = (function () {
     dunes: { ground: '#e2c38e', light: 'rgba(255,240,200,0.45)', dark: 'rgba(170,120,70,0.3)', marks: ['dunes'], decor: ['skull', 'ribs', 'deadbush'] },
     rift: { ground: '#5a2420', light: 'rgba(200,80,50,0.3)', dark: 'rgba(25,5,5,0.5)', marks: ['glowcracks', 'gravel'], glow: '#ffb347', decor: ['spire', 'vent', 'basalt'] },
     shallows: { ground: '#7fd6c8', light: 'rgba(220,255,250,0.45)', dark: 'rgba(30,140,150,0.3)', marks: ['water', 'sand'], decor: ['rockpool', 'seaweed', 'starfish'] },
+    gasfield: { ground: '#4a4a3e', light: 'rgba(190,230,255,0.18)', dark: 'rgba(10,10,8,0.45)', marks: ['mud', 'gravel'], decor: ['vent', 'boulder', 'vent'] },
+    sulfur: { ground: '#7a6a2a', light: 'rgba(255,225,74,0.3)', dark: 'rgba(40,30,5,0.45)', marks: ['glowcracks', 'gravel'], glow: '#ffe14a', decor: ['vent', 'spire', 'basalt'] },
+    glassplain: { ground: '#2a2436', light: 'rgba(160,140,220,0.25)', dark: 'rgba(5,3,10,0.5)', marks: ['chasms', 'gravel'], decor: ['spire', 'spire', 'basalt'] },
+    meadow: { ground: '#6aa860', light: 'rgba(255,220,240,0.35)', dark: 'rgba(30,70,30,0.35)', marks: ['grass', 'flowers'], flower: ['#ffc4ec', '#ffffff', '#ffd23a'], decor: ['shrub', 'fern', 'shrub'], fireflies: '#ffe8f6' },
+    hive: { ground: '#9a7030', light: 'rgba(255,210,58,0.3)', dark: 'rgba(60,35,5,0.4)', marks: ['strata', 'leaves'], leaves: ['#ffd23a', '#c08a10', '#ffe58a'], decor: ['butte', 'oldtree', 'shrub'] },
     reef: { ground: '#3fa0b8', light: 'rgba(160,240,255,0.4)', dark: 'rgba(10,60,90,0.4)', marks: ['water', 'sand'], decor: ['seaweed', 'seaweed', 'rockpool'] },
   };
 
