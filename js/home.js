@@ -212,5 +212,5 @@ SF.Home = (function () {
 
   function enter() { workers.length = 0; }
 
-  return { workers, jobs, jobOpen, workTime, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
+  return { workers, jobs, jobOpen, spendMaterial, workTime, jobPlanet, crewCap, hasFactory, hold, available, hire, setJob, installBelt, quote, canChoose, chooseLot, cancelLot, update, enter };
 })();

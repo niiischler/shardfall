@@ -23,7 +23,9 @@ SF.CFG = {
   plotRequires: { g2: null, h1: 'g2', ref: 'g2', g3: 'g2', h2: 'g3', g4: 'g3', g5: 'g4', launch: 'g5' },
 
   drone: { cap: 5, speed: 170, hitEvery: 0.6, max: 6, base: 1800, growth: 1.75, awayEvery: 3 },  // awayEvery: s per item while you are elsewhere
-  producer: { base: 2200, growth: 1.7, max: 8 },
+  producer: { base: 5000, growth: 1.85, max: 8,
+    mk2: { levels: 5, boost: 1.6, credits: 90000, needs: { 112: 60, 122: 30 } },   // research 'mk2': rebuild a maxed producer for 5 more levels
+  },
   refineryMult: 1.5,
 
   // What every finished campaign planet gives you for good.
@@ -35,7 +37,7 @@ SF.CFG = {
   },
 
   home: 3,                             // index of the home planet; travel opens there
-  conveyor: { needs: { 112: 10 } },    // 10 iron ingots per producer
+  conveyor: { needs: { 112: 30 } },    // 30 iron ingots per producer
 
   // New Haven on Halcyon: empty lots, relative to the settlement centre. You pick the building for each.
   haven: { lots: [[-270, -230], [0, -230], [270, -230], [-270, 70], [0, 70], [270, 70], [-270, 370], [0, 370], [270, 370]] },
@@ -48,15 +50,15 @@ SF.CFG = {
     driver: 12000, drivers: 2, carSpeed: 230,               // delivery car drivers at the canteen
     pantry: 3,                                              // servings per crew member each supply run brings out
   },
-  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, rareSlow: [1, 1, 1, 2, 3], eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
+  crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, rareSlow: [1, 1, 1, 2.5, 4], eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
 
   // Once Halcyon is reached, other planets ship by cargo rocket instead of selling.
   hub: {
     rocketCap: 50, flight: 11, unload: 3,       // seconds each way, seconds on the hall pad
     away: 25,                                   // whole round trip: flight + unload + flight
     pad: { x: 205, y: 55 },                     // cargo rocket pad beside the warehouse, clear of the belts
-    chest: { base: 40, step: 40, cost: 3000, growth: 1.7, max: 8 },   // portable chest, total items
-    hall:  { base: 150, step: 150, cost: 6000, growth: 1.7, max: 8 },  // Halcyon hall, per resource
+    chest: { base: 40, step: 40, cost: 8000, growth: 1.85, max: 8 },   // portable chest, total items
+    hall:  { base: 150, step: 150, cost: 20000, growth: 1.9, max: 8 },  // Halcyon hall, per resource
     hallAt: { x: 300, y: -290 },
   },
 
@@ -115,7 +117,8 @@ const priced = (base, growth, lvl) => Math.round(base * SF.mult(SF.atHome() ? SF
 
 SF.upgradeCost = key => { const u = SF.CFG.upgrades[key]; return priced(u.base, u.growth, SF.state.lvl[key]); };
 SF.droneCost = () => { const d = SF.CFG.drone; return priced(d.base, d.growth, Math.max(0, SF.ws().drones - 1)); };
-SF.producerCost = st => priced(SF.CFG.producer.base, SF.CFG.producer.growth, st.lvl);
+SF.producerCost = st => priced(SF.CFG.producer.base, SF.CFG.producer.growth, st.lvl) * (st.mk ? 2 : 1);
+SF.producerMax = st => SF.CFG.producer.max + (st.mk ? SF.CFG.producer.mk2.levels : 0);
 SF.hireCost = () => { const c = SF.CFG.crew; return Math.round(c.hire * Math.pow(c.growth, SF.state.crew.length)); };
 SF.resValue = code => SF.INGOTS[code] ? SF.resValue(SF.INGOTS[code].ore) * 1.6 : SF.res(code).value * SF.mult(Math.floor(code / 10));
 SF.sellMult = () => (SF.ws().plots.ref && SF.ws().plots.ref.built ? SF.CFG.refineryMult : 1) * (1 + SF.CFG.perks.sale * SF.state.stars);
@@ -124,35 +127,44 @@ SF.sellMult = () => (SF.ws().plots.ref && SF.ws().plots.ref.built ? SF.CFG.refin
 SF.BUILDS = {
   habitat: {
     name: 'Habitat', desc: 'Beds for 2 crew', icon: 'bed',
-    cost: n => Math.round(15000 * Math.pow(1.8, n)),
-    needs: n => Object.assign({ 10: 50 + 30 * n, 21: 30 + 30 * n }, n >= 1 ? { 0: 40 * n } : {}, n >= 2 ? { 3: 15 * n } : {}),
+    cost: n => Math.round(20000 * Math.pow(1.9, n)),
+    needs: n => Object.assign({ 10: 250 + 150 * n, 21: 150 + 120 * n }, n >= 1 ? { 0: 200 * n } : {}, n >= 2 ? { 3: 60 * n } : {}),
   },
-  factory: { name: 'Belt Factory', desc: 'Conveyor belts for producers', unique: true, cost: () => 30000, needs: () => ({ 112: 40, 122: 20 }) },
-  lab: { name: 'Research Lab', desc: 'Research rockets, drones and industry', unique: true, cost: () => 40000, needs: () => ({ 112: 30, 0: 80, 31: 40 }) },
-  canteen: { name: 'Canteen', desc: 'Cooks meals and drinks for the crew', unique: true, cost: () => 25000, needs: () => ({ 10: 60, 21: 40, 122: 10 }) },
+  factory: { name: 'Belt Factory', desc: 'Conveyor belts for producers', unique: true, cost: () => 60000, needs: () => ({ 112: 200, 122: 100 }) },
+  lab: { name: 'Research Lab', desc: 'Research rockets, drones and industry', unique: true, cost: () => 80000, needs: () => ({ 112: 150, 0: 400, 31: 200 }) },
+  canteen: { name: 'Canteen', desc: 'Cooks meals and drinks for the crew', unique: true, cost: () => 50000, needs: () => ({ 10: 300, 21: 200, 122: 50 }) },
 };
 
 // Research trees in the lab. Each level costs credits plus materials from the hall; `after` must be researched first.
 SF.RESEARCH = [
   { id: 'rocket', name: 'Rocket technology', color: '#ff8f5a', nodes: [
-    { id: 'engines', name: 'Faster engines', max: 3, eff: l => `Cargo rockets fly ${Math.round(15 * l)}% faster`, mats: { 112: 15, 24: 10 } },
-    { id: 'bay', name: 'Bigger cargo bay', max: 3, after: 'engines', eff: l => `Rockets carry ${SF.CFG.hub.rocketCap + 25 * l}`, mats: { 122: 15, 10: 40 } },
+    { id: 'engines', name: 'Faster engines', max: 3, eff: l => `Cargo rockets fly ${Math.round(15 * l)}% faster`, mats: { 112: 60, 24: 40 } },
+    { id: 'bay', name: 'Bigger cargo bay', max: 3, after: 'engines', eff: l => `Rockets carry ${SF.CFG.hub.rocketCap + 25 * l}`, mats: { 122: 60, 10: 160 } },
   ] },
   { id: 'auto', name: 'Autonomous harvesting', color: '#6ff5e8', nodes: [
-    { id: 'motors', name: 'Drone motors', max: 3, eff: l => `Drones fly ${Math.round(20 * l)}% faster`, mats: { 1: 30, 122: 10 } },
-    { id: 'pods', name: 'Drone cargo pods', max: 3, after: 'motors', eff: l => `Drones carry ${SF.CFG.drone.cap + 2 * l}`, mats: { 13: 20, 21: 30 } },
-    { id: 'beams', name: 'Drone tool power', max: 3, after: 'pods', eff: l => `Drone beams hit ${Math.round(50 * l)}% harder`, mats: { 3: 20, 112: 15 } },
+    { id: 'motors', name: 'Drone motors', max: 3, eff: l => `Drones fly ${Math.round(20 * l)}% faster`, mats: { 1: 120, 122: 40 } },
+    { id: 'pods', name: 'Drone cargo pods', max: 3, after: 'motors', eff: l => `Drones carry ${SF.CFG.drone.cap + 2 * l}`, mats: { 13: 80, 21: 120 } },
+    { id: 'beams', name: 'Drone tool power', max: 3, after: 'pods', eff: l => `Drone beams hit ${Math.round(50 * l)}% harder`, mats: { 3: 80, 112: 60 } },
   ] },
   { id: 'industry', name: 'Industry', color: '#ffd36b', nodes: [
-    { id: 'presses', name: 'Faster producers', max: 3, eff: l => `Sawmills, mines and excavators work ${Math.round(20 * l)}% faster`, mats: { 112: 20, 23: 15 } },
-    { id: 'training', name: 'Crew training', max: 3, after: 'presses', eff: l => `Crew work ${Math.round(25 * l)}% faster`, mats: { 11: 30, 31: 20 } },
-    { id: 'recipes', name: 'Better recipes', max: 3, after: 'training', eff: l => `${SF.CFG.food.per + l} servings per sunfruit or cactus water`, mats: { 2: 25, 32: 10 } },
+    { id: 'presses', name: 'Faster producers', max: 3, eff: l => `Sawmills, mines and excavators work ${Math.round(20 * l)}% faster`, mats: { 112: 80, 23: 60 } },
+    { id: 'training', name: 'Crew training', max: 3, after: 'presses', eff: l => `Crew work ${Math.round(25 * l)}% faster`, mats: { 11: 120, 31: 80 } },
+    { id: 'recipes', name: 'Better recipes', max: 3, after: 'training', eff: l => `${SF.CFG.food.per + l} servings per sunfruit or cactus water`, mats: { 2: 100, 32: 40 } },
+  ] },
+  // Machines only ever work the three common resources of a planet; the rare ones stay crew work.
+  { id: 'machines', name: 'Machines', color: '#9be36a', nodes: [
+    { id: 'autoKelvos', name: 'Kelvos machines', max: 1, credits: 60000, eff: () => 'Crystal drill, magma pump and glowcap farm on Kelvos', mats: { 112: 80, 3: 40 } },
+    { id: 'autoVerdra', name: 'Verdra machines', max: 1, credits: 60000, eff: () => 'Berry picker on Verdra', mats: { 112: 80, 13: 40 } },
+    { id: 'autoDune', name: 'Duneveil machines', max: 1, credits: 80000, eff: () => 'Cactus condenser and copper mine on Duneveil', mats: { 122: 80, 23: 40 } },
+    { id: 'autoHalcyon', name: 'Halcyon machines', max: 1, credits: 100000, eff: () => 'Sunfruit orchard, coral farm and pearl diver on Halcyon, straight into the hall', mats: { 122: 80, 24: 40 } },
+    { id: 'twin', name: 'Second plant', max: 1, credits: 150000, after: 'presses', eff: () => 'Build a second copy of every machine', mats: { 112: 200, 122: 100, 14: 40 } },
+    { id: 'mk2', name: 'Mk2 machines', max: 1, credits: 200000, after: 'presses', eff: () => `Rebuild a maxed machine as Mk2: ${SF.CFG.producer.mk2.levels} more levels, faster`, mats: { 112: 250, 122: 150, 4: 30 } },
   ] },
 ];
 SF.RESEARCH_NODES = SF.RESEARCH.flatMap(t => t.nodes.map(n => Object.assign({ tree: t }, n)));
 // Current level of a research node.
 SF.R = id => (SF.state && SF.state.research && SF.state.research[id]) || 0;
 SF.researchCost = (node, l) => ({
-  credits: Math.round(12000 * Math.pow(1.7, l)),
+  credits: Math.round((node.credits || 25000) * Math.pow(1.8, l)),
   mats: Object.fromEntries(Object.entries(node.mats).map(([c, n]) => [c, n * (l + 1)])),
 });

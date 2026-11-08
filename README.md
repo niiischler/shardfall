@@ -141,9 +141,12 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
     it to the hall or warehouse; elsewhere they fill their planet's warehouse (1 every 8 s).
   - **Belt Factory** (iron + copper ingots): unlocks conveyor belts. Install one at any sawmill, mine or excavator
     for 10 iron ingots; it runs into a side input of the warehouse and carries the stock there by itself.
-  - **Research Lab**: three trees (rocket technology, autonomous harvesting, industry). Each level costs credits plus
+  - **Research Lab**: four trees (rocket technology, autonomous harvesting, industry, machines). Each level costs credits plus
     materials from the hall: faster and bigger cargo rockets, faster drones that carry more and hit harder, faster
     producers, faster crew and better recipes.
+  - **Machines** (research tree): unlock producers for the three common resources of each planet, a second copy of
+    every machine, and Mk2 rebuilds with five more levels. Rare resources are crew work only; drones skip them too.
+    Halcyon machines put their stock straight into the hall.
   - **Canteen**: cooks sunfruit into meals and cactus water into drinks. Crew then need both. On Halcyon they walk to
     the canteen to eat (and stop working meanwhile) unless you hire **delivery drivers**, whose cars bring the food
     out to them. Crew on other planets eat from their warehouse's pantry, which the cargo rocket fills on its way back
