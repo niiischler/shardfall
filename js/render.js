@@ -2072,12 +2072,12 @@ SF.Render = (function () {
     if (lift !== null) {
       const flying = r.away > 0;
       if (flying) FX.smoke(x + (Math.random() - 0.5) * 20, y - lift * 0.1, 3);
-      cargoRocket(ctx, x, y - lift, t, flying, 0.85, r.away > 0 && r.model ? r.model : SF.Fleet.modelOf(SF.state.planet));
+      cargoRocket(ctx, x, y - lift, t, flying, 0.85, r.away > 0 && r.model ? r.model : SF.Fleet.modelOf(SF.state.planet, r));
     }
-    const k = Math.min(1, r.n / SF.rocketCap());
+    const cap = SF.rocketCap(SF.state.planet, r), k = Math.min(1, r.n / cap);
     ctx.fillStyle = 'rgba(28,10,40,0.75)'; roundRect(ctx, x - 32, y + 22, 64, 9, 4); ctx.fill();
     ctx.fillStyle = '#ffd36b'; roundRect(ctx, x - 30, y + 24, Math.max(3, 60 * k), 5, 2.5); ctx.fill();
-    label(ctx, r.away > 0 ? `ROCKET BACK IN ${Math.ceil(r.away)}s` : `CARGO ${r.n}/${SF.rocketCap()}`, x, y + 44, 12, '#ffd36b');
+    label(ctx, r.away > 0 ? `ROCKET BACK IN ${Math.ceil(r.away)}s` : `CARGO ${r.n}/${cap}`, x, y + 44, 12, '#ffd36b');
   }
 
   // Halcyon's hall: rockets land behind it, you unload in front of it.

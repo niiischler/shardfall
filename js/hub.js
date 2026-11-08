@@ -51,10 +51,23 @@ SF.Hub = (function () {
   // ---------- planet side: warehouse buffer and cargo rocket ----------
   // Every campaign planet has one cargo rocket. Its whole trip runs on the `away` timer, so it keeps
   // flying wherever you are: lift off, fly to Halcyon, land on its pad, unload, fly back, land.
-  function rk(ws) {
-    if (!ws.rk) ws.rk = { load: {}, n: 0, away: 0, out: 0 };
-    return ws.rk;
+  // A route can own more rockets (bought in the Rocket Workshop): ws.rk plus ws.more. One loads at a time; the
+  // others fly their own trips, so a busy warehouse never waits for a single rocket to come back.
+  const blank = () => ({ load: {}, n: 0, away: 0, out: 0 });
+  function rockets(ws) {
+    if (!ws.rk) ws.rk = blank();
+    const want = Math.max(0, ws.extra | 0);
+    ws.more = ws.more || [];
+    while (ws.more.length < want) ws.more.push(blank());
+    return [ws.rk].concat(ws.more);
   }
+  // The rocket standing on the pad (loading), or, if all are out, the one back soonest.
+  function rk(ws) {
+    const all = rockets(ws);
+    return loading(ws) || all.reduce((a, b) => (b.away < a.away ? b : a));
+  }
+  // Of the rockets on the ground, the fullest keeps loading.
+  const loading = ws => rockets(ws).filter(r => r.away <= 0).sort((a, b) => b.n - a.n)[0] || null;
 
   function toWarehouse(code, ws) {
     ws = ws || SF.ws();
@@ -63,15 +76,15 @@ SF.Hub = (function () {
   }
   const whCount = ws => Object.values(ws.wh || {}).reduce((a, b) => a + b, 0);
 
-  function launchCargo(pi, supply) {
+  function launchCargo(pi, supply, one) {
     pi = pi == null ? SF.state.planet : pi;
-    const ws = SF.state.worlds[pi], r = rk(ws);
+    const ws = SF.state.worlds[pi], r = one || rk(ws);
     if ((!r.n && !supply) || r.away > 0) return false;
     // Workshop models burn fuel from the tank on Halcyon; without it the rocket waits on its pad.
-    if (!SF.Fuel.take(SF.Fuel.perTrip(pi))) { r.noFuel = true; return false; }
+    if (!SF.Fuel.take(SF.Fuel.perTrip(pi, r))) { r.noFuel = true; return false; }
     r.noFuel = false;
     // The trip length is fixed at lift-off, so research during a flight never makes a rocket jump.
-    r.fl = SF.rocketFlight(pi); r.model = SF.Fleet.modelOf(pi); r.total = 2 * r.fl + H.unload;
+    r.fl = SF.rocketFlight(pi, r); r.model = SF.Fleet.modelOf(pi, r); r.total = 2 * r.fl + H.unload;
     r.away = r.total; r.out = 0; r.food = null; r.packed = false;
     if (pi === SF.state.planet) {
       SF.Audio.rocket(0.8); SF.FX.shake(0.3);
@@ -223,9 +236,10 @@ SF.Hub = (function () {
     for (const k in s.worlds) {
       const pi = +k, ws = s.worlds[k];
       if (pi === C.home) continue;
-      const r = rk(ws), here = pi === s.planet;
+      const here = pi === s.planet;
       if (!here) offlineWork(pi, ws, dt);
-      if (r.away > 0) {
+      for (const r of rockets(ws)) {
+        if (r.away <= 0) continue;
         const before = phase(r);
         r.away = Math.max(0, r.away - dt);
         const now = phase(r);
@@ -236,14 +250,16 @@ SF.Hub = (function () {
         if (r.away <= 0) { SF.Food.unpack(pi, r.food); r.load = {}; r.n = 0; r.out = 0; r.food = null; r.packed = false; }
         if (s.planet === C.home && before === 'out' && fl(r) - elapsed(r) < 2.4 && !r.heard) { r.heard = true; const h = SF.World.hall; SF.Audio.land(0.6 * SF.near(h.x, h.y)); }
         if (now !== 'out') r.heard = false;
-        continue;
       }
+      // Every rocket on the ground loads what it can carry: a Tanker only liquids and gases, the others only solids.
+      const home = rockets(ws).filter(q => q.away <= 0).sort((a, b) => b.n - a.n);
+      if (!home.length) continue;
+      for (const r of home) {
+      const tank = !!SF.Fleet.model(SF.Fleet.modelOf(pi, r)).liquid;
       // Load the warehouse stock into the rocket: animated where you are, instantly elsewhere.
-      while (r.n < SF.rocketCap(pi) && whCount(ws) > 0 && (!here || loadT <= 0)) {
+      while (r.n < SF.rocketCap(pi, r) && whCount(ws) > 0 && (!here || loadT <= 0)) {
         // Take turns between the resources in stock, so a fast one never starves the others.
-        // Liquids and gases only go into a Tanker.
-        const tank = SF.Fleet.model(SF.Fleet.modelOf(pi)).liquid;
-        const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0 && (tank || !SF.res(+c).liquid)).sort((a, b) => a - b);
+        const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0 && tank === !!SF.res(+c).liquid).sort((a, b) => a - b);
         if (!keys.length) break;
         r.turn = ((r.turn || 0) + 1) % keys.length;
         const code = +keys[r.turn];
@@ -251,9 +267,11 @@ SF.Hub = (function () {
         r.load[code] = (r.load[code] || 0) + 1; r.n++;
         if (here) { loadT = 0.1; SF.fly(code, C.depot.x + 40, C.depot.y - 30, () => ({ x: H.pad.x, y: H.pad.y - 60 }), { dur: 0.4, arc: 40 }); break; }
       }
-      if (r.n >= SF.rocketCap(pi)) launchCargo(pi);
-      // Its crew is running out of food: fly now with whatever is loaded.
-      else if (SF.Food.needsSupply(pi)) launchCargo(pi, true);
+      if (r.n >= SF.rocketCap(pi, r)) launchCargo(pi, false, r);
+      }
+      // Its crew is running out of food: the fullest rocket on the ground flies now with whatever is loaded.
+      const first = home.find(q => q.away <= 0);
+      if (first && SF.Food.needsSupply(pi) && !rockets(ws).some(q => q.away > 0)) launchCargo(pi, true, first);
     }
   }
 
@@ -261,46 +279,51 @@ SF.Hub = (function () {
   function arrivals() {
     const out = [];
     for (const k in SF.state.worlds) {
-      const pi = +k, r = SF.state.worlds[k].rk;
-      if (pi === C.home || !r || r.away <= 0) continue;
+      const pi = +k;
+      if (pi === C.home) continue;
+      rockets(SF.state.worlds[k]).forEach((r, i) => {
+      if (r.away <= 0) return;
       const e = elapsed(r), F = fl(r), U = H.unload;
       let h = null, fire = false;
       if (e >= F - 2.4 && e < F) { h = Math.pow(F - e, 2) * 90; fire = true; }
       else if (e >= F && e < F + U) h = 0;
       else if (e >= F + U && e < F + U + 2.4) { h = Math.pow(e - F - U, 2) * 120; fire = true; }
-      out.push({ pi, pad: padOf(pi), h, fire, e, r });
+      out.push({ pi, pad: padOf(pi), h, fire, e, r, i });
+      });
     }
     return out;
   }
 
   // What each hall pad shows above it.
-  function padLabel(pi) {
+  function padLabel(pi, one) {
     const ws = SF.state.worlds[pi], name = SF.planetName(pi);
     if (!ws) return [name.toUpperCase(), 'not visited yet'];
-    const r = rk(ws), p = phase(r), e = elapsed(r);
+    const r = one || rk(ws), p = phase(r), e = elapsed(r);
     if (p === 'out') return [name.toUpperCase(), `lands in ${Math.ceil(fl(r) - e)}s`];
     if (p === 'unload') return [name.toUpperCase(), 'unloading'];
     if (p === 'back') return [name.toUpperCase(), `back on ${name} in ${Math.ceil(r.away)}s`];
-    if (r.noFuel) return [name.toUpperCase(), `needs ${SF.Fuel.perTrip(pi)} fuel`];
-    return [name.toUpperCase(), `loading ${r.n}/${SF.rocketCap(pi)}`];
+    if (r.noFuel) return [name.toUpperCase(), `needs ${SF.Fuel.perTrip(pi, r)} fuel`];
+    return [name.toUpperCase(), `loading ${r.n}/${SF.rocketCap(pi, r)}`];
   }
 
-  const inFlight = () => Object.keys(SF.state.worlds).filter(k => +k !== C.home && SF.state.worlds[k].rk && SF.state.worlds[k].rk.away > 0).length;
+  const inFlight = () => Object.keys(SF.state.worlds).filter(k => +k !== C.home).reduce((a, k) => a + rockets(SF.state.worlds[k]).filter(r => r.away > 0).length, 0);
 
   // Height of the cargo rocket above its pad: lifting off, away, coming back.
   function cargoLift() {
-    const r = rk(SF.ws());
-    if (r.away <= 0) return 0;
-    const gone = total(r) - r.away;
-    if (gone < 2.5) return Math.pow(gone, 2) * 120;
-    if (r.away < 2.5) return Math.pow(r.away, 2) * 120;
-    return null;               // out of sight
+    const all = rockets(SF.ws());
+    for (const r of all) {
+      if (r.away <= 0) continue;
+      const gone = total(r) - r.away;
+      if (gone < 2.5) return Math.pow(gone, 2) * 120;
+      if (r.away < 2.5) return Math.pow(r.away, 2) * 120;
+    }
+    return all.some(r => r.away <= 0) ? 0 : null;   // standing on the pad, or all out of sight
   }
 
   function enter() {}
 
   return {
     arrivals, padLabel, inFlight, phase, pads, padOf, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
-    rk, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
+    rk, rockets, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
   };
 })();

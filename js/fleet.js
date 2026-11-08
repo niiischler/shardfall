@@ -8,7 +8,9 @@ SF.Fleet = (function () {
   const model = id => R.models[id] || R.models.std;
   const owned = id => id === 'std' || !!fleet().own[id];
   const frameLvl = id => fleet().frame[id] || 0;
-  const modelOf = pi => { const ws = SF.state.worlds[pi]; return ws && ws.model && owned(ws.model) ? ws.model : 'std'; };
+  // Every rocket flies its own model: r.kind, or for a route's first rocket the older per-route ws.model.
+  const kindOf = (r, ws) => { const k = r && (r.kind || (ws && r === ws.rk ? ws.model : null)); return k && owned(k) ? k : 'std'; };
+  const modelOf = (pi, r) => { const ws = SF.state.worlds[pi]; return ws ? kindOf(r || ws.rk, ws) : 'std'; };
   const cap = id => Math.round(SF.rocketBase() * model(id).cap * (1 + R.frame.step * frameLvl(id)));
   // Routes: every planet except Halcyon that you have been to.
   const routes = () => Object.keys(SF.state.worlds).map(Number).filter(pi => pi !== C.home).sort((a, b) => a - b);
@@ -54,14 +56,37 @@ SF.Fleet = (function () {
     return true;
   }
 
-  function assign(pi, id) {
+  // More rockets on one route. Each costs more than the last, on that route and in all.
+  const extra = pi => (SF.state.worlds[pi] && SF.state.worlds[pi].extra) | 0;
+  const extraCost = pi => {
+    const E = R.extra, n = extra(pi);
+    return { credits: Math.round(E.cost * Math.pow(E.growth, n)), mats: Object.fromEntries(Object.entries(E.mats).map(([c, k]) => [c, k * (n + 1)])) };
+  };
+  function addRocket(pi) {
     const ws = SF.state.worlds[pi];
-    if (!ws || !owned(id) || modelOf(pi) === id) return false;
-    ws.model = id;
+    if (!has() || !ws || extra(pi) >= R.extra.max) { SF.Audio.nope(); return false; }
+    const c = extraCost(pi);
+    if (!spendHall(c.credits, c.mats)) { SF.Audio.nope(); return false; }
+    ws.extra = extra(pi) + 1;
+    SF.Hub.rockets(ws);
+    celebrate(`${SF.planetName(pi)} route: ${ws.extra + 1} rockets`, SF.planet(pi).theme.accent);
+    return true;
+  }
+
+  function assign(pi, i, id) {
+    const ws = SF.state.worlds[pi], r = ws && SF.Hub.rockets(ws)[i];
+    if (!r || !owned(id) || kindOf(r, ws) === id) return false;
+    r.kind = id;
+    if (i === 0) ws.model = id;
+    // A rocket on the ground hands back what its new model cannot carry: a Tanker only takes liquids and gases.
+    if (r.away <= 0) {
+      const tank = !!model(id).liquid;
+      for (const c in r.load) if (tank !== !!SF.res(+c).liquid) { ws.wh = ws.wh || {}; ws.wh[c] = (ws.wh[c] || 0) + r.load[c]; r.n -= r.load[c]; delete r.load[c]; }
+    }
     SF.Audio.store(3);
     SF.save(); SF.UI.refresh();
     return true;
   }
 
-  return { model, owned, frameLvl, modelOf, cap, routes, locked, has, build, frameCost, upgradeFrame, assign };
+  return { model, owned, frameLvl, kindOf, modelOf, cap, routes, locked, has, build, frameCost, upgradeFrame, extra, extraCost, addRocket, assign };
 })();

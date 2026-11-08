@@ -301,3 +301,6 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
 .map-stats { display: flex; gap: 12px; font: 600 0.75rem/1 var(--display); opacity: 0.75; }
 .map-card .map-go { justify-self: start; margin-top: 4px; padding: 9px 14px; background: var(--tint); }
 .map-card .map-go.poor { opacity: 0.6; }
+.job-chip.add-rk { border-style: dashed; border-color: var(--credit); color: var(--credit); }
+.job-chip.add-rk.short { opacity: 0.6; }
+.job-chip.add-rk:disabled { border-style: solid; opacity: 0.7; cursor: default; }
