@@ -151,6 +151,7 @@ js/audio.js       WebAudio synth sound effects, one sound set per material (no a
 js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults
 js/fx.js          particles, floating numbers, screen shake
+js/biomes.js      ground and scenery per region (quarry, gorge, magic forest, ...)
 js/world.js       regions, node placement, collision, ground texture
 js/render.js      procedural drawing of every object
 js/ui.js          credit counter, goal line, upgrade/drone panels, menu
@@ -161,7 +162,7 @@ To rebalance, edit `js/config.js` and the `SF.TIERS` table in `js/planets.js`.
 To add a planet, add an entry to `SF.PLANETS`: pick a node look (`NODES` in `render.js`, e.g. crystal,
 magma, icespire, ironrock, resin, goldvein, mesa, malachite, geode, palm, coral, conch, tree, bush, cactus),
 an item look (`ITEMS`), a sound (`snd`: glass, stone, metal, gold, magma, ice, wood, palm, resin, squish,
-water, shell, bone, coral, sun) and colours. `hard` makes a planet's rarer resources tougher; `pace`
+water, shell, bone, coral, sun), a `biome` for its region (see `js/biomes.js`) and colours. `hard` makes a planet's rarer resources tougher; `pace`
 scales its building prices.
 
 All art is drawn with canvas shapes; there are no image files.
