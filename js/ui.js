@@ -260,7 +260,7 @@ SF.UI = (function () {
       listCard('hall-info', 'Stored in the hall', '', () => ({
         list: resList(SF.state.hold, Hb.hallCap()),
         text: `Cargo rockets land here. Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.` +
-          (SF.state.inbound.length ? ` ${SF.state.inbound.length} rocket${SF.state.inbound.length > 1 ? 's' : ''} on the way.` : ''),
+          (Hb.inFlight() ? ` ${Hb.inFlight()} cargo rocket${Hb.inFlight() > 1 ? 's' : ''} flying.` : ''),
       })),
       {
         btn: card('up-hall', 'Expand the hall', () => Hb.upgradeHall(), true),

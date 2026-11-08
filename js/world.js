@@ -69,7 +69,7 @@
       W.plots.forEach(p => avoid.push({ x: p.x, y: p.y + 20, r: C.plotR + 80 }));
       W.nodes = [];
       if (W.chest) avoid.push({ x: W.chest.x, y: W.chest.y, r: 110 });
-      if (W.hall) avoid.push({ x: W.hall.x, y: W.hall.y - 40, r: 230 });
+      if (W.hall) avoid.push({ x: W.hall.x, y: W.hall.y - 60, r: 260 });
       if (!W.planet.home) avoid.push({ x: C.hub.pad.x, y: C.hub.pad.y, r: 110 });
       for (const reg of W.regions) {
         if (reg.res == null) continue;

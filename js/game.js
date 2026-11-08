@@ -540,7 +540,7 @@
     } else list.push({ y: C.depot.y, fn: () => Rn.lander(ctx, t, depotGlow) });
     if (W.hall) {
       list.push({ y: W.hall.y, fn: () => Rn.hall(ctx, W.hall, t, P.zone === 'hall') });
-      SF.Hub.landings.forEach(l => { const pd = SF.Hub.pads()[l.pad]; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, l, t) }); });
+      SF.Hub.arrivals().forEach(a => { if (a.h == null) return; const pd = SF.Hub.pads()[a.pad]; list.push({ y: pd.y + 1, fn: () => Rn.landing(ctx, pd, a, t) }); });
     }
     list.push({ y: C.upgradePad.y, fn: () => Rn.upgradePad(ctx, t, P.zone === 'upgrade') });
     if (W.chest) list.push({ y: W.chest.y, fn: () => Rn.chest(ctx, W.chest, t, P.zone === 'chest') });

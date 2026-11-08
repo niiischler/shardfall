@@ -39,7 +39,8 @@ SF.CFG = {
 
   // Once Halcyon is reached, other planets ship by cargo rocket instead of selling.
   hub: {
-    rocketCap: 50, flight: 14, away: 26,        // seconds to Halcyon, seconds until the rocket is back
+    rocketCap: 50, flight: 11, unload: 3,       // seconds each way, seconds on the hall pad
+    away: 25,                                   // whole round trip: flight + unload + flight
     pad: { x: 175, y: -20 },                    // cargo rocket pad next to the warehouse
     chest: { base: 40, step: 40, cost: 3000, growth: 1.7, max: 8 },   // portable chest, total items
     hall:  { base: 150, step: 150, cost: 6000, growth: 1.7, max: 8 },  // Halcyon hall, per resource

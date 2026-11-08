@@ -2,7 +2,6 @@
 // the big hall on Halcyon (where rockets land), and the portable material chest.
 SF.Hub = (function () {
   const C = SF.CFG, H = C.hub;
-  const landings = [];          // rockets touching down at the hall, for drawing only
   let loadT = 0;
 
   const hold = c => SF.state.hold[c] || 0;
@@ -36,27 +35,76 @@ SF.Hub = (function () {
   }
 
   // ---------- planet side: warehouse buffer and cargo rocket ----------
+  // Every campaign planet has one cargo rocket. Its whole trip runs on the `away` timer, so it keeps
+  // flying wherever you are: lift off, fly to Halcyon, land on its pad, unload, fly back, land.
   function rk(ws) {
-    if (!ws.rk) ws.rk = { load: {}, n: 0, away: 0 };
+    if (!ws.rk) ws.rk = { load: {}, n: 0, away: 0, out: 0 };
     return ws.rk;
   }
 
-  function toWarehouse(code) {
-    const ws = SF.ws();
+  function toWarehouse(code, ws) {
+    ws = ws || SF.ws();
     ws.wh = ws.wh || {};
     ws.wh[code] = (ws.wh[code] || 0) + 1;
   }
   const whCount = ws => Object.values(ws.wh || {}).reduce((a, b) => a + b, 0);
 
-  function launchCargo() {
-    const ws = SF.ws(), r = rk(ws);
+  function launchCargo(pi) {
+    pi = pi == null ? SF.state.planet : pi;
+    const ws = SF.state.worlds[pi], r = rk(ws);
     if (!r.n || r.away > 0) return false;
-    SF.state.inbound.push({ t: H.flight, items: r.load, from: SF.state.planet });
-    ws.rk = { load: {}, n: 0, away: H.away };
-    SF.Audio.rocket(0.8); SF.FX.shake(0.3);
-    SF.FX.pop(H.pad.x, H.pad.y - 170, 'Cargo rocket launched to Halcyon', '#ffd36b', 18, { life: 1.6 });
-    SF.save(); SF.UI.refresh();
+    r.away = H.away; r.out = 0;
+    if (pi === SF.state.planet) {
+      SF.Audio.rocket(0.8); SF.FX.shake(0.3);
+      SF.FX.pop(H.pad.x, H.pad.y - 170, 'Cargo rocket launched to Halcyon', '#ffd36b', 18, { life: 1.6 });
+      SF.save(); SF.UI.refresh();
+    }
     return true;
+  }
+
+  // Seconds since lift-off, and where in its trip a rocket is.
+  const elapsed = r => H.away - r.away;
+  function phase(r) {
+    if (r.away <= 0) return 'home';
+    const e = elapsed(r), F = H.flight;
+    if (e < F) return 'out';
+    if (e < F + H.unload) return 'unload';
+    return 'back';
+  }
+
+  // Unload into the hall bit by bit while the rocket stands on its pad.
+  function unloadStep(pi, r) {
+    const want = Math.min(r.n, Math.ceil(r.n * Math.min(1, (elapsed(r) - H.flight) / H.unload)));
+    let credits = 0, moved = 0;
+    while (r.out < want) {
+      const code = +Object.keys(r.load).find(c => r.load[c] > 0);
+      if (isNaN(code)) { r.out = want; break; }
+      r.load[code]--; if (!r.load[code]) delete r.load[code];
+      credits += deliver(code, 1); r.out++; moved++;
+      if (SF.state.planet === C.home) {
+        const p = pads()[pi % 3], h = SF.World.hall;
+        SF.fly(code, p.x, p.y - 50, () => ({ x: h.x, y: h.y - 40 }), { dur: 0.45, arc: 40, delay: moved * 0.03 });
+      }
+    }
+    if (moved && SF.state.planet === C.home) {
+      const h = SF.World.hall;
+      SF.Audio.store(SF.state.hold[C.crew.food] || moved);
+      if (credits) SF.earnFx(credits, h.x, h.y - 130);
+    }
+  }
+
+  // Producers with a belt keep shipping to their warehouse while you are on another planet.
+  const layouts = {};
+  function offlineBelts(pi, ws, dt) {
+    const L = layouts[pi] || (layouts[pi] = SF.layoutPlanet(SF.PLANETS[pi]));
+    for (const p of L.plots) {
+      const st = ws.plots[p.id];
+      if (p.kind !== 'producer' || !st || !st.built || !st.belt) continue;
+      const ps = SF.producerStats(p, st);
+      st.t = (st.t || 0) + dt;
+      while (st.t >= ps.every) { st.t -= ps.every; toWarehouse(pi * 10 + p.helper.res, ws); }
+      if (st.pile > 0) { toWarehouse(pi * 10 + p.helper.res, ws); st.pile--; }
+    }
   }
 
   // ---------- portable chest (other planets) ----------
@@ -108,47 +156,70 @@ SF.Hub = (function () {
   }
 
   // Landing pads behind the hall.
-  const pads = () => { const h = SF.World.hall; return [-110, 0, 110].map((dx, i) => ({ x: h.x + dx, y: h.y - 120 - (i === 1 ? 20 : 0) })); };
+  const pads = () => { const h = SF.World.hall; return [-150, 0, 150].map((dx, i) => ({ x: h.x + dx, y: h.y - 125 - (i === 1 ? 45 : 0) })); };
 
   // ---------- update ----------
   function update(dt) {
     const s = SF.state;
-    // Rockets in flight arrive at Halcyon wherever you are.
-    for (let i = s.inbound.length - 1; i >= 0; i--) {
-      const f = s.inbound[i];
-      f.t -= dt;
-      if (s.planet === C.home && f.t <= 2.4 && !f.shown) {
-        f.shown = true;
-        landings.push({ t: 0, pad: landings.length % 3, items: f.items });
-        SF.Audio.land(0.7);
-      }
-      if (f.t <= 0) {
-        s.inbound.splice(i, 1);
-        const r = deliverAll(f.items);
-        if (s.planet === C.home) {
-          const h = SF.World.hall;
-          SF.FX.pop(h.x, h.y - 160, `+${r.n} items from ${SF.planetName(f.from)}`, '#fff4e8', 18, { life: 1.8 });
-          if (r.credits) SF.earnFx(r.credits, h.x, h.y - 130);
-        }
-      }
-    }
-    for (let i = landings.length - 1; i >= 0; i--) { landings[i].t += dt; if (landings[i].t > 5) landings.splice(i, 1); }
-    // Every planet's rocket comes back on its own, even while you are elsewhere.
-    for (const k in s.worlds) { const w = s.worlds[k]; if (w.rk && w.rk.away > 0) w.rk.away = Math.max(0, w.rk.away - dt); }
-
-    if (!SF.hubActive()) return;
-    // Load the warehouse stock into the rocket, then fly when full.
-    const ws = SF.ws(), r = rk(ws);
+    // Rockets from an older save that were already in the air simply arrive.
+    if (s.inbound.length) { for (const f of s.inbound) deliverAll(f.items); s.inbound.length = 0; }
+    if (!s.homeReached) return;
     loadT -= dt;
-    if (r.away <= 0 && r.n < H.rocketCap && whCount(ws) > 0 && loadT <= 0) {
-      loadT = 0.1;
-      const code = +Object.keys(ws.wh).find(c => ws.wh[c] > 0);
-      ws.wh[code]--; if (!ws.wh[code]) delete ws.wh[code];
-      r.load[code] = (r.load[code] || 0) + 1; r.n++;
-      SF.fly(code, C.depot.x + 40, C.depot.y - 30, () => ({ x: H.pad.x, y: H.pad.y - 60 }), { dur: 0.4, arc: 40 });
+    for (const k in s.worlds) {
+      const pi = +k, ws = s.worlds[k];
+      if (pi === C.home) continue;
+      const r = rk(ws), here = pi === s.planet;
+      if (!here) offlineBelts(pi, ws, dt);
+      if (r.away > 0) {
+        const before = phase(r);
+        r.away = Math.max(0, r.away - dt);
+        const now = phase(r);
+        // Even after a long frame (or a tab in the background) the cargo always arrives.
+        if (elapsed(r) >= H.flight && r.out < r.n) unloadStep(pi, r);
+        if (r.away <= 0) { r.load = {}; r.n = 0; r.out = 0; }
+        if (s.planet === C.home && before === 'out' && H.flight - elapsed(r) < 2.4 && !r.heard) { r.heard = true; SF.Audio.land(0.6); }
+        if (now !== 'out') r.heard = false;
+        continue;
+      }
+      // Load the warehouse stock into the rocket: animated where you are, instantly elsewhere.
+      while (r.n < H.rocketCap && whCount(ws) > 0 && (!here || loadT <= 0)) {
+        const code = +Object.keys(ws.wh).find(c => ws.wh[c] > 0);
+        ws.wh[code]--; if (!ws.wh[code]) delete ws.wh[code];
+        r.load[code] = (r.load[code] || 0) + 1; r.n++;
+        if (here) { loadT = 0.1; SF.fly(code, C.depot.x + 40, C.depot.y - 30, () => ({ x: H.pad.x, y: H.pad.y - 60 }), { dur: 0.4, arc: 40 }); break; }
+      }
+      if (r.n >= H.rocketCap) launchCargo(pi);
     }
-    if (r.n >= H.rocketCap && r.away <= 0) launchCargo();
   }
+
+  // Cargo rockets visible at the hall on Halcyon: one pad per planet.
+  function arrivals() {
+    const out = [];
+    for (const k in SF.state.worlds) {
+      const pi = +k, r = SF.state.worlds[k].rk;
+      if (pi === C.home || !r || r.away <= 0) continue;
+      const e = elapsed(r), F = H.flight, U = H.unload;
+      let h = null, fire = false;
+      if (e >= F - 2.4 && e < F) { h = Math.pow(F - e, 2) * 90; fire = true; }
+      else if (e >= F && e < F + U) h = 0;
+      else if (e >= F + U && e < F + U + 2.4) { h = Math.pow(e - F - U, 2) * 120; fire = true; }
+      out.push({ pi, pad: pi % 3, h, fire, e, r });
+    }
+    return out;
+  }
+
+  // What each hall pad shows above it.
+  function padLabel(pi) {
+    const ws = SF.state.worlds[pi], name = SF.planetName(pi);
+    if (!ws) return [name.toUpperCase(), 'not visited yet'];
+    const r = rk(ws), p = phase(r), e = elapsed(r);
+    if (p === 'out') return [name.toUpperCase(), `lands in ${Math.ceil(H.flight - e)}s`];
+    if (p === 'unload') return [name.toUpperCase(), 'unloading'];
+    if (p === 'back') return [name.toUpperCase(), `back on ${name} in ${Math.ceil(r.away)}s`];
+    return [name.toUpperCase(), `loading ${r.n}/${H.rocketCap}`];
+  }
+
+  const inFlight = () => Object.keys(SF.state.worlds).filter(k => +k !== C.home && SF.state.worlds[k].rk && SF.state.worlds[k].rk.away > 0).length;
 
   // Height of the cargo rocket above its pad: lifting off, away, coming back.
   function cargoLift() {
@@ -160,10 +231,10 @@ SF.Hub = (function () {
     return null;               // out of sight
   }
 
-  function enter() { landings.length = 0; }
+  function enter() {}
 
   return {
-    landings, pads, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
+    arrivals, padLabel, inFlight, phase, pads, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue,
     rk, toWarehouse, whCount, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
   };
 })();

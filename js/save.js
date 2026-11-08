@@ -63,7 +63,7 @@ SF.Save = {
       const into = s.worlds[pi];
       into.drones = Math.max(0, num(w.drones, 0) | 0);
       into.wh = counts(w.wh);
-      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: Object.values(load).reduce((a, b) => a + b, 0), away: Math.max(0, num(w.rk.away, 0)) }; }
+      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0 }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
         if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, res: p.res || {} });
@@ -106,7 +106,7 @@ SF.Save = {
         if (p.paid || p.built || p.lvl || p.pile || res) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, res };
       }
       const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
-      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, away: Math.round(w.rk.away * 10) / 10 || undefined } : undefined;
+      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined } : undefined;
       worlds[k] = { plots, drones: w.drones || undefined, wh, rk };
     }
     return Object.assign({}, s, {
