@@ -90,10 +90,10 @@ SF.PLANETS = [
       { id: 'skyshell', name: 'Skyshell pearl', plural: 'Skyshell pearls', node: 'conch', item: 'shell', snd: 'shell', color: '#9af5ff', dark: '#2a9fb8', edge: '#0e4552', shell: ['#123f4a', '#1f6170', '#2a8193'], region: 'Skyshell Reef', biome: 'reef', gate: 'Reef Bridge' },
     ],
     helpers: [],
-    // Buildings of the home base. needs = materials from the chest, by resource code.
+    // Buildings of the home base. needs = materials from the hall, by resource code (ingots: 112 iron, 122 copper).
     homePlots: [
       { id: 'g4', kind: 'gate', name: 'Haven Bridge', desc: 'Opens New Haven', cost: 25000, needs: { 10: 40 }, requires: 'g3' },
-      { id: 'fac', kind: 'factory', name: 'Belt Factory', desc: 'Conveyor belts for producers', cost: 30000, needs: { 12: 40, 22: 20 }, requires: 'g4', at: [-210, -150] },
+      { id: 'fac', kind: 'factory', name: 'Belt Factory', desc: 'Conveyor belts for producers', cost: 30000, needs: { 112: 40, 122: 20 }, requires: 'g4', at: [-210, -150] },
       { id: 'hab1', kind: 'habitat', name: 'Habitat', desc: 'Room for 2 crew', cost: 15000, needs: { 10: 50, 21: 30 }, requires: 'g4', at: [210, -150] },
       { id: 'hab2', kind: 'habitat', name: 'Habitat II', desc: 'Room for 2 more crew', cost: 30000, needs: { 10: 80, 21: 60, 0: 40 }, requires: 'hab1', at: [-210, 170] },
       { id: 'hab3', kind: 'habitat', name: 'Habitat III', desc: 'Room for 2 more crew', cost: 60000, needs: { 10: 120, 21: 90, 3: 30 }, requires: 'hab2', at: [210, 170] },

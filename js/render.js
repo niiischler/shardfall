@@ -164,6 +164,13 @@ SF.Render = (function () {
       ctx.fillStyle = '#ffd9e6'; ctx.beginPath(); ctx.ellipse(4, 1, 3.5, 4.5, 0.3, 0, TAU); ctx.fill();
       ctx.fillStyle = R.color; ctx.beginPath(); ctx.arc(4, 1, 2, 0, TAU); ctx.fill();
     },
+    ingot(ctx, R) {
+      ctx.lineWidth = 1.2; ctx.strokeStyle = R.edge;
+      poly(ctx, [[-8, 5], [-6, -1], [6, -1], [8, 5]]); ctx.fillStyle = R.dark; ctx.fill(); ctx.stroke();
+      poly(ctx, [[-6, -1], [-4, -5], [4, -5], [6, -1]]); ctx.fillStyle = R.color; ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-3, -4, 5, 1.2);
+      ctx.fillStyle = rgba(R.edge, 0.4); ctx.fillRect(-5, 2, 10, 1);
+    },
     berries(ctx, R) {
       ctx.fillStyle = R.leafDark || '#1f4f22'; ctx.beginPath(); ctx.ellipse(0, -6, 5, 2.2, -0.3, 0, TAU); ctx.fill();
       for (const [x, y] of [[-3.5, 1], [3.5, 1], [0, -2.5]]) {
@@ -1132,21 +1139,209 @@ SF.Render = (function () {
   };
 
   // A conveyor belt with moving slats.
-  function belt(ctx, x1, y1, x2, y2, t, w) {
-    const dx = x2 - x1, dy = y2 - y1, l = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
-    ctx.save(); ctx.translate(x1, y1); ctx.rotate(a);
-    ctx.fillStyle = '#2a2f38'; ctx.fillRect(0, -w / 2 - 2, l, w + 4);
-    ctx.fillStyle = '#4b5260'; ctx.fillRect(0, -w / 2, l, w);
-    ctx.strokeStyle = '#7b8494'; ctx.lineWidth = 2;
-    const off = (t * 40) % 12;
-    for (let i = off; i < l; i += 12) { ctx.beginPath(); ctx.moveTo(i, -w / 2); ctx.lineTo(i, w / 2); ctx.stroke(); }
+  // ---------- conveyor belts ----------
+  // A belt runs from the producer's outlet along straight runs and corner drums into a side port of the warehouse.
+  const BELT_W = 18, BELT_SPEED = 70;
+  function beltRoute(p) {
+    const s = p.x > 0 ? 1 : -1, Y = C.depot.y - 12, o = { x: p.x, y: p.y + 40 }, pts = [o];
+    if (Math.abs(o.x) < 170) { pts.push({ x: s * 170, y: o.y }); pts.push({ x: s * 170, y: Y }); }
+    else pts.push({ x: o.x, y: Y });
+    pts.push({ x: s * 92, y: Y });
+    return pts;
+  }
+  const routeLen = pts => pts.reduce((a, q, i) => (i ? a + Math.hypot(q.x - pts[i - 1].x, q.y - pts[i - 1].y) : 0), 0);
+  // Point at distance d along a route.
+  function along(pts, d) {
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], l = Math.hypot(b.x - a.x, b.y - a.y);
+      if (d <= l || i === pts.length - 1) { const k = l ? Math.min(1, d / l) : 0; return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k }; }
+      d -= l;
+    }
+    return pts[pts.length - 1];
+  }
+
+  function beltRun(ctx, a, b, t, cum) {
+    const w = BELT_W, h = Math.abs(b.y - a.y) < 1, l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (l < 1) return;
+    const dir = h ? Math.sign(b.x - a.x) : Math.sign(b.y - a.y);
+    const x0 = Math.min(a.x, b.x), y0 = Math.min(a.y, b.y);
+    if (h) {
+      // shadow, legs, front face of the frame
+      ctx.fillStyle = 'rgba(28,10,38,0.28)'; ctx.fillRect(x0, a.y + w / 2 + 6, l, 6);
+      ctx.fillStyle = '#3a3f4a';
+      for (let x = x0 + 10; x < x0 + l - 4; x += 38) { ctx.fillRect(x - 2, a.y + w / 2, 4, 11); ctx.fillRect(x - 4, a.y + w / 2 + 9, 8, 3); }
+      ctx.fillStyle = '#596170'; ctx.fillRect(x0, a.y + w / 2, l, 5);
+      ctx.fillStyle = '#2a2f38'; ctx.fillRect(x0, a.y + w / 2 + 5, l, 1.5);
+      // rubber belt with moving cleats
+      ctx.fillStyle = '#2b2d33'; ctx.fillRect(x0, a.y - w / 2, l, w);
+      ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(x0, a.y - w / 2 + 2, l, w / 2 - 2);
+      ctx.strokeStyle = '#4a4e58'; ctx.lineWidth = 2.5;
+      const off = (((t * BELT_SPEED - cum) % 12) + 12) % 12;
+      for (let d = off; d < l; d += 12) { const x = dir > 0 ? a.x + d : a.x - d; ctx.beginPath(); ctx.moveTo(x, a.y - w / 2 + 2); ctx.lineTo(x - dir * 3, a.y); ctx.lineTo(x, a.y + w / 2 - 2); ctx.stroke(); }
+      // side rails with bolts
+      ctx.fillStyle = '#9aa3ad'; ctx.fillRect(x0, a.y - w / 2 - 3, l, 3);
+      ctx.fillStyle = '#c9ced8'; ctx.fillRect(x0, a.y + w / 2 - 1, l, 3);
+      ctx.fillStyle = '#6b7280'; for (let x = x0 + 6; x < x0 + l; x += 19) { ctx.fillRect(x, a.y - w / 2 - 2.5, 2, 2); ctx.fillRect(x, a.y + w / 2 - 0.5, 2, 2); }
+    } else {
+      ctx.fillStyle = 'rgba(28,10,38,0.28)'; ctx.fillRect(a.x + w / 2 + 3, y0 + 6, 6, l);
+      ctx.fillStyle = '#3a3f4a';
+      for (let y = y0 + 14; y < y0 + l - 6; y += 38) for (const sx of [-1, 1]) { ctx.fillRect(a.x + sx * (w / 2 + 3) - 2, y, 4, 9); }
+      ctx.fillStyle = '#2b2d33'; ctx.fillRect(a.x - w / 2, y0, w, l);
+      ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(a.x - w / 2 + 2, y0, w / 2 - 2, l);
+      ctx.strokeStyle = '#4a4e58'; ctx.lineWidth = 2.5;
+      const off = (((t * BELT_SPEED - cum) % 12) + 12) % 12;
+      for (let d = off; d < l; d += 12) { const y = dir > 0 ? a.y + d : a.y - d; ctx.beginPath(); ctx.moveTo(a.x - w / 2 + 2, y); ctx.lineTo(a.x, y - dir * 3); ctx.lineTo(a.x + w / 2 - 2, y); ctx.stroke(); }
+      ctx.fillStyle = '#9aa3ad'; ctx.fillRect(a.x - w / 2 - 3, y0, 3, l);
+      ctx.fillStyle = '#c9ced8'; ctx.fillRect(a.x + w / 2, y0, 3, l);
+      ctx.fillStyle = '#6b7280'; for (let y = y0 + 6; y < y0 + l; y += 19) { ctx.fillRect(a.x - w / 2 - 2.5, y, 2, 2); ctx.fillRect(a.x + w / 2 + 0.5, y, 2, 2); }
+    }
+  }
+
+  // Corner drum where a belt turns.
+  function beltDrum(ctx, q, t) {
+    const r = BELT_W / 2 + 4;
+    ctx.fillStyle = 'rgba(28,10,38,0.28)'; ctx.beginPath(); ctx.ellipse(q.x + 3, q.y + 8, r, r * 0.7, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#596170'; ctx.beginPath(); ctx.arc(q.x, q.y + 3, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#9aa3ad'; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2a2f38'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#2b2d33'; ctx.beginPath(); ctx.arc(q.x, q.y, r - 4, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) { const a = t * 3 + i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + Math.cos(a) * (r - 5), q.y + Math.sin(a) * (r - 5)); ctx.stroke(); }
+    ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(q.x, q.y, 2.5, 0, TAU); ctx.fill();
+  }
+
+  // The hopper at the producer end, where stock drops onto the belt.
+  function beltFeeder(ctx, q, t) {
+    ctx.fillStyle = 'rgba(28,10,38,0.3)'; ctx.beginPath(); ctx.ellipse(q.x + 2, q.y + 12, 18, 6, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2a2f38'; ctx.lineWidth = 2;
+    ctx.fillStyle = '#ffab4a'; poly(ctx, [[q.x - 16, q.y - 22], [q.x + 16, q.y - 22], [q.x + 9, q.y - 6], [q.x - 9, q.y - 6]]); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#596170'; roundRect(ctx, q.x - 11, q.y - 7, 22, 15, 3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2a2f38'; ctx.fillRect(q.x - 16, q.y - 24, 32, 3);
+    ctx.fillStyle = Math.sin(t * 5) > 0 ? '#9be36a' : '#4f7a3a'; ctx.beginPath(); ctx.arc(q.x + 7, q.y + 1, 2.5, 0, TAU); ctx.fill();
+  }
+
+  // Ground part of every belt: runs, drums and feeder. Drawn before the y-sorted objects.
+  function belts(ctx, plots, t) {
+    for (const p of plots) {
+      const pts = beltRoute(p);
+      let cum = 0;
+      for (let i = 1; i < pts.length; i++) { beltRun(ctx, pts[i - 1], pts[i], t, cum); cum += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); }
+      for (let i = 1; i < pts.length - 1; i++) beltDrum(ctx, pts[i], t);
+      beltFeeder(ctx, pts[0], t);
+    }
+  }
+
+  // ---------- smelter (Halcyon) ----------
+  // Dirt track the tractor drives between the ore pickup and the smelter.
+  function road(ctx, a, b) {
+    ctx.save(); ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(70,45,30,0.28)'; ctx.lineWidth = 46; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.strokeStyle = 'rgba(50,30,20,0.25)'; ctx.lineWidth = 5; ctx.setLineDash([14, 8]);
+    for (const o of [-11, 11]) { ctx.beginPath(); ctx.moveTo(a.x, a.y + o); ctx.lineTo(b.x, b.y + o); ctx.stroke(); }
     ctx.restore();
   }
 
-  // Belts from producers to the drop zone, with items riding on them.
-  function belts(ctx, list, t) {
-    const z = C.dropZone;
-    for (const b of list) belt(ctx, b.x, b.y, z.x, z.y, t, 14);
+  function pickupPad(ctx, q, t, active, ore) {
+    pad(ctx, q.x, q.y, q.r, 'rgba(255,171,74,A)', t, active);
+    ctx.fillStyle = '#2a2f38'; roundRect(ctx, q.x - 26, q.y - 36, 52, 22, 5); ctx.fill();
+    ctx.fillStyle = '#ffab4a'; ctx.font = `700 10px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ORE OUT', q.x, q.y - 25);
+    label(ctx, 'ORE PICKUP', q.x, q.y + 34, 12, '#ffab4a');
+    label(ctx, ore ? `${ore} ore in the hall` : 'hall has no ore', q.x, q.y + 49, 10, 'rgba(255,244,232,0.85)', 600);
+  }
+
+  function smelter(ctx, m, t, active, q, hot) {
+    const x = m.x, y = m.y, fl = 0.75 + Math.sin(t * 13) * 0.1 + Math.sin(t * 7.3) * 0.1;
+    pad(ctx, x, m.padY, m.r, 'rgba(255,143,90,A)', t, active);
+    shadow(ctx, x, y + 6, 120, 26);
+    ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 3;
+    // stone plinth
+    ctx.fillStyle = '#6b6470'; roundRect(ctx, x - 104, y - 16, 208, 20, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#857d8a'; ctx.fillRect(x - 100, y - 14, 200, 5);
+    // chimney behind the furnace
+    ctx.fillStyle = '#5a3a30'; roundRect(ctx, x + 18, y - 170, 30, 100, 3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3a2620'; ctx.fillRect(x + 14, y - 176, 38, 10); ctx.strokeRect(x + 14, y - 176, 38, 10);
+    ctx.strokeStyle = 'rgba(42,26,20,0.5)'; ctx.lineWidth = 1.5;
+    for (let r = 0; r < 9; r++) { const yy = y - 162 + r * 10; ctx.beginPath(); ctx.moveTo(x + 18, yy); ctx.lineTo(x + 48, yy); ctx.stroke(); }
+    // furnace dome of bricks
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(x - 62, y - 14); ctx.lineTo(x - 62, y - 70); ctx.quadraticCurveTo(x - 60, y - 128, x, y - 130); ctx.quadraticCurveTo(x + 60, y - 128, x + 62, y - 70); ctx.lineTo(x + 62, y - 14); ctx.closePath();
+    const g = ctx.createLinearGradient(x - 62, 0, x + 62, 0); g.addColorStop(0, '#a45a3c'); g.addColorStop(0.5, '#c06a44'); g.addColorStop(1, '#7e4430');
+    ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 3; ctx.stroke(); ctx.clip();
+    ctx.strokeStyle = 'rgba(60,30,20,0.55)'; ctx.lineWidth = 1.5;
+    for (let r = 0; r < 12; r++) {
+      const yy = y - 18 - r * 10; ctx.beginPath(); ctx.moveTo(x - 64, yy); ctx.lineTo(x + 64, yy); ctx.stroke();
+      for (let c = -4; c <= 4; c++) { const xx = x + c * 16 + (r % 2) * 8; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy - 10); ctx.stroke(); }
+    }
+    ctx.fillStyle = 'rgba(255,240,220,0.12)'; ctx.fillRect(x - 60, y - 130, 34, 120);
+    ctx.restore();
+    // iron bands
+    ctx.strokeStyle = '#3a3f4a'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(x - 62, y - 70); ctx.quadraticCurveTo(x, y - 82, x + 62, y - 70); ctx.stroke();
+    // glowing mouth
+    ctx.fillStyle = '#2a1a14'; ctx.beginPath(); ctx.moveTo(x - 26, y - 14); ctx.lineTo(x - 26, y - 44); ctx.arc(x, y - 44, 26, Math.PI, 0); ctx.lineTo(x + 26, y - 14); ctx.closePath(); ctx.fill();
+    const mg = ctx.createRadialGradient(x, y - 26, 2, x, y - 30, 30);
+    mg.addColorStop(0, hot ? '#fff1a0' : '#7a3a22'); mg.addColorStop(0.5, hot ? '#ffab4a' : '#4a2216'); mg.addColorStop(1, hot ? '#d0441a' : '#2a1a14');
+    ctx.fillStyle = mg; ctx.beginPath(); ctx.moveTo(x - 21, y - 14); ctx.lineTo(x - 21, y - 44); ctx.arc(x, y - 44, 21, Math.PI, 0); ctx.lineTo(x + 21, y - 14); ctx.closePath(); ctx.fill();
+    if (hot) {
+      for (let i = 0; i < 3; i++) { const fx = x - 10 + i * 10, fh = 14 + Math.sin(t * 9 + i * 2) * 5; ctx.fillStyle = i === 1 ? '#fff1a0' : '#ffd36b'; ctx.beginPath(); ctx.moveTo(fx - 6, y - 16); ctx.quadraticCurveTo(fx, y - 16 - fh * 1.6, fx + 6, y - 16); ctx.fill(); }
+      glow(ctx, x, y - 30, 90, 'rgba(255,150,60,0.9)', 0.45 * fl);
+    }
+    // ore hopper on the right, where the tractor stops, filled with what is waiting
+    ctx.strokeStyle = '#2a2f38'; ctx.lineWidth = 2.5;
+    ctx.fillStyle = '#596170'; ctx.fillRect(x + 78, y - 56, 18, 40); ctx.strokeRect(x + 78, y - 56, 18, 40);
+    ctx.fillStyle = '#9aa3ad'; poly(ctx, [[x + 62, y - 92], [x + 112, y - 92], [x + 102, y - 56], [x + 72, y - 56]]); ctx.fill(); ctx.stroke();
+    const ores = [12, 22].flatMap(c => Array(Math.min(6, q[c] || 0)).fill(c));
+    ores.forEach((c, i) => item(ctx, c, x + 71 + (i % 4) * 11, y - 94 - Math.floor(i / 4) * 7, 0.75));
+    ctx.fillStyle = '#ffd36b'; ctx.fillRect(x + 62, y - 94, 50, 3);
+    // casting tray with ingots on the left
+    ctx.fillStyle = '#3a3f4a'; roundRect(ctx, x - 102, y - 34, 40, 22, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = hot ? `rgba(255,${150 + Math.sin(t * 6) * 40 | 0},60,0.95)` : '#596170'; ctx.fillRect(x - 98, y - 30, 32, 6);
+    item(ctx, 112, x - 90, y - 18, 0.8); item(ctx, 122, x - 72, y - 18, 0.8);
+    const n = (q[12] || 0) + (q[22] || 0);
+    label(ctx, 'SMELTER', x, y + 52, 15, '#ff8f5a');
+    label(ctx, n ? `${q[12] || 0} iron · ${q[22] || 0} copper ore in the furnace` : 'Bring iron or copper ore', x, y + 69, 11, 'rgba(255,244,232,0.85)', 600);
+  }
+
+  // The hired driver's tractor with an ore trailer.
+  function tractor(ctx, tr, t) {
+    const f = tr.face, bump = Math.abs(Math.sin(tr.walk * 0.8)) * 1.2, x = tr.x, y = tr.y;
+    shadow(ctx, x - f * 18, y + 2, 52, 9);
+    ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+    ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2.5;
+    // trailer
+    ctx.fillStyle = '#3a3f4a'; ctx.fillRect(-46, -12, 14, 3);
+    ctx.fillStyle = '#9aa3ad'; poly(ctx, [[-82, -30], [-40, -30], [-44, -10], [-78, -10]]); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#596170'; ctx.fillRect(-80, -22, 38, 3);
+    wheel(ctx, -61, -6, 8, tr.walk);
+    ctx.restore();
+    tr.cargo.slice(0, 10).forEach((c, i) => item(ctx, c, x + f * (-74 + (i % 5) * 8), y - bump - 34 - Math.floor(i / 5) * 6, 0.8));
+    ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
+    ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2.5;
+    // body, hood and exhaust
+    ctx.fillStyle = '#ff8f5a'; roundRect(ctx, -30, -30, 52, 18, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffab4a'; roundRect(ctx, 0, -38, 24, 12, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2a2f38'; for (let i = 0; i < 3; i++) ctx.fillRect(6 + i * 6, -34, 3, 6);
+    ctx.fillStyle = '#3a3f4a'; ctx.fillRect(4, -52, 4, 15);
+    // cab with the driver
+    ctx.fillStyle = '#ffd36b'; roundRect(ctx, -30, -62, 28, 34, 4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#9af5ff'; roundRect(ctx, -26, -58, 20, 14, 3); ctx.fill();
+    ctx.fillStyle = '#f7f6fc'; ctx.beginPath(); ctx.arc(-15, -50, 6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffb35a'; ctx.beginPath(); ctx.ellipse(-13, -50, 4, 3.5, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ff8f5a'; ctx.fillRect(-32, -64, 32, 4);
+    // wheels: big rear, small front
+    wheel(ctx, -18, -10, 14, tr.walk);
+    wheel(ctx, 14, -6, 8, tr.walk * 1.7);
+    ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(23, -26, 2.5, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (tr.wait) label(ctx, tr.wait, x, y - 82, 11, '#ffab4a', 600);
+  }
+
+  function wheel(ctx, x, y, r, a) {
+    ctx.fillStyle = '#2a2f38'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#596170'; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#1a1c22'; ctx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) { const b = a + i * TAU / 6; ctx.beginPath(); ctx.moveTo(x + Math.cos(b) * r * 0.6, y + Math.sin(b) * r * 0.6); ctx.lineTo(x + Math.cos(b) * r, y + Math.sin(b) * r); ctx.stroke(); }
+    ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(x, y, r * 0.2, 0, TAU); ctx.fill();
   }
 
   // ---------- shipping: warehouse, cargo rocket, hall ----------
@@ -1334,5 +1529,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { item, here, chest, warehouse, cargoPad, hall, hallPads, landing, belts, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { item, here, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

@@ -126,6 +126,8 @@ SF.Audio = (function () {
     store(n) { tone(semis(392, scale[n % scale.length]), 0.07, 'triangle', 0.06, 0.9); noise(0.04, 0.06, 900, 0, 'lowpass'); },
     rocket(k) { const v = k == null ? 1 : k; noise(1.6, 0.22 * v, 220, 0, 'lowpass'); tone(70, 1.4, 'sawtooth', 0.05 * v, 1.8); },
     land(k) { const v = k == null ? 1 : k; noise(0.9, 0.16 * v, 300, 0, 'lowpass'); tone(160, 0.8, 'sawtooth', 0.04 * v, 0.4); },
+    // Molten metal poured into the mould: a hiss and a low clank.
+    smelt() { noise(0.35, 0.07, 2600, 0, 'highpass'); tone(190, 0.12, 'triangle', 0.05, 0.8); tone(95, 0.18, 'sine', 0.06, 0.9, 0.04); },
     build() {
       [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => tone(semis(330, s), 0.24, 'triangle', 0.12, 1, i * 0.07));
       noise(0.6, 0.14, 700);

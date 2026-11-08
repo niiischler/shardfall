@@ -31,7 +31,7 @@
     P.incoming = 0; P.stackFx = []; P.zone = null; P.hidden = false;
     flyers.length = 0; drones.length = 0;
     cam.x = P.x; cam.y = P.y - 30;
-    SF.Home.enter(); SF.Hub.enter();
+    SF.Home.enter(); SF.Hub.enter(); SF.Smelter.enter();
     document.documentElement.style.setProperty('--accent', W.planet.theme.accent);
   }
 
@@ -213,9 +213,13 @@
       st.beltT = (st.beltT || 0) - dt;
       if (st.beltT <= 0) {
         st.beltT = 0.8; st.pile--;
-        fly(code, p.x, p.y + 40, () => ({ x: C.dropZone.x, y: C.dropZone.y }), {
-          dur: Math.hypot(p.x - C.dropZone.x, p.y + 40 - C.dropZone.y) / 110, arc: 8, linear: true,
-          onArrive(f) { fly(f.code, C.dropZone.x, C.dropZone.y, depotTarget, { dur: 0.35, arc: 40, onArrive(g) { deposit(g.code); } }); },
+        const path = Rn.beltRoute(p), end = path[path.length - 1];
+        fly(code, path[0].x, path[0].y, () => end, {
+          dur: Rn.routeLen(path) / Rn.BELT_SPEED, arc: 0, path,
+          onArrive(f) {
+            if (SF.hubActive()) deposit(f.code);
+            else fly(f.code, end.x, end.y, depotTarget, { dur: 0.35, arc: 40, onArrive(g) { deposit(g.code); } });
+          },
         });
       }
     }
@@ -387,6 +391,8 @@
       else if (inZone(C.upgradePad.x, C.upgradePad.y, C.upgradePad.r)) zone = 'upgrade';
       else if (W.chest && inZone(W.chest.x, W.chest.y, W.chest.r)) zone = 'chest';
       else if (W.hall && inZone(W.hall.x, W.hall.padY, W.hall.r)) zone = 'hall';
+      else if (W.smelter && inZone(W.smelter.x, W.smelter.padY, W.smelter.r)) zone = 'smelter';
+      else if (W.pickup && inZone(W.pickup.x, W.pickup.y, W.pickup.r)) zone = 'pickup';
       else for (const p of W.plots) {
         if (!plotVisible(p)) continue;
         const ps = ws.plots[p.id];
@@ -412,6 +418,34 @@
         P.deliverT += Math.max(0.03, 0.085 - s.stack.length * 0.0012);
       }
     } else { P.deliverT = 0; P.chestWarned = false; }
+
+    // smelter: the iron and copper ore in your pack goes into the furnace
+    if (zone === 'smelter') {
+      P.smeltT = (P.smeltT || 0) - dt;
+      while (P.smeltT <= 0) {
+        let i = s.stack.length - 1;
+        while (i >= 0 && !SF.Smelter.isOre(s.stack[i])) i--;
+        if (i < 0) break;
+        if (!SF.Smelter.feed(s.stack[i], true)) {
+          if (!P.smeltWarned) { P.smeltWarned = true; A.full(); FX.pop(W.smelter.x, W.smelter.y - 150, 'Furnace full, wait a moment', '#ff8f5a', 16, { life: 1.4 }); }
+          break;
+        }
+        const from = Rn.stackSlot(P, i), code = s.stack.splice(i, 1)[0];
+        P.stackFx.length = s.stack.length;
+        fly(code, from.x, from.y, () => ({ x: W.smelter.x + 87, y: W.smelter.y - 96 }), { dur: 0.4, arc: 60, onArrive() { A.store(SF.Smelter.queued()); } });
+        P.smeltT += 0.07;
+      }
+    } else { P.smeltT = 0; P.smeltWarned = false; }
+
+    // ore pickup beside the hall: load iron and copper ore into your pack
+    if (zone === 'pickup' && free > 0) {
+      P.pickT = (P.pickT || 0) - dt;
+      if (P.pickT <= 0) {
+        P.pickT = 0.08;
+        const c = SF.Smelter.takeOre();
+        if (c != null) toStack(c, W.pickup.x, W.pickup.y - 30, 0);
+      }
+    }
     comboT -= dt; if (comboT <= 0) combo = 0;
 
     // pay into a build plot: credits, then materials from the chest
@@ -472,6 +506,7 @@
     for (const d of drones) updateDrone(d, dt);
     SF.Home.update(dt);
     SF.Hub.update(dt);
+    SF.Smelter.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i];
@@ -527,7 +562,13 @@
 
     Rn.dropZone(ctx, t, P.zone === 'drop', SF.hubActive());
     if (W.hall) Rn.hallPads(ctx, W.hall, SF.Hub.pads(), t);
-    Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt).map(p => ({ x: p.x, y: p.y + 40 })), t);
+    if (W.smelter) {
+      Rn.road(ctx, { x: C.smelter.road[0].x - 20, y: C.smelter.road[0].y }, { x: C.smelter.road[1].x + 30, y: C.smelter.road[1].y });
+      Rn.pickupPad(ctx, W.pickup, t, P.zone === 'pickup', SF.Smelter.oreInHall());
+    }
+    Rn.belts(ctx, W.plots.filter(p => p.kind === 'producer' && ws.plots[p.id].belt), t);
+    // stock riding on the belts, under everything that stands
+    for (const f of flyers) if (f.path && f.t >= 0) { const q = Rn.along(f.path, f.t * Rn.routeLen(f.path)); Rn.item(ctx, f.code, q.x, q.y - 6, 1); }
     for (const p of W.plots) if (plotVisible(p) && !ws.plots[p.id].built) Rn.plotMarking(ctx, p, ws.plots[p.id], t, P.zone === 'plot:' + p.id);
 
     // y-sorted objects
@@ -548,6 +589,11 @@
       const lift = p.kind === 'launch' && launch ? rocketLift() + 0.001 : 0;
       list.push({ y: p.y, fn: () => Rn.building(ctx, p, ws.plots[p.id], t, P.zone === 'bld:' + p.id, lift) });
     }
+    if (W.smelter) {
+      list.push({ y: W.smelter.y, fn: () => Rn.smelter(ctx, W.smelter, t, P.zone === 'smelter', SF.state.smelt.q, SF.Smelter.queued() > 0) });
+      const tr = SF.Smelter.tractor;
+      if (tr) list.push({ y: tr.y, fn: () => Rn.tractor(ctx, tr, t) });
+    }
     for (const m of SF.Home.workers) list.push({ y: m.y, fn: () => Rn.crewmate(ctx, m, t) });
     if (!P.hidden) list.push({ y: P.y, fn: () => Rn.player(ctx, P, t) });
     list.sort((a, b) => a.y - b.y);
@@ -558,7 +604,7 @@
     for (const d of drones) Rn.drone(ctx, d, t);
 
     for (const f of flyers) {
-      if (f.t < 0) continue;
+      if (f.t < 0 || f.path) continue;
       const tg = f.getTarget(), e = f.linear ? f.t : f.t < 0.5 ? 2 * f.t * f.t : 1 - Math.pow(-2 * f.t + 2, 2) / 2;
       const x = f.sx + (tg.x - f.sx) * e, y = f.sy + (tg.y - f.sy) * e - Math.sin(f.t * Math.PI) * f.arc;
       if (f.coin) Rn.hexCoin(ctx, x, y, 6);
@@ -608,6 +654,7 @@
   // A small arrow near the astronaut that points at the next useful place.
   function guideTarget() {
     const s = SF.state, ws = SF.ws(), cap = SF.stats().cap;
+    if (W.smelter && s.stack.some(c => SF.Smelter.isOre(c))) return { x: W.smelter.x, y: W.smelter.padY };
     const foreign = s.stack.some(c => Math.floor(c / 10) !== s.planet);
     if (W.hall && foreign) return { x: W.hall.x, y: W.hall.padY };
     if (s.stack.length >= cap * 0.6 && s.stack.length > 0) return C.dropZone;
