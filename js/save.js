@@ -20,6 +20,7 @@ SF.Save = {
       credits: 0, totalEarned: 0, lvl: { cap: 0, drill: 0, speed: 0 },
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
       worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
+      smelt: { q: {}, hand: 0, driver: false, heat: 0, t: 0 },
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -45,7 +46,7 @@ SF.Save = {
     s.credits = Math.max(0, num(data.credits, 0));
     s.totalEarned = num(data.totalEarned, 0);
     if (data.lvl) for (const k in s.lvl) s.lvl[k] = Math.max(0, num(data.lvl[k], 0) | 0);
-    const valid = c => typeof c === 'number' && c >= 0 && SF.PLANETS[Math.floor(c / 10)] && SF.PLANETS[Math.floor(c / 10)].resources[c % 10];
+    const valid = c => typeof c === 'number' && c >= 0 && !!(SF.INGOTS[c] || (SF.PLANETS[Math.floor(c / 10)] && SF.PLANETS[Math.floor(c / 10)].resources[c % 10]));
     if (Array.isArray(data.stack)) s.stack = data.stack.filter(valid);
     if (data.player && isFinite(data.player.x) && isFinite(data.player.y)) s.player = { x: data.player.x, y: data.player.y };
     if (data.hold) for (const c in data.hold) if (valid(+c) && data.hold[c] > 0) s.hold[c] = data.hold[c] | 0;
@@ -53,6 +54,8 @@ SF.Save = {
     s.chest = counts(data.chest);
     s.chestLvl = Math.max(0, num(data.chestLvl, 0) | 0);
     s.hallLvl = Math.max(0, num(data.hallLvl, 0) | 0);
+    const sm = data.smelt || {};
+    s.smelt = { q: counts(sm.q), hand: Math.max(0, num(sm.hand, 0) | 0), driver: !!sm.driver, heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
     if (Array.isArray(data.inbound)) s.inbound = data.inbound.filter(f => f && f.items).map(f => ({ t: num(f.t, 0), items: counts(f.items), from: num(f.from, 0) | 0 }));
     if (Array.isArray(data.crew)) s.crew = data.crew.filter(w => w && valid(w.job)).map(w => ({ job: w.job, food: num(w.food, 0) }));
     s.worlds = {};
@@ -67,6 +70,9 @@ SF.Save = {
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
         if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, res: p.res || {} });
+        // Home buildings used to take raw ore; what was already paid in counts as ingots.
+        const res = into.plots[id].res;
+        for (const ore of [12, 22]) if (pi === SF.CFG.home && res[ore]) { res[ore + 100] = (res[ore + 100] || 0) + res[ore]; delete res[ore]; }
       }
     }
     this.ensureWorld(s, s.planet);
@@ -111,7 +117,8 @@ SF.Save = {
     }
     return Object.assign({}, s, {
       credits: Math.round(s.credits * 100) / 100, totalEarned: Math.round(s.totalEarned), lifetime: Math.round(s.lifetime),
-      worlds, crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 10) / 10 })),
+      worlds, smelt: { q: s.smelt.q, hand: s.smelt.hand || undefined, driver: s.smelt.driver || undefined, heat: s.smelt.heat || undefined },
+      crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 10) / 10 })),
       inbound: s.inbound.map(f => ({ t: Math.round(f.t * 10) / 10, items: f.items, from: f.from })),
     });
   },

@@ -36,6 +36,7 @@ SF.UI = (function () {
       list.push('Travel: fly between all planets from now on');
       list.push('Warehouses: drop offs on the other planets now fill cargo rockets that fly to the hall on Halcyon');
       list.push('Material chest: comes with you to the other planets');
+      list.push('Smelter: turns iron and copper ore into the ingots your buildings need');
     }
     return list;
   }
@@ -122,6 +123,7 @@ SF.UI = (function () {
 
   function goalText() {
     const s = SF.state, ws = SF.ws(), st = SF.stats(), home = SF.World.res(0);
+    if (SF.World.smelter && s.stack.some(c => SF.Smelter.isOre(c))) return 'Carry the iron and copper ore to the SMELTER';
     if (SF.World.hall && s.stack.some(c => Math.floor(c / 10) !== s.planet)) return 'Unload materials from other planets at the HALL';
     if (SF.hubActive() && s.stack.length >= st.cap) return 'Pack full. Unload at the WAREHOUSE (cargo rocket) or the chest';
     if (s.totalEarned === 0 && s.stack.length === 0) return `Stand next to a ${NOUNS[home.node]} to harvest ${home.plural.toLowerCase()}`;
@@ -131,7 +133,9 @@ SF.UI = (function () {
     const next = SF.World.plots.filter(p => SF.plotVisible(p) && !ws.plots[p.id].built).sort((a, b) => a.cost - b.cost)[0];
     if (next) {
       const missing = Object.keys(next.needs || {}).filter(c => (ws.plots[next.id].res[c] || 0) < next.needs[c]).map(c => SF.res(+c).plural);
-      if (missing.length && next.cost - ws.plots[next.id].paid < 1) return `${next.name} needs ${missing.join(', ')}. Ship them to the hall from their planet`;
+      const bars = Object.keys(next.needs || {}).some(c => SF.isIngot(+c) && (ws.plots[next.id].res[c] || 0) < next.needs[c] && !(s.hold[c] > 0));
+      if (missing.length && next.cost - ws.plots[next.id].paid < 1) return bars && SF.World.smelter ?
+        `${next.name} needs ${missing.join(', ')}. Take ore from the ORE PICKUP to the SMELTER` : `${next.name} needs ${missing.join(', ')}. Ship them to the hall from their planet`;
       return `Next: stand on the ${next.name} plot to build it (${fmt(next.cost - ws.plots[next.id].paid)} left)`;
     }
     if (SF.hubActive()) return 'Harvest and unload at the WAREHOUSE. Full cargo rockets fly to the hall on Halcyon';
@@ -152,6 +156,7 @@ SF.UI = (function () {
     if (zone === 'upgrade') openPanel('Upgrade terminal', upgradeCards());
     else if (zone === 'chest') openPanel('Material chest', chestCards());
     else if (zone === 'hall') openPanel('Halcyon hall', hallCards());
+    else if (zone === 'smelter') openPanel('Smelter', smelterCards());
     else if (zone === 'drop' && SF.hubActive()) openPanel('Warehouse', warehouseCards());
     else if (zone && zone.startsWith('bld:')) {
       const p = SF.World.plot(zone.slice(4));
@@ -267,6 +272,35 @@ SF.UI = (function () {
         update(r) {
           const l = SF.state.hallLvl, maxed = l >= H.hall.max;
           fill(r.btn, maxed ? 'MAX' : `Lv ${l} → ${l + 1}`, maxed ? `${Hb.hallCap()} of each` : `${Hb.hallCap()} → ${Hb.hallCap() + H.hall.step} of each material`, maxed ? null : Hb.hallCost());
+        },
+      },
+    ];
+  }
+
+  function smelterCards() {
+    const K = C.smelter, Sm = SF.Smelter;
+    return [
+      listCard('smelt-info', 'In the furnace', '', () => ({
+        list: resList(SF.state.smelt.q, K.queue),
+        text: `1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s and goes straight into the hall. ` +
+          `Hall: ${SF.state.hold[112] || 0} iron ingots, ${SF.state.hold[122] || 0} copper ingots. ` +
+          `Pick ore up at the ORE PICKUP pad beside the hall and bring it here.`,
+      })),
+      {
+        btn: card('hire-driver', 'Tractor driver', () => Sm.hireDriver(), true),
+        update(r) {
+          const s = SF.state.smelt, ready = Sm.canHire();
+          if (s.driver) { fill(r.btn, 'Hired', 'Drives iron and copper ore from the hall to the furnace on their own, even while you are on other planets.', null); r.btn.querySelector('.card-cost b').textContent = ''; return; }
+          fill(r.btn, ready ? 'Ready to hire' : `Bring ore yourself first: ${s.hand} / ${K.byHand}`,
+            'Drives a tractor between the hall and the smelter so you never have to carry ore again.', ready ? K.driver : null);
+          if (!ready) { r.btn.querySelector('.card-cost b').textContent = SF.UI.fmt(K.driver); r.btn.classList.add('poor'); }
+        },
+      },
+      {
+        btn: card('up-heat', 'Hotter furnace', () => Sm.upgradeHeat(), true),
+        update(r) {
+          const l = SF.state.smelt.heat, maxed = l >= K.heat.max, now = Sm.every(), next = K.every / (1 + K.heat.boost * (l + 1));
+          fill(r.btn, maxed ? 'MAX' : `Lv ${l} → ${l + 1}`, maxed ? `1 ingot every ${now.toFixed(1)}s` : `1 ingot every ${now.toFixed(1)}s → ${next.toFixed(1)}s`, maxed ? null : Sm.heatCost());
         },
       },
     ];

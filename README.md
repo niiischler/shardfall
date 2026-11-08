@@ -127,9 +127,13 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
 - The **material chest** now travels with you and stands next to your rocket on the other planets. Fill it and it
   empties into the hall when you fly home. Upgrade it at the chest for more room.
 - Home buildings cost credits **and materials** from the hall (shown under the plot), e.g. the Haven Bridge needs logs from Verdra.
+- The **smelter** (left of the lander) turns iron and copper ore into **ingots**, which the Belt Factory and the belts need.
+  Pick ore up at the **ORE PICKUP** pad beside the hall, carry it to the smelter, and the ingots go into the hall.
+  After 20 ore brought by hand you can hire a **tractor driver** who runs the ore over by themselves (also while you
+  are away). "Hotter furnace" upgrades make it smelt faster.
 - **New Haven** (behind the bridge) is the expansion area:
-  - **Belt Factory** (iron + copper): unlocks conveyor belts. Install one at any sawmill, mine or excavator
-    for 10 iron ore; it then carries the stock to the drop off (or warehouse) by itself.
+  - **Belt Factory** (iron + copper ingots): unlocks conveyor belts. Install one at any sawmill, mine or excavator
+    for 10 iron ingots; it runs into a side input of the warehouse and carries the stock there by itself.
   - **Habitats** (logs, sandstone, ...): 2 beds each. Hire crew there and pick a job (any of the three cheapest
     resources of any planet). On the planet you are on, crew walk to their resource, harvest it like drones and carry
     it to the hall or warehouse. Elsewhere they ship 1 unit to the hall every 8 s. Each eats 1 sunfruit from the hall
@@ -147,6 +151,7 @@ js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, prod
 js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
 js/home.js        crew (working on the current planet) and conveyor belts
 js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall, the portable chest
+js/smelter.js     smelter on Halcyon: ore to ingots, ore pickup, tractor driver
 js/audio.js       WebAudio synth sound effects, one sound set per material (no audio files)
 js/input.js       keyboard + floating touch joystick
 js/save.js        localStorage save/load with safe defaults

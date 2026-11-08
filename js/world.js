@@ -33,6 +33,9 @@
       const rocket = W.plot('launch'), H = C.hub.hallAt;
       W.chest = SF.hubActive() ? { x: rocket.x + 120, y: rocket.y + 30, r: 50 } : null;
       W.hall = W.planet.home ? { x: H.x, y: H.y, r: 62, padY: H.y + 70 } : null;
+      const S = C.smelter;
+      W.smelter = W.planet.home ? { x: S.at.x, y: S.at.y, r: 58, padY: S.at.y + 80 } : null;
+      W.pickup = W.planet.home ? { x: S.pickup.x, y: S.pickup.y, r: 46 } : null;
       W._mask = null;
       W.generate();
       W.pattern = W.groundPattern(ctx, W.planet.theme);
@@ -70,6 +73,20 @@
       W.nodes = [];
       if (W.chest) avoid.push({ x: W.chest.x, y: W.chest.y, r: 110 });
       if (W.hall) avoid.push({ x: W.hall.x, y: W.hall.y - 60, r: 260 });
+      // keep every possible conveyor route clear of nodes
+      for (const p of W.plots) if (p.kind === 'producer') {
+        const pts = SF.Render.beltRoute(p);
+        for (let i = 1; i < pts.length; i++) {
+          const q0 = pts[i - 1], q1 = pts[i], n = Math.ceil(Math.hypot(q1.x - q0.x, q1.y - q0.y) / 30);
+          for (let k = 0; k <= n; k++) avoid.push({ x: q0.x + (q1.x - q0.x) * k / n, y: q0.y + (q1.y - q0.y) * k / n, r: 46 });
+        }
+      }
+      if (W.smelter) {
+        avoid.push({ x: W.smelter.x + 30, y: W.smelter.y - 20, r: 210 }, { x: W.pickup.x, y: W.pickup.y + 30, r: 110 });
+        // keep the tractor's track clear
+        const [a, b] = C.smelter.road;
+        for (let k = 0; k <= 1; k += 0.1) avoid.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, r: 80 });
+      }
       if (!W.planet.home) avoid.push({ x: C.hub.pad.x, y: C.hub.pad.y, r: 110 });
       for (const reg of W.regions) {
         if (reg.res == null) continue;

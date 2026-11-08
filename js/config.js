@@ -34,22 +34,39 @@ SF.CFG = {
   },
 
   home: 3,                             // index of the home planet; travel opens there
-  conveyor: { needs: { 12: 10 } },     // 10 iron ore per producer
+  conveyor: { needs: { 112: 10 } },    // 10 iron ingots per producer
   crew: { perHabitat: 2, hire: 6000, growth: 1.6, workEvery: 8, eatEvery: 40, food: 30, speed: 95, cap: 6, hitEvery: 0.7 },
 
   // Once Halcyon is reached, other planets ship by cargo rocket instead of selling.
   hub: {
     rocketCap: 50, flight: 11, unload: 3,       // seconds each way, seconds on the hall pad
     away: 25,                                   // whole round trip: flight + unload + flight
-    pad: { x: 175, y: -20 },                    // cargo rocket pad next to the warehouse
+    pad: { x: 205, y: 55 },                     // cargo rocket pad beside the warehouse, clear of the belts
     chest: { base: 40, step: 40, cost: 3000, growth: 1.7, max: 8 },   // portable chest, total items
     hall:  { base: 150, step: 150, cost: 6000, growth: 1.7, max: 8 },  // Halcyon hall, per resource
     hallAt: { x: 300, y: -290 },
   },
+
+  // Smelter on Halcyon: iron and copper ore from the hall become ingots for building.
+  smelter: {
+    at: { x: -300, y: -270 }, pickup: { x: 110, y: -205 },  // smelter, and the ore pickup pad beside the hall
+    road: [{ x: -130, y: -238 }, { x: 25, y: -238 }],        // where the tractor stops: smelter hopper, ore pickup
+    ores: [12, 22], queue: 60, every: 1.4,                  // ore waiting in the furnace, seconds per ingot
+    byHand: 20,                                            // ore you bring yourself before you can hire a driver
+    driver: 15000, tractor: { cap: 16, speed: 150, load: 0.12 },
+    heat: { base: 8000, growth: 1.8, max: 5, boost: 0.4 },  // furnace upgrades
+  },
+};
+
+// Ingots are made from ore at the smelter; their code is the ore's code + 100.
+SF.INGOTS = {
+  112: { id: 'ironbar', name: 'Iron ingot', plural: 'Iron ingots', item: 'ingot', color: '#dfe5ee', dark: '#7d8696', edge: '#2a2f38', ore: 12 },
+  122: { id: 'copperbar', name: 'Copper ingot', plural: 'Copper ingots', item: 'ingot', color: '#f0a060', dark: '#a8552a', edge: '#4a1f0c', ore: 22 },
 };
 
 // Resources are identified everywhere by a code: planet index * 10 + tier.
-SF.res = code => SF.PLANETS[Math.floor(code / 10)].resources[code % 10];
+SF.res = code => SF.INGOTS[code] || SF.PLANETS[Math.floor(code / 10)].resources[code % 10];
+SF.isIngot = code => !!SF.INGOTS[code];
 
 SF.planet = i => SF.PLANETS[i == null ? SF.state.planet : i];
 SF.planetName = i => SF.planet(i).name;
@@ -86,5 +103,5 @@ SF.upgradeCost = key => { const u = SF.CFG.upgrades[key]; return priced(u.base, 
 SF.droneCost = () => { const d = SF.CFG.drone; return priced(d.base, d.growth, Math.max(0, SF.ws().drones - 1)); };
 SF.producerCost = st => priced(SF.CFG.producer.base, SF.CFG.producer.growth, st.lvl);
 SF.hireCost = () => { const c = SF.CFG.crew; return Math.round(c.hire * Math.pow(c.growth, SF.state.crew.length)); };
-SF.resValue = code => SF.res(code).value * SF.mult(Math.floor(code / 10));
+SF.resValue = code => SF.INGOTS[code] ? SF.resValue(SF.INGOTS[code].ore) * 1.6 : SF.res(code).value * SF.mult(Math.floor(code / 10));
 SF.sellMult = () => (SF.ws().plots.ref && SF.ws().plots.ref.built ? SF.CFG.refineryMult : 1) * (1 + SF.CFG.perks.sale * SF.state.stars);
