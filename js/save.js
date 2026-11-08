@@ -7,7 +7,8 @@ SF.Save = {
   freshWorld(pi, finished) {
     const plots = {};
     for (const p of SF.layoutPlanet(SF.PLANETS[pi]).plots) {
-      plots[p.id] = { paid: 0, built: !!(finished || p.prebuilt), lvl: 0, pile: 0, res: {} };
+      // Machines unlocked by research are never part of a finished planet: you build them yourself.
+      plots[p.id] = { paid: 0, built: !!((finished && !p.research) || p.prebuilt), lvl: 0, pile: 0, res: {} };
     }
     const hasDrones = SF.PLANETS[pi].helpers.some(h => h.kind === 'drones');
     return { plots, drones: finished && hasDrones ? 2 : 0 };
@@ -32,6 +33,11 @@ SF.Save = {
     const fresh = this.freshWorld(pi, pi < SF.CFG.home && s.homeReached);
     if (!s.worlds[pi]) { s.worlds[pi] = fresh; return; }
     for (const id in fresh.plots) if (!s.worlds[pi].plots[id]) s.worlds[pi].plots[id] = fresh.plots[id];
+    // Older saves got research machines on finished planets for free, without the research; take those back.
+    for (const p of SF.layoutPlanet(SF.PLANETS[pi]).plots) {
+      const st = s.worlds[pi].plots[p.id];
+      if (p.research && st && st.built && !(st.paid > 0)) Object.assign(st, { built: false, lvl: 0, pile: 0, driver: false, belt: false, mk: 0 });
+    }
   },
 
   normalize(data) {
