@@ -74,6 +74,7 @@ SF.PLANETS = [
   },
   {
     id: 'halcyon', name: 'Halcyon', mult: 2.5, home: true, hard: 0.3,
+    field: (x, y) => x < -150 && y > -200,     // sunfruit grows in the west field only, clear of the paths and buildings
     tagline: 'A warm lagoon world, gentle enough to call home',
     intro: 'Clear water, sweet fruit and no storms. Build your home base here. The rocket can now fly you back to every planet you know, to fetch materials for new buildings.',
     theme: {
