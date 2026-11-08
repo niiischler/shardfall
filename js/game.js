@@ -535,6 +535,7 @@
     SF.Hub.update(dt);
     SF.Smelter.update(dt);
     SF.Food.update(dt);
+    SF.Fuel.update(dt);
     SF.Haul.update(dt);
 
     for (let i = flyers.length - 1; i >= 0; i--) {

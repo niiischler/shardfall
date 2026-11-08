@@ -25,6 +25,12 @@ SF.Map = (function () {
 
   function fly(pi) {
     if (!charted(pi) || pi === SF.state.planet) { SF.Audio.nope(); return false; }
+    // Far planets are a long way: the flight burns fuel from the tank.
+    if (!SF.Fuel.take(SF.Fuel.tripFuel(SF.state.planet, pi))) {
+      SF.Audio.nope();
+      SF.FX.pop(SF.player.x, SF.player.y - 110, `Needs ${SF.CFG.fuel.trip} rocket fuel`, '#ff8f5a', 18);
+      return false;
+    }
     SF.startLaunch(pi);
     return true;
   }

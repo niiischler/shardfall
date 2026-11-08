@@ -148,6 +148,9 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   - **Rocket Workshop**: build new cargo rocket models (Swift Courier: small but twice as fast; Heavy Hauler: three
     times the cargo, slow; Tanker: for liquids and gases, later) and choose which one flies each planet's route.
     Each model's cargo frame can be upgraded ten times (+25% capacity per level).
+  - **Fuel Plant**: refines logs (2 per fuel), and later Petra's crude oil (4 fuel each) and natural gas (3 each),
+    into one fuel tank (600). Inputs can be switched on and off. Couriers burn 2 fuel a trip, Heavy Haulers 6,
+    Tankers 4; the old freighter flies free. Flying out to a far planet takes 25 fuel; the way back is free.
   - **Star Map** (main area, above the hall, 1M): every planet at a glance (warehouse, rocket, crew, machines) and
     flights from there. It also finds two far planets, each charted once for credits:
     - **Petra**: crude oil and natural gas (liquids) plus sulfur, obsidian and fire opals. Its derrick and gas well

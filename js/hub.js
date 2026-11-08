@@ -67,6 +67,9 @@ SF.Hub = (function () {
     pi = pi == null ? SF.state.planet : pi;
     const ws = SF.state.worlds[pi], r = rk(ws);
     if ((!r.n && !supply) || r.away > 0) return false;
+    // Workshop models burn fuel from the tank on Halcyon; without it the rocket waits on its pad.
+    if (!SF.Fuel.take(SF.Fuel.perTrip(pi))) { r.noFuel = true; return false; }
+    r.noFuel = false;
     // The trip length is fixed at lift-off, so research during a flight never makes a rocket jump.
     r.fl = SF.rocketFlight(pi); r.model = SF.Fleet.modelOf(pi); r.total = 2 * r.fl + H.unload;
     r.away = r.total; r.out = 0; r.food = null; r.packed = false;
@@ -278,6 +281,7 @@ SF.Hub = (function () {
     if (p === 'out') return [name.toUpperCase(), `lands in ${Math.ceil(fl(r) - e)}s`];
     if (p === 'unload') return [name.toUpperCase(), 'unloading'];
     if (p === 'back') return [name.toUpperCase(), `back on ${name} in ${Math.ceil(r.away)}s`];
+    if (r.noFuel) return [name.toUpperCase(), `needs ${SF.Fuel.perTrip(pi)} fuel`];
     return [name.toUpperCase(), `loading ${r.n}/${SF.rocketCap(pi)}`];
   }
 

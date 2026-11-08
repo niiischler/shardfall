@@ -162,6 +162,7 @@ SF.UI = (function () {
     canteen: () => canteenCards(),
     workshop: () => workshopCards(),
     starmap: () => starmapCards(),
+    fuelplant: () => fuelCards(),
   };
   const hasPanel = p => !!PANELS[p.kind];
 
@@ -445,7 +446,7 @@ SF.UI = (function () {
         lvl: () => `${Object.values(SF.state.hold).reduce((a, b) => a + b, 0)} items`,
         text: () => `Each material fills up to ${Hb.hallCap()}; anything over that is sold. Buildings take their materials from here.`,
       }),
-      htmlCard('hall-rockets', 'Cargo rockets', () => ({ html: rocketMeters(), text: 'Each rocket flies by itself when full. Bigger and faster models come from the Rocket Workshop in New Haven.' })),
+      htmlCard('hall-rockets', 'Cargo rockets', () => ({ html: (SF.Fuel.has() ? meter('Rocket fuel', Math.floor(SF.Fuel.tank()), SF.Fuel.cap(), '#ffcf4a') : '') + rocketMeters(), text: 'Each rocket flies by itself when full. Bigger and faster models come from the Rocket Workshop in New Haven.' })),
       {
         btn: card('up-hall', 'Expand the hall', () => Hb.upgradeHall(), true),
         update(r) {
@@ -520,6 +521,26 @@ SF.UI = (function () {
     return cards;
   }
 
+  // ---------- fuel plant ----------
+  function fuelCards() {
+    const F = C.fuel, cards = [];
+    const box = info('fuel-info', `<span class="card-name">Fuel tank</span><div class="meters"></div><span class="card-eff"></span><div class="jobs"><div class="job-row"><span class="job-planet">Refine</span>${F.inputs.map(i =>
+      `<button type="button" class="job-chip" data-code="${i.code}"><i style="background:${SF.res(i.code).color}"></i>${SF.res(i.code).plural} <small>${i.fuel >= 1 ? i.fuel + ' fuel each' : Math.round(1 / i.fuel) + ' per fuel'}</small></button>`).join('')}</div></div>`);
+    box.querySelectorAll('.job-chip').forEach(b => b.addEventListener('click', () => { SF.Audio.init(); SF.Fuel.toggle(+b.dataset.code); }));
+    cards.push({
+      btn: box,
+      update(r) {
+        const h = SF.state.hold;
+        r.btn.querySelector('.meters').innerHTML = meter('Rocket fuel', Math.floor(SF.Fuel.tank()), SF.Fuel.cap(), '#ffcf4a') +
+          F.inputs.filter(i => SF.state.worlds[Math.floor(i.code / 10)] || i.code === 10).map(i => meter(SF.res(i.code).plural + ' in the hall', h[i.code] || 0, SF.Hub.hallCap(), SF.res(i.code).color)).join('');
+        r.btn.querySelector('.card-eff').textContent = `Refines one item from the hall every ${F.every}s, oil first, then gas, then logs. Tap an input to switch it on or off. ` +
+          `Couriers burn ${C.rockets.models.courier.fuel}, Heavy Haulers ${C.rockets.models.heavy.fuel} and Tankers ${C.rockets.models.tanker.fuel} fuel a trip; freighters fly free. A flight out to a far planet takes ${F.trip}.`;
+        r.btn.querySelectorAll('.job-chip').forEach(b => b.classList.toggle('on', SF.Fuel.allowed(+b.dataset.code)));
+      },
+    });
+    return cards;
+  }
+
   // ---------- star map ----------
   // Every planet as a card: a little globe, its resources, what is going on there, and a way to fly or chart it.
   function starmapCards() {
@@ -543,7 +564,7 @@ SF.UI = (function () {
             (pi !== C.home ? meter('Cargo rocket', SF.Hub.rk(SF.state.worlds[pi]).n, SF.rocketCap(pi), th.accent, SF.Hub.padLabel(pi)[1] + ' · ' + SF.Fleet.model(SF.Fleet.modelOf(pi)).name) : '') +
             `<div class="map-stats"><span>${o.crew} crew</span><span>${o.machines} machines</span></div>`;
           go.hidden = here;
-          go.textContent = ch ? `Fly to ${pl.name}` : `Chart a course · ${fmt(pl.chart)}`;
+          go.textContent = ch ? `Fly to ${pl.name}` + (pl.far ? ` · ${C.fuel.trip} fuel` : '') : `Chart a course · ${fmt(pl.chart)}`;
           go.classList.toggle('poor', !ch && SF.state.credits < pl.chart);
         },
       });
@@ -561,7 +582,7 @@ SF.UI = (function () {
       btn: routes,
       update(r) {
         const list = Fl.routes(), own = Object.keys(M).filter(Fl.owned);
-        r.btn.querySelector('.card-eff').textContent = list.length ? 'Tap a model to fly it on that route. A rocket in the air switches when it is back.' : 'Visit another planet first: each one gets its own cargo route.';
+        r.btn.querySelector('.card-eff').textContent = list.length ? `Tap a model to fly it on that route. A rocket in the air switches when it is back. Fuel in the tank: ${Math.floor(SF.Fuel.tank())} / ${SF.Fuel.cap()}${SF.Fuel.has() ? '' : ' (build a Fuel Plant in New Haven)'}.` : 'Visit another planet first: each one gets its own cargo route.';
         const k = list.join(',') + '|' + own.join(',') + '|' + own.map(Fl.cap).join(',');
         if (k !== key) {
           key = k;
@@ -584,13 +605,13 @@ SF.UI = (function () {
           const own = Fl.owned(id), lock = Fl.locked(id), l = Fl.frameLvl(id), max = l >= C.rockets.frame.max;
           const secs = Math.round(C.hub.flight * (1 - 0.15 * SF.R('engines')) * m.flight);
           if (!own) {
-            fill(r.btn, lock ? 'Locked' : 'Build this model', lock ? m.locked : `${m.desc} Carries ${Fl.cap(id)}, ${secs}s each way.`, lock ? null : m.cost);
+            fill(r.btn, lock ? 'Locked' : 'Build this model', lock ? m.locked : `${m.desc} Carries ${Fl.cap(id)}, ${secs}s each way` + (m.fuel ? `, ${m.fuel} fuel a trip.` : '.'), lock ? null : m.cost);
             r.btn.querySelector('.mats').innerHTML = lock ? '' : matHave(m.needs);
             if (!lock) r.btn.classList.toggle('poor', SF.state.credits < m.cost || Object.keys(m.needs).some(c => (SF.state.hold[c] || 0) < m.needs[c]));
             return;
           }
           const c = Fl.frameCost(id), next = Math.round(SF.rocketBase() * m.cap * (1 + C.rockets.frame.step * (l + 1)));
-          fill(r.btn, max ? 'Cargo frame MAX' : `Cargo frame ${l} → ${l + 1}`, max ? `Carries ${Fl.cap(id)}, ${secs}s each way.` : `Carries ${Fl.cap(id)} → ${next}, ${secs}s each way.`, max ? null : c.credits);
+          fill(r.btn, max ? 'Cargo frame MAX' : `Cargo frame ${l} → ${l + 1}`, (max ? `Carries ${Fl.cap(id)}, ${secs}s each way` : `Carries ${Fl.cap(id)} → ${next}, ${secs}s each way`) + (m.fuel ? `, ${m.fuel} fuel a trip.` : ', no fuel.'), max ? null : c.credits);
           r.btn.querySelector('.mats').innerHTML = max ? '' : matHave(c.mats);
           if (!max) r.btn.classList.toggle('poor', SF.state.credits < c.credits || Object.keys(c.mats).some(k => (SF.state.hold[k] || 0) < c.mats[k]));
         },
@@ -701,7 +722,8 @@ SF.UI = (function () {
         update(b) {
           const r = Hb.rk(SF.ws());
           b.btn.querySelector('.card-lvl').textContent = r.away > 0 ? 'Away' : `${r.n} / ${SF.rocketCap()} loaded`;
-          b.btn.querySelector('.card-eff').textContent = 'Send what is loaded now instead of waiting for a full rocket.';
+          const need = SF.Fuel.perTrip(SF.state.planet);
+          b.btn.querySelector('.card-eff').textContent = 'Send what is loaded now instead of waiting for a full rocket.' + (need ? ` Burns ${need} fuel (${Math.floor(SF.Fuel.tank())} in the tank).` : '');
           b.btn.querySelector('.card-cost b').textContent = '';
           b.btn.disabled = r.away > 0 || !r.n;
         },
@@ -724,9 +746,9 @@ SF.UI = (function () {
       const btn = document.createElement('button');
       btn.className = 'card travel'; btn.id = 'fly-' + pl.id; btn.type = 'button';
       btn.innerHTML = `<span class="card-key"></span><span class="card-name">${pl.name}</span>
-        <span class="card-eff">${pl.resources.map(r => r.plural).join(', ')}</span>`;
+        <span class="card-eff">${pl.resources.map(r => r.plural).join(', ')}${pl.far ? ` · ${C.fuel.trip} fuel` : ''}</span>`;
       btn.style.setProperty('--tint', pl.theme.accent);
-      btn.addEventListener('click', () => { SF.Audio.init(); SF.startLaunch(i); });
+      btn.addEventListener('click', () => { SF.Audio.init(); SF.Map.fly(i); });
       return { btn, update() {} };
     });
   }
