@@ -1,15 +1,12 @@
 // Shipping network once Halcyon is reached: warehouses and cargo rockets on the other planets,
-// the big hall on Halcyon (where rockets land), and the portable material chest.
+// and the big hall on Halcyon (where rockets land).
 SF.Hub = (function () {
   const C = SF.CFG, H = C.hub;
   let loadT = 0;
 
   const hold = c => SF.state.hold[c] || 0;
-  const chestCount = () => Object.values(SF.state.chest).reduce((a, b) => a + b, 0);
-  const chestCap = () => H.chest.base + H.chest.step * SF.state.chestLvl;
   const hallCap = () => H.hall.base + H.hall.step * SF.state.hallLvl;
   const upCost = (u, lvl) => Math.round(u.cost * Math.pow(u.growth, lvl));
-  const chestCost = () => upCost(H.chest, SF.state.chestLvl);
   const hallCost = () => upCost(H.hall, SF.state.hallLvl);
   // Warehouses on the other planets hold a limited number of items in total. When one is full, drones, belts,
   // drivers and crew wait (and you cannot unload) until the cargo rocket takes a load away.
@@ -194,22 +191,6 @@ SF.Hub = (function () {
     }
   }
 
-  // ---------- portable chest (other planets) ----------
-  function storeChest(code, x, y) {
-    if (chestCount() >= chestCap()) return false;
-    const c = SF.World.chest;
-    SF.state.chest[code] = (SF.state.chest[code] || 0) + 1;
-    SF.fly(code, x, y, () => ({ x: c.x, y: c.y - 40 }), { dur: 0.36, arc: 50, onArrive() { SF.Audio.store(chestCount()); } });
-    return true;
-  }
-
-  // On arrival at Halcyon the chest is emptied into the hall.
-  function unpackChest() {
-    const r = deliverAll(SF.state.chest);
-    SF.state.chest = {};
-    return r;
-  }
-
   // ---------- hall (Halcyon) ----------
   function storeHall(code, x, y) {
     const h = SF.World.hall;
@@ -222,15 +203,6 @@ SF.Hub = (function () {
         else SF.FX.pop(h.x + (Math.random() - 0.5) * 40, h.y - 110, '+1 ' + SF.res(f.code).name, SF.res(f.code).color, 14, { life: 0.8 });
       },
     });
-  }
-
-  function upgradeChest() {
-    if (SF.state.chestLvl >= H.chest.max || !SF.spend(chestCost())) return false;
-    SF.state.chestLvl++;
-    const c = SF.World.chest;
-    if (c) { SF.FX.burst(c.x, c.y - 30, ['#ffd36b', '#fff4e8'], 24, { z: 20, speed: 200, size: 4 }); SF.FX.pop(c.x, c.y - 90, 'Chest holds ' + chestCap(), '#ffd36b', 18); }
-    SF.save(); SF.UI.refresh();
-    return true;
   }
 
   function upgradeHall() {
@@ -359,7 +331,7 @@ SF.Hub = (function () {
   function enter() {}
 
   return {
-    arrivals, padLabel, inFlight, phase, pads, padOf, hold, chestCount, chestCap, hallCap, chestCost, hallCost, deliver, deliverAll, overflowValue, keepCap, cycleSell, sellStep, isSelling: c => selling[c] > 0, wanted,
-    rk, rockets, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeChest, unpackChest, storeHall, upgradeChest, upgradeHall, update, cargoLift, enter,
+    arrivals, padLabel, inFlight, phase, pads, padOf, hold, hallCap, hallCost, deliver, deliverAll, overflowValue, keepCap, cycleSell, sellStep, isSelling: c => selling[c] > 0, wanted,
+    rk, rockets, toWarehouse, whCount, whCap, whFull, whCost, upgradeWarehouse, launchCargo, storeHall, upgradeHall, update, cargoLift, enter,
   };
 })();

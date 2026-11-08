@@ -1804,24 +1804,6 @@ SF.Render = (function () {
     }
   }
 
-  // ---------- smelter (Halcyon) ----------
-  // Dirt track the tractor drives between the ore pickup and the smelter.
-  function road(ctx, a, b) {
-    ctx.save(); ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(70,45,30,0.28)'; ctx.lineWidth = 78; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    ctx.strokeStyle = 'rgba(50,30,20,0.25)'; ctx.lineWidth = 5; ctx.setLineDash([14, 8]);
-    for (const o of [-26, -4, 4, 26]) { ctx.beginPath(); ctx.moveTo(a.x, a.y + o); ctx.lineTo(b.x, b.y + o); ctx.stroke(); }
-    ctx.restore();
-  }
-
-  function pickupPad(ctx, q, t, active, ore) {
-    pad(ctx, q.x, q.y, q.r, 'rgba(255,171,74,A)', t, active);
-    ctx.fillStyle = '#2a2f38'; roundRect(ctx, q.x - 26, q.y - 36, 52, 22, 5); ctx.fill();
-    ctx.fillStyle = '#ffab4a'; ctx.font = `700 10px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ORE OUT', q.x, q.y - 25);
-    label(ctx, 'ORE PICKUP', q.x, q.y + 34, 12, '#ffab4a');
-    label(ctx, ore ? `${ore} ore in the hall` : 'hall has no ore', q.x, q.y + 49, 10, 'rgba(255,244,232,0.85)', 600);
-  }
-
   function smelter(ctx, m, t, active, q, hot) {
     const x = m.x, y = m.y, fl = 0.75 + Math.sin(t * 13) * 0.1 + Math.sin(t * 7.3) * 0.1;
     pad(ctx, x, m.padY, m.r, 'rgba(255,143,90,A)', t, active);
@@ -1866,16 +1848,20 @@ SF.Render = (function () {
     const ores = [12, 22].flatMap(c => Array(Math.min(6, q[c] || 0)).fill(c));
     ores.forEach((c, i) => item(ctx, c, x + 71 + (i % 4) * 11, y - 94 - Math.floor(i / 4) * 7, 0.75));
     ctx.fillStyle = '#ffd36b'; ctx.fillRect(x + 62, y - 94, 50, 3);
-    // casting tray with ingots on the left
-    ctx.fillStyle = '#3a3f4a'; roundRect(ctx, x - 102, y - 34, 40, 22, 4); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = hot ? `rgba(255,${150 + Math.sin(t * 6) * 40 | 0},60,0.95)` : '#596170'; ctx.fillRect(x - 98, y - 30, 32, 6);
-    const out = SF.state.smelt.out || {}, bars = [112, 122].flatMap(c => Array(Math.min(8, out[c] || 0)).fill(c));
-    bars.forEach((c, i) => item(ctx, c, x - 94 + (i % 4) * 9, y - 18 - Math.floor(i / 4) * 6, 0.8));
-    const nOut = SF.Smelter.ready();
-    if (nOut) label(ctx, `${nOut} ingot${nOut > 1 ? 's' : ''} ready`, x - 82, y - 52, 11, '#ffd36b', 700);
     const n = (q[12] || 0) + (q[22] || 0);
     label(ctx, 'SMELTER', x, y + 52, 15, '#ff8f5a');
-    label(ctx, n ? `${q[12] || 0} iron · ${q[22] || 0} copper ore in the furnace` : 'Bring iron or copper ore', x, y + 69, 11, 'rgba(255,244,232,0.85)', 600);
+    label(ctx, n ? `${q[12] || 0} iron · ${q[22] || 0} copper ore in the furnace` : 'Waiting for iron or copper ore in the hall', x, y + 69, 11, 'rgba(255,244,232,0.85)', 600);
+  }
+
+  // The two belts that dock the smelter to the hall: ore in (top lane), ingots out (bottom lane).
+  function smelterBelts(ctx, t) {
+    const K = C.smelter;
+    for (const pts of [K.oreBelt, K.barBelt]) {
+      let cum = 0;
+      for (let i = 1; i < pts.length; i++) { beltRun(ctx, pts[i - 1], pts[i], t, cum); cum += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); }
+      for (let i = 1; i < pts.length - 1; i++) beltDrum(ctx, pts[i], t);
+    }
+    beltFeeder(ctx, K.barBelt[0], t);
   }
 
   // The hired driver's tractor with an ore trailer.
@@ -1973,25 +1959,6 @@ SF.Render = (function () {
       cargoOn(ctx, tr, x, y - bump - 46, -36);
     }
     if (tr.wait) label(ctx, tr.wait, x, y - 86, 11, '#ffab4a', 600);
-  }
-
-  // Canteen delivery car: a little green van with a food crate on the back.
-  function foodCar(ctx, car, t) {
-    const f = car.face, x = car.x, y = car.y, bump = Math.abs(Math.sin(car.walk)) * 1;
-    shadow(ctx, x, y + 2, 40, 8);
-    ctx.save(); ctx.translate(x, y - bump); ctx.scale(f, 1);
-    ctx.strokeStyle = '#2a1a14'; ctx.lineWidth = 2.5;
-    ctx.fillStyle = '#62d08a'; roundRect(ctx, -34, -34, 52, 26, 6); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#9be36a'; roundRect(ctx, 14, -28, 22, 20, 5); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#9af5ff'; roundRect(ctx, 20, -25, 12, 9, 2); ctx.fill();
-    ctx.fillStyle = '#f7f6fc'; ctx.beginPath(); ctx.arc(26, -20, 3.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#fff4e8'; ctx.fillRect(-30, -26, 40, 7);
-    ctx.fillStyle = '#ffb340'; ctx.beginPath(); ctx.arc(-22, -22.5, 2.5, 0, TAU); ctx.arc(-14, -22.5, 2.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#7fd8ff'; ctx.beginPath(); ctx.arc(-4, -22.5, 2.5, 0, TAU); ctx.arc(4, -22.5, 2.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(35, -14, 2.5, 0, TAU); ctx.fill();
-    ctx.fillStyle = Math.sin(t * 6) > 0 ? '#ff8f5a' : '#ffd36b'; ctx.fillRect(-6, -38, 10, 4);
-    wheel(ctx, -20, -6, 7, car.walk); wheel(ctx, 20, -6, 7, car.walk);
-    ctx.restore();
   }
 
   function wheel(ctx, x, y, r, a) {
@@ -2165,32 +2132,6 @@ SF.Render = (function () {
     cargoRocket(ctx, p.x, p.y - a.h, t, a.fire, 0.8, a.r.model);
   }
 
-  // The portable material chest, standing next to the rocket on other planets.
-  function chest(ctx, c, t, active) {
-    const n = SF.Hub.chestCount(), cap = SF.Hub.chestCap(), lvl = SF.state.chestLvl, w = 28 + Math.min(lvl, 8) * 2;
-    pad(ctx, c.x, c.y + 6, c.r, 'rgba(255,211,107,A)', t, active);
-    shadow(ctx, c.x, c.y + 2, w + 6, 10);
-    ctx.fillStyle = '#8a5a34'; ctx.strokeStyle = '#3d220f'; ctx.lineWidth = 3;
-    roundRect(ctx, c.x - w, c.y - 34, w * 2, 34, 4); ctx.fill(); ctx.stroke();
-    // planks and metal corners
-    ctx.strokeStyle = 'rgba(61,34,15,0.5)'; ctx.lineWidth = 1.5;
-    for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(c.x - w + 3, c.y - 34 + i * 11); ctx.lineTo(c.x + w - 3, c.y - 34 + i * 11); ctx.stroke(); }
-    const open = active ? 0.35 : 0;
-    ctx.save(); ctx.translate(c.x, c.y - 34); ctx.rotate(-open * 0.4);
-    ctx.fillStyle = '#a8703f'; ctx.strokeStyle = '#3d220f'; ctx.lineWidth = 3; roundRect(ctx, -w - 2, -12, w * 2 + 4, 14, 5); ctx.fill(); ctx.stroke();
-    ctx.restore();
-    if (active) glow(ctx, c.x, c.y - 40, 40, 'rgba(255,211,107,0.9)', 0.5);
-    ctx.fillStyle = '#c9ced8';
-    for (const s of [-1, 1]) { ctx.fillRect(c.x + s * w - (s > 0 ? 6 : 0), c.y - 34, 6, 34); }
-    ctx.fillStyle = '#ffd36b'; ctx.fillRect(c.x - 5, c.y - 36, 10, 10);
-    ctx.fillStyle = '#3d220f'; ctx.fillRect(c.x - 1, c.y - 33, 2, 4);
-    // fill gauge
-    const k = Math.min(1, n / cap);
-    ctx.fillStyle = 'rgba(28,10,40,0.75)'; roundRect(ctx, c.x - 26, c.y + 12, 52, 7, 3); ctx.fill();
-    ctx.fillStyle = k >= 1 ? '#ff8f5a' : '#ffd36b'; roundRect(ctx, c.x - 25, c.y + 13, Math.max(2, 50 * k), 5, 2.5); ctx.fill();
-    label(ctx, `CHEST ${n}/${cap}`, c.x, c.y + 32, 12, '#ffd36b');
-  }
-
   // Hired crew at work: walks, swings a tool at its node, carries the haul on its back.
   function crewmate(ctx, m, t) {
     const bob = Math.abs(Math.sin(m.walk)) * 2, f = m.face;
@@ -2236,5 +2177,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { ITEMS, NODES, MACHINE_ART, poly, wheel, driverHead, cargoOn, INK, board, boardPad, item, here, trail, foodCar, vehicle, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { smelterBelts, ITEMS, NODES, MACHINE_ART, poly, wheel, driverHead, cargoOn, INK, board, boardPad, item, here, trail, vehicle, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

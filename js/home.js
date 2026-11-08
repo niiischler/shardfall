@@ -71,8 +71,8 @@ SF.Home = (function () {
     return true;
   }
 
-  // Belt materials can come from the hall on Halcyon, the chest, or this planet's warehouse.
-  const stores = () => [SF.state.hold, SF.state.chest, SF.ws().wh || {}];
+  // Belt materials can come from the hall on Halcyon or this planet's warehouse.
+  const stores = () => [SF.state.hold, SF.ws().wh || {}];
   function available(code) { return stores().reduce((a, o) => a + (o[code] || 0), 0); }
   function spendMaterial(code, n) {
     for (const o of stores()) { const k = Math.min(n, o[code] || 0); o[code] = (o[code] || 0) - k; if (!o[code]) delete o[code]; n -= k; }

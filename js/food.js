@@ -1,10 +1,9 @@
 // Crew food. Until a canteen stands, crew simply eat raw sunfruit from the hall. Once it stands, the canteen
 // cooks sunfruit into meals and cactus water into drinks, and crew need both. Crew on Halcyon walk to the
-// canteen (lost work time) unless delivery cars bring the food to them. Crew on other planets eat from that
+// canteen's counter without leaving their job (the canteen serves the whole base). Crew on other planets eat from that
 // planet's warehouse pantry, which their cargo rocket fills on its way back from Halcyon.
 SF.Food = (function () {
   const C = SF.CFG, F = C.food;
-  const cars = [];
 
   const on = () => SF.homeHas('canteen');
   const kitchen = () => SF.state.kitchen;
@@ -14,16 +13,15 @@ SF.Food = (function () {
   const source = pi => (pi === C.home ? kitchen() : pantry(pi));
   const jobPlanet = w => Math.floor(w.job / 10);
   const crewOn = pi => SF.state.crew.filter(w => jobPlanet(w) === pi).length;
-  // Machine drivers (and the smelter's two on Halcyon) eat from the same larder as the crew.
+  // Machine drivers eat from the same larder as the crew.
   function driversOn(pi) {
     const ws = SF.state.worlds[pi];
     let n = ws ? Object.values(ws.plots).filter(st => st.driver && st.built).length : 0;
-    if (pi === C.home && SF.state.smelt) n += (SF.state.smelt.driver ? 1 : 0) + (SF.state.smelt.hauler ? 1 : 0);
     return n;
   }
   const eaters = pi => crewOn(pi) + driversOn(pi);
   const low = w => w.food < F.low || w.water < F.low;
-  const served = pi => pi === C.home && kitchen().drivers > 0;   // delivery cars bring it
+  const served = pi => pi === C.home && on();   // the canteen serves the whole base, nobody walks
 
   // Something in the larder this crew member needs right now.
   function hasFood(w, pi) {
@@ -55,7 +53,8 @@ SF.Food = (function () {
     w.water = Math.max(0, w.water - dt / F.drinkEvery);
     if (w.away > 0) w.away -= dt;
     const pi = jobPlanet(w);
-    if (!visible && low(w) && hasFood(w, pi)) {
+    // Crew you cannot see sort themselves out; crew on Halcyon are served by the canteen where they stand.
+    if ((!visible || served(pi)) && low(w) && hasFood(w, pi)) {
       refill(w, pi);
       if (!served(pi)) w.away = pi === C.home ? F.walkHome : F.walkAway;
     }
@@ -66,7 +65,7 @@ SF.Food = (function () {
     return !(w.away > 0) && w.food > 0 && w.water > 0;
   }
 
-  // A visible worker heads off to eat: low on something, food is there, and no car is coming.
+  // A visible worker heads off to eat: low on something, food is there, and the canteen does not serve them.
   const wantsWalk = w => on() && low(w) && !served(jobPlanet(w)) && hasFood(w, jobPlanet(w));
 
   // Where they eat: the canteen on Halcyon, the warehouse pantry elsewhere.
@@ -104,56 +103,9 @@ SF.Food = (function () {
     }
   }
 
-  const driverCost = () => Math.round(F.driver * (1 + kitchen().drivers));
-  function hireDriver() {
-    const k = kitchen();
-    if (k.drivers >= F.drivers || !SF.spend(driverCost())) return false;
-    k.drivers++;
-    const p = canteenPlot();
-    if (p) SF.FX.pop(p.x, p.y - 110, 'Delivery driver hired', '#9be36a', 20);
-    SF.save(); SF.UI.refresh();
-    return true;
-  }
-
-  const canteenPlot = () => SF.state.planet === C.home && SF.World.plots.find(q => q.kind === 'canteen' && SF.ws().plots[q.id].built);
-
-  // Delivery cars drive meals and drinks out to hungry crew working on Halcyon.
-  function updateCars(dt) {
-    const p = canteenPlot();
-    if (!p) { cars.length = 0; return; }
-    while (cars.length < kitchen().drivers) cars.push({ x: p.x + 70 + cars.length * 50, y: p.y + 70, face: 1, walk: 0, target: null });
-    for (const car of cars) {
-      if (car.target && (!SF.Home.workers.includes(car.target) || !low(SF.state.crew[car.target.i] || {}))) car.target = null;
-      if (!car.target) {
-        let best = null, bd = Infinity;
-        for (const m of SF.Home.workers) {
-          const w = SF.state.crew[m.i];
-          if (!w || !low(w) || !hasFood(w, C.home) || cars.some(o => o.target === m)) continue;
-          const d = Math.hypot(m.x - car.x, m.y - car.y);
-          if (d < bd) { bd = d; best = m; }
-        }
-        car.target = best;
-      }
-      const park = { x: p.x + 70 + cars.indexOf(car) * 50, y: p.y + 70 };
-      const goal = car.target ? { x: car.target.x - car.face * 40, y: car.target.y + 12 } : park;
-      const dx = goal.x - car.x, dy = goal.y - car.y, l = Math.hypot(dx, dy);
-      if (car.target && l < 30) {
-        refill(SF.state.crew[car.target.i], C.home);
-        SF.FX.pop(car.target.x, car.target.y - 70, 'Lunch!', '#9be36a', 14, { life: 0.9 });
-        SF.Audio.pick(4, SF.near(car.x, car.y));
-        car.target = null;
-      } else if (l > 3) {
-        const sp = Math.min(F.carSpeed, l * 3 + 20);
-        car.x += dx / l * sp * dt; car.y += dy / l * sp * dt; car.walk += sp * dt / 10;
-        if (Math.abs(dx) > 2) car.face = dx > 0 ? 1 : -1;
-      }
-    }
-  }
-
   function update(dt) {
-    if (!on()) { cars.length = 0; return; }
+    if (!on()) return;
     cook(dt);
-    updateCars(dt);
   }
 
   // ---------- supply runs to the other planets ----------
@@ -183,7 +135,7 @@ SF.Food = (function () {
   }
 
   // Drivers keep their meters here (not saved: a reload finds them fed). They eat like crew you cannot see:
-  // a meal takes them off the job for a while unless delivery cars serve Halcyon. Returns true while they can drive.
+  // a meal takes them off the job for a while unless they work on Halcyon, where the canteen serves them. Returns true while they can drive.
   const drv = {};
   function tickDriver(key, pi, dt) {
     if (!SF.state.homeReached) return true;
@@ -205,7 +157,7 @@ SF.Food = (function () {
   }
   const driverStatus = key => (drv[key] ? status(drv[key]) : '');
 
-  function enter() { cars.length = 0; }
+  function enter() {}
 
-  return { cars, on, pantry, meals, drinks, crewOn, driversOn, eaters, tickDriver, driverStatus, hasFood, refill, tick, canWork, wantsWalk, eatSpot, status, driverCost, hireDriver, needsSupply, pack, unpack, update, enter };
+  return { on, pantry, meals, drinks, crewOn, driversOn, eaters, tickDriver, driverStatus, hasFood, refill, tick, canWork, wantsWalk, eatSpot, status, needsSupply, pack, unpack, update, enter };
 })();

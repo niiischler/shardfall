@@ -133,15 +133,14 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
   when 50 items are loaded it flies to the hall by itself (or launch it early from the warehouse panel).
   A warehouse holds 200 items (expand it in the warehouse panel); when it is full, drones, belts, drivers, crew
   and you wait until the rocket takes a load away.
-- The **material chest** now travels with you and stands next to your rocket on the other planets. Fill it and it
-  empties into the hall when you fly home. Upgrade it at the chest for more room.
+- Whatever from the other planets is still in your pack when you land on Halcyon goes straight into the hall.
 - Home buildings cost credits **and materials** from the hall (shown under the plot), e.g. the Haven Bridge needs logs from Verdra.
 - The **smelter** (left of the lander) turns iron and copper ore into **ingots**, which the Belt Factory and the belts need.
-  Pick ore up at the **ORE PICKUP** pad beside the hall, carry it to the smelter, and the ingots go into the hall.
-  After 20 ore brought by hand you can hire a **tractor driver** who runs the ore over by themselves (also while you
-  are away). "Hotter furnace" upgrades make it smelt faster.
-- The smelter's finished ingots wait on its tray. Stand at the smelter with room in your pack to take them to the hall,
-  or hire the (pricier) **ingot hauler**, who drives them over by tractor.
+  It is docked to the hall by two belts: one takes iron and copper ore out of the hall into the furnace, the other
+  carries the ingots back (also while you are away). Ore in your pack can go straight into the furnace too.
+  "Hotter furnace" upgrades make it smelt faster.
+- Older saves: the smelter's tractor driver and ingot hauler, the canteen's delivery cars and chest upgrades were
+  retired when transport got simpler. Their price is paid back once, and the chest's contents go into the hall.
 - **New Haven** (behind the bridge) has nine empty lots. Stand on one and pick what to build there; the lot then
   becomes a construction site paid with credits and materials from the hall ("Build something else" refunds it):
   - **Habitat** (any number, each pricier): 2 beds each. Hire crew there and tap a job for each crew member
@@ -175,9 +174,8 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
     every machine, and Mk2 rebuilds with five more levels. Rare resources are crew work only; drones skip them too.
     Every machine can hire a driver with its planet's vehicle (hover sled, tractor, dune buggy, beach cart) who
     brings the stock to the warehouse or the hall. Drivers, like crew, need meals and drinks.
-  - **Canteen**: cooks 3 sunfruit into 1 meal (better recipes need fewer) and cactus water into drinks. Crew then need both. On Halcyon they walk to
-    the canteen to eat (and stop working meanwhile) unless you hire **delivery drivers**, whose cars bring the food
-    out to them. Crew on other planets eat from their warehouse's pantry, which the cargo rocket fills on its way back
+  - **Canteen**: cooks 3 sunfruit into 1 meal (better recipes need fewer) and cactus water into drinks. Crew then need both. On Halcyon the canteen
+    serves them right where they work. Crew on other planets eat from their warehouse's pantry, which the cargo rocket fills on its way back
     from Halcyon (it also flies a supply run when the pantry runs low). Crew without food stop working. Until a
     canteen stands, crew simply eat raw sunfruit from the hall.
 - Sounds from the hall and the smelter are only as loud as they are close to you.
@@ -195,10 +193,10 @@ css/style.css     HUD, panels, overlays
 js/config.js      shared rules: upgrades, plot costs, perks, tools, drones, producers, crew
 js/planets.js     every planet: theme, layout, resources, helpers, tier balance, home buildings
 js/home.js        New Haven lots, crew (working on the current planet) and conveyor belts
-js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall, the portable chest
+js/hub.js         shipping after Halcyon: warehouses, cargo rockets, the hall
 js/contracts.js   contract board on Halcyon: orders paid from the hall
-js/smelter.js     smelter on Halcyon: ore to ingots, ore pickup, tractor driver, ingot hauler
-js/food.js        canteen, crew meals and drinks, delivery cars, pantry supply runs
+js/smelter.js     smelter on Halcyon: ore to ingots, belts to and from the hall
+js/food.js        canteen, crew meals and drinks, pantry supply runs
 js/research.js    research lab trees and their effects
 js/haulers.js     machine drivers and their vehicles
 js/audio.js       WebAudio synth sound effects, one sound set per material (no audio files)

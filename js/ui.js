@@ -37,8 +37,8 @@ SF.UI = (function () {
     if (stars === C.home) {
       list.push('Travel: fly between all planets from now on');
       list.push('Warehouses: drop offs on the other planets now fill cargo rockets that fly to the hall on Halcyon');
-      list.push('Material chest: comes with you to the other planets');
-      list.push('Smelter: turns iron and copper ore into the ingots your buildings need');
+      list.push('Carry home: anything in your pack from other planets goes straight into the hall when you land');
+      list.push('Smelter: docked to the hall by belts, turns iron and copper ore into the ingots your buildings need');
       list.push('New Haven: choose for yourself what to build on each lot (habitats, belt factory, research lab, canteen)');
     }
     return list;
@@ -78,6 +78,12 @@ SF.UI = (function () {
     $('intro-eyebrow').textContent = 'Planet ' + pl.name + ' · ' + pl.tagline;
     $('intro-sub').textContent = back ? 'Welcome back. Your outpost on ' + pl.name + ' is where you left it.' : pl.intro;
     if (back) $('btn-start').textContent = 'Resume';
+    if (SF.state.refunded) {
+      // An old save lost its drivers, delivery cars or chest upgrades when transport got simpler: say what came back.
+      $('intro-sub').textContent += ` Transport on Halcyon got simpler: the smelter now runs on belts from the hall, and pack items fly home with you. Drivers, delivery cars and chest upgrades you had bought were refunded: +${fmt(SF.state.refunded)} credits.`;
+      delete SF.state.refunded;
+      SF.save();
+    }
     syncSound();
     refresh();
   }
@@ -134,7 +140,7 @@ SF.UI = (function () {
     const s = SF.state, ws = SF.ws(), st = SF.stats(), home = SF.World.res(0);
     if (SF.World.smelter && s.stack.some(c => SF.Smelter.isOre(c))) return 'Carry the iron and copper ore to the SMELTER';
     if (SF.World.hall && s.stack.some(c => Math.floor(c / 10) !== s.planet)) return 'Unload materials from other planets at the HALL';
-    if (SF.hubActive() && s.stack.length >= st.cap) return 'Pack full. Unload at the WAREHOUSE (cargo rocket) or the chest';
+    if (SF.hubActive() && s.stack.length >= st.cap) return 'Pack full. Unload at the WAREHOUSE: its cargo rocket flies it to the hall';
     if (s.totalEarned === 0 && s.stack.length === 0) return `Stand next to a ${NOUNS[home.node]} to harvest ${home.plural.toLowerCase()}`;
     if (s.totalEarned === 0) return s.stack.length >= st.cap ? 'Pack full. Carry it to the DROP OFF pad' : 'Harvest more, then carry it to the DROP OFF pad';
     if (s.stack.length >= st.cap) return SF.World.hall ? 'Pack full. Sell at the SELL pad or store it in the HALL' : 'Pack full. Head to the DROP OFF pad';
@@ -145,7 +151,7 @@ SF.UI = (function () {
       const missing = Object.keys(next.needs || {}).filter(c => (ws.plots[next.id].res[c] || 0) < next.needs[c]).map(c => SF.res(+c).plural);
       const bars = Object.keys(next.needs || {}).some(c => SF.isIngot(+c) && (ws.plots[next.id].res[c] || 0) < next.needs[c] && !(s.hold[c] > 0));
       if (missing.length && next.cost - ws.plots[next.id].paid < 1) return bars && SF.World.smelter ?
-        `${next.name} needs ${missing.join(', ')}. Take ore from the ORE PICKUP to the SMELTER` : `${next.name} needs ${missing.join(', ')}. Ship them to the hall from their planet`;
+        `${next.name} needs ${missing.join(', ')}. Ship iron and copper ore to the hall: the smelter takes it from there` : `${next.name} needs ${missing.join(', ')}. Ship them to the hall from their planet`;
       return `Next: stand on the ${next.name} plot to build it (${fmt(next.cost - ws.plots[next.id].paid)} left)`;
     }
     if (SF.hubActive()) return 'Harvest and unload at the WAREHOUSE. Full cargo rockets fly to the hall on Halcyon';
@@ -174,7 +180,6 @@ SF.UI = (function () {
     if (!zone) return null;
     const pl = SF.planetName();
     if (zone === 'upgrade') return { title: 'Upgrade terminal', eyebrow: 'Suit and tools', cards: upgradeCards };
-    if (zone === 'chest') return { title: 'Material chest', eyebrow: 'Travels with you', cards: chestCards };
     if (zone === 'hall') return { title: 'Halcyon Hall', eyebrow: 'Home storage', cards: hallCards };
     if (zone === 'board') return { title: 'Contract board', eyebrow: 'Orders from the colony', cards: contractCards };
     if (zone === 'smelter') return { title: 'Smelter', eyebrow: 'Ore to ingots', cards: smelterCards };
@@ -345,7 +350,7 @@ SF.UI = (function () {
           r.btn.querySelector('.card-cost b').textContent = ''; r.btn.disabled = true;
           return;
         }
-        r.btn.querySelector('.card-lvl').textContent = st.belt ? `Installed · level ${st.beltLvl || 0}` : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} (hall, chest, warehouse)` : 'Needs the Belt Factory on Halcyon';
+        r.btn.querySelector('.card-lvl').textContent = st.belt ? `Installed · level ${st.beltLvl || 0}` : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} (hall or warehouse)` : 'Needs the Belt Factory on Halcyon';
         r.btn.querySelector('.card-eff').textContent = pipe ? 'Pumps the liquid to the warehouse by itself, so you never have to fetch it.' : 'Carries the stock to the drop off by itself, so you never have to fetch it.';
         r.btn.querySelector('.card-cost b').textContent = st.belt ? '' : `${need[code]} ${SF.res(code).name}`;
         r.btn.disabled = st.belt || !SF.Home.hasFactory();
@@ -424,26 +429,6 @@ SF.UI = (function () {
         return meter(name, r.n, SF.rocketCap(pi, r), pl.theme.accent, lab);
       }).join('');
     }).join('');
-  }
-
-  function chestCards() {
-    const H = C.hub, Hb = SF.Hub;
-    return [
-      storeCard('chest-info', {
-        title: 'In the chest', empty: 'The chest is empty. Unload here to fill it.',
-        groups: () => planetGroups(c => (SF.state.chest[c] || 0) > 0),
-        count: c => SF.state.chest[c] || 0,
-        lvl: () => `${Hb.chestCount()} / ${Hb.chestCap()} items`,
-        text: () => 'Unload here; the chest flies home with you and empties into the hall on Halcyon.',
-      }),
-      {
-        btn: card('up-chest', 'Bigger chest', () => Hb.upgradeChest(), true),
-        update(r) {
-          const l = SF.state.chestLvl, maxed = l >= H.chest.max;
-          fill(r.btn, maxed ? 'MAX' : `Lv ${l} → ${l + 1}`, maxed ? `Holds ${Hb.chestCap()}` : `Holds ${Hb.chestCap()} → ${Hb.chestCap() + H.chest.step}`, maxed ? null : Hb.chestCost());
-        },
-      },
-    ];
   }
 
   function hallCards() {
@@ -687,17 +672,9 @@ SF.UI = (function () {
             meter(SF.res(F.meal).plural + ' in the hall', h[F.meal] || 0, cap, SF.res(F.meal).color) + meter(SF.res(F.drink).name + ' in the hall', h[F.drink] || 0, cap, SF.res(F.drink).color) +
             (SF.state.worlds[5] ? meter(SF.res(F.feast).plural + ' in the hall', h[F.feast] || 0, cap, SF.res(F.feast).color) + meter(SF.res(F.elixir).name + ' in the hall', h[F.elixir] || 0, cap, SF.res(F.elixir).color) : '') +
             meter('Crew fed and working', fed, SF.state.crew.length || 1, '#9be36a', `${fed} / ${SF.state.crew.length}`),
-          text: `Cooks ${per} ${SF.res(F.meal).plural.toLowerCase()} into 1 meal and ${per} ${SF.res(F.drink).plural.toLowerCase()} into 1 drink. Moonmelons and dew nectar from Edenia become feasts and elixirs that keep crew full twice as long. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
+          text: `Cooks ${per} ${SF.res(F.meal).plural.toLowerCase()} into 1 meal and ${per} ${SF.res(F.drink).plural.toLowerCase()} into 1 drink. Moonmelons and dew nectar from Edenia become feasts and elixirs that keep crew full twice as long. Crew on Halcyon are served right where they work. Crew on other planets eat from their warehouse; their cargo rocket brings it.`,
         };
       }),
-      {
-        btn: card('hire-cook-driver', 'Delivery driver', () => SF.Food.hireDriver(), true),
-        update(r) {
-          const n = SF.state.kitchen.drivers, full = n >= F.drivers;
-          fill(r.btn, `${n} / ${F.drivers} cars`, n ? 'Drives meals and drinks out to the crew on Halcyon, so nobody stops working to walk here.' :
-            'Without a car, crew on Halcyon walk all the way here to eat and drink, and stop working meanwhile.', full ? null : SF.Food.driverCost());
-        },
-      },
     ];
   }
 
@@ -709,29 +686,9 @@ SF.UI = (function () {
         groups: () => [{ name: 'Ore waiting', tint: '#ff8f5a', codes: K.ores }, { name: 'Ingots in the hall', tint: '#dfe5ee', codes: K.ores.map(c => c + 100) }],
         count: c => (c > 100 ? SF.state.hold[c] : SF.state.smelt.q[c]) || 0,
         cap: c => (c > 100 ? SF.Hub.hallCap() : K.queue),
-        lvl: () => `${Sm.ready()} / ${K.outCap} on the tray`,
-        text: () => `1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s and lands on the tray. Pick ore up at the ORE PICKUP pad beside the hall and bring it here.`,
+        lvl: () => `${Sm.queued()} / ${K.queue} ore in the furnace`,
+        text: () => `Docked to the hall: a belt takes iron and copper ore out of the hall, and 1 ore becomes 1 ingot every ${Sm.every().toFixed(1)}s, which rides the second belt back into the hall. Ore in your pack can go straight into the furnace here.`,
       }),
-      {
-        btn: card('hire-driver', 'Tractor driver', () => Sm.hireDriver(), true),
-        update(r) {
-          const s = SF.state.smelt, ready = Sm.canHire();
-          if (s.driver) { fill(r.btn, 'Hired', 'Drives iron and copper ore from the hall to the furnace on their own, even while you are on other planets.', null); r.btn.querySelector('.card-cost b').textContent = ''; return; }
-          fill(r.btn, ready ? 'Ready to hire' : `Bring ore yourself first: ${s.hand} / ${K.byHand}`,
-            'Drives a tractor between the hall and the smelter so you never have to carry ore again.', ready ? K.driver : null);
-          if (!ready) { r.btn.querySelector('.card-cost b').textContent = SF.UI.fmt(K.driver); r.btn.classList.add('poor'); }
-        },
-      },
-      {
-        btn: card('hire-hauler', 'Ingot hauler', () => Sm.hireHauler(), true),
-        update(r) {
-          const s = SF.state.smelt;
-          if (s.hauler) { fill(r.btn, 'Hired', 'Drives the finished ingots from the smelter to the hall on their own, even while you are away.', null); r.btn.querySelector('.card-cost b').textContent = ''; return; }
-          fill(r.btn, s.driver ? 'Ready to hire' : 'Hire the tractor driver first',
-            `Brings the finished ingots to the hall. Until then they wait here (${Sm.ready()} ready): stand here with room in your pack to take them.`, s.driver ? Sm.haulCost() : null);
-          if (!s.driver) { r.btn.querySelector('.card-cost b').textContent = SF.UI.fmt(Sm.haulCost()); r.btn.classList.add('poor'); }
-        },
-      },
       {
         btn: card('up-heat', 'Hotter furnace', () => Sm.upgradeHeat(), true),
         update(r) {

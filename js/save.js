@@ -60,11 +60,19 @@ SF.Save = {
     if (data.player && isFinite(data.player.x) && isFinite(data.player.y)) s.player = { x: data.player.x, y: data.player.y };
     if (data.hold) for (const c in data.hold) if (valid(+c) && data.hold[c] > 0) s.hold[c] = data.hold[c] | 0;
     const counts = (o) => { const r = {}; if (o) for (const c in o) if (valid(+c) && o[c] > 0) r[c] = o[c] | 0; return r; };
-    s.chest = counts(data.chest);
-    s.chestLvl = Math.max(0, num(data.chestLvl, 0) | 0);
+    // The portable chest is gone: what was in it goes into the hall, and its upgrades are paid back.
+    s.chest = {}; s.chestLvl = 0;
+    let refund = 0;
+    const addHold = o => { for (const c in o) s.hold[c] = (s.hold[c] || 0) + o[c]; };
+    addHold(counts(data.chest));
+    { const H = SF.CFG.hub.chest, l = Math.max(0, num(data.chestLvl, 0) | 0); for (let i = 0; i < l; i++) refund += Math.round(H.cost * Math.pow(H.growth, i)); }
     s.hallLvl = Math.max(0, num(data.hallLvl, 0) | 0);
     const sm = data.smelt || {};
-    s.smelt = { q: counts(sm.q), out: counts(sm.out), hauler: !!sm.hauler, hand: Math.max(0, num(sm.hand, 0) | 0), driver: !!sm.driver, heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
+    // The smelter is docked to the hall now: ingots on the old tray go into the hall, its two drivers are paid back.
+    s.smelt = { q: counts(sm.q), hand: Math.max(0, num(sm.hand, 0) | 0), heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
+    addHold(counts(sm.out));
+    if (sm.driver) refund += SF.CFG.smelter.refund.driver;
+    if (sm.hauler) refund += SF.CFG.smelter.refund.hauler;
     if (data.research) for (const n of SF.RESEARCH_NODES) { const l = num(data.research[n.id], 0) | 0; if (l > 0) s.research[n.id] = Math.min(n.max, l); }
     if (data.charted) for (const k in data.charted) if (SF.PLANETS[+k] && SF.PLANETS[+k].far && data.charted[k]) s.charted[+k] = 1;
     s.fuel = Math.max(0, Math.min(SF.CFG.fuel.cap, num(data.fuel, 0)));
@@ -81,7 +89,10 @@ SF.Save = {
     s.demand = {}; if (data.demand) for (const c in data.demand) { const d = num(data.demand[c], 0); if (valid(+c) && d > 0) s.demand[c] = Math.min(SF.CFG.demand.max, d); }
     s.sellAt = {}; if (data.sellAt) for (const c in data.sellAt) { const k = num(data.sellAt[c], 0) | 0; if (valid(+c) && k > 0 && k < SF.CFG.hub.sellAt.length) s.sellAt[c] = k; }
     const kt = data.kitchen || {};
-    s.kitchen = { meal: Math.max(0, num(kt.meal, 0) | 0), drink: Math.max(0, num(kt.drink, 0) | 0), feast: Math.max(0, num(kt.feast, 0) | 0), elixir: Math.max(0, num(kt.elixir, 0) | 0), drivers: Math.max(0, num(kt.drivers, 0) | 0), t: 0 };
+    s.kitchen = { meal: Math.max(0, num(kt.meal, 0) | 0), drink: Math.max(0, num(kt.drink, 0) | 0), feast: Math.max(0, num(kt.feast, 0) | 0), elixir: Math.max(0, num(kt.elixir, 0) | 0), t: 0 };
+    // Canteen delivery cars are gone (crew on Halcyon now eat where they work): their drivers are paid back.
+    for (let i = 0; i < Math.min(2, Math.max(0, num(kt.drivers, 0) | 0)); i++) refund += Math.round(SF.CFG.food.driver * (1 + i));
+    if (refund > 0) { s.credits += refund; s.refunded = Math.round(refund); }
     if (Array.isArray(data.inbound)) s.inbound = data.inbound.filter(f => f && f.items).map(f => ({ t: num(f.t, 0), items: counts(f.items), from: num(f.from, 0) | 0 }));
     if (Array.isArray(data.crew)) s.crew = data.crew.filter(w => w && valid(w.job)).map(w => ({ job: w.job, food: Math.min(SF.CFG.food.fine, num(w.food, 1)), water: Math.min(SF.CFG.food.fine, num(w.water, 1)) }));
     s.worlds = {};
@@ -163,9 +174,10 @@ SF.Save = {
     }
     return Object.assign({}, s, {
       credits: Math.round(s.credits * 100) / 100, totalEarned: Math.round(s.totalEarned), lifetime: Math.round(s.lifetime),
-      worlds, smelt: { q: s.smelt.q, out: s.smelt.out, hauler: s.smelt.hauler || undefined, hand: s.smelt.hand || undefined, driver: s.smelt.driver || undefined, heat: s.smelt.heat || undefined },
+      worlds, smelt: { q: s.smelt.q, hand: s.smelt.hand || undefined, heat: s.smelt.heat || undefined },
       crew: s.crew.map(w => ({ job: w.job, food: Math.round(w.food * 100) / 100, water: Math.round((w.water == null ? 1 : w.water) * 100) / 100 })),
-      kitchen: { meal: s.kitchen.meal, drink: s.kitchen.drink, feast: s.kitchen.feast || undefined, elixir: s.kitchen.elixir || undefined, drivers: s.kitchen.drivers || undefined },
+      kitchen: { meal: s.kitchen.meal, drink: s.kitchen.drink, feast: s.kitchen.feast || undefined, elixir: s.kitchen.elixir || undefined },
+      refunded: undefined,
       demand: Object.fromEntries(Object.entries(s.demand || {}).map(([c, d]) => [c, Math.round(d * 1000) / 1000])),
       contracts: Object.assign({}, s.contracts, { swap: Math.round((s.contracts && s.contracts.swap) || 0) }),
       inbound: s.inbound.map(f => ({ t: Math.round(f.t * 10) / 10, items: f.items, from: f.from })),
