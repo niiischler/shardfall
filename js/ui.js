@@ -14,10 +14,12 @@ SF.UI = (function () {
   }
 
   const NOUNS = { crystal: 'crystal', clam: 'clam', tree: 'tree', palm: 'palm', mushroom: 'mushroom', bush: 'bush', cactus: 'cactus', bones: 'fossil',
-    magma: 'magma rock', icespire: 'ice spire', ironrock: 'iron boulder', resin: 'resin stump', goldvein: 'gold vein', mesa: 'mesa block', malachite: 'copper lode', geode: 'geode', coral: 'coral', conch: 'shell' };
+    magma: 'magma rock', icespire: 'ice spire', ironrock: 'iron boulder', resin: 'resin stump', goldvein: 'gold vein', mesa: 'mesa block', malachite: 'copper lode', geode: 'geode', coral: 'coral', conch: 'shell',
+    oilseep: 'oil seep', gasvent: 'gas vent', fumarole: 'sulfur vent', obsidian: 'obsidian outcrop', opalnest: 'opal nest', melon: 'melon vine', bloom: 'nectar bloom', spicebush: 'spice shrub', hive: 'honeycomb', truffle: 'truffle mound' };
 
   const PLURALS = { crystal: 'crystals', clam: 'clams', tree: 'trees', palm: 'palms', mushroom: 'mushrooms', bush: 'bushes', cactus: 'cacti', bones: 'fossils',
-    magma: 'magma rocks', icespire: 'ice spires', ironrock: 'iron boulders', resin: 'resin stumps', goldvein: 'gold veins', mesa: 'mesa blocks', malachite: 'copper lodes', geode: 'geodes', coral: 'corals', conch: 'shells' };
+    magma: 'magma rocks', icespire: 'ice spires', ironrock: 'iron boulders', resin: 'resin stumps', goldvein: 'gold veins', mesa: 'mesa blocks', malachite: 'copper lodes', geode: 'geodes', coral: 'corals', conch: 'shells',
+    oilseep: 'oil seeps', gasvent: 'gas vents', fumarole: 'sulfur vents', obsidian: 'obsidian outcrops', opalnest: 'opal nests', melon: 'melon vines', bloom: 'nectar blooms', spicebush: 'spice shrubs', hive: 'honeycombs', truffle: 'truffle mounds' };
 
   const effects = {
     cap: l => `Carry ${SF.stats().cap - 5 * SF.state.lvl.cap + 5 * l}`,

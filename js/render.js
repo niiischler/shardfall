@@ -889,6 +889,7 @@ SF.Render = (function () {
 
   // ---------- drones ----------
   function drone(ctx, d, t) {
+    if (SF.World.planet.id === 'edenia') { SF.Art.bee(ctx, d, t); return; }
     const z = 46 + Math.sin(t * 3 + d.bob) * 5, acc = SF.World.planet.theme.accent;
     shadow(ctx, d.x, d.y, 16, 6, 0.22);
     const y = d.y - z;
@@ -1325,6 +1326,7 @@ SF.Render = (function () {
       const x = p.x, y = p.y, acc = SF.World.planet.theme.accent;
       pad(ctx, x, y + 40, 54, rgba(acc, 'A'), t, active);
       shadow(ctx, x, y + 6, 66, 20);
+      if (SF.World.planet.id === 'edenia') { SF.Art.beeBay(ctx, p, t); label(ctx, p.name.toUpperCase(), x, y + 82, 14, acc); return; }
       ctx.fillStyle = '#c9c2da'; ctx.strokeStyle = '#3a2a4a'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.ellipse(x, y, 62, 46, 0, Math.PI, TAU); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#2a1c36'; ctx.beginPath(); ctx.ellipse(x, y, 30, 28, 0, Math.PI, TAU); ctx.closePath(); ctx.fill();
@@ -1921,6 +1923,7 @@ SF.Render = (function () {
   function vehicle(ctx, tr, t) {
     const f = tr.face, x = tr.x, y = tr.y;
     if (tr.kind === 'tractor') { tractor(ctx, tr, t); return; }
+    if (SF.Art && SF.Art.VEHICLES[tr.kind]) { SF.Art.VEHICLES[tr.kind](ctx, tr, t); if (tr.wait) label(ctx, tr.wait, x, y - 86, 11, '#ffab4a', 600); return; }
     if (tr.kind === 'hover') {
       // Kelvos hover sled: a floating crystal-powered platform.
       const h = 14 + Math.sin(t * 3 + x * 0.01) * 3;
@@ -2233,5 +2236,5 @@ SF.Render = (function () {
 
   function building(ctx, p, st, t, active, lift) { BUILDINGS[p.kind](ctx, p, t, active, st, lift || 0); }
 
-  return { board, boardPad, item, here, trail, foodCar, vehicle, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
+  return { ITEMS, NODES, MACHINE_ART, poly, wheel, driverHead, cargoOn, INK, board, boardPad, item, here, trail, foodCar, vehicle, chest, warehouse, cargoPad, hall, hallPads, landing, belts, beltRoute, routeLen, along, BELT_SPEED, road, pickupPad, smelter, tractor, crewmate, node, player, drone, stackSlot, dropZone, lander, upgradePad, plotMarking, building, label, hexCoin, glow, shadow, roundRect, rgba, FONT };
 })();

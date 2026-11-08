@@ -362,6 +362,10 @@
       case 'gasvent':
         n.h = 26 + R() * 12;
         break;
+      default: {
+        const art = SF.Render.NODES[def.node];
+        if (art && art.init) art.init(n, R);
+      }
       case 'bones':
         n.ribs = 4 + Math.floor(R() * 2);
         n.flip = R() > 0.5 ? 1 : -1;
