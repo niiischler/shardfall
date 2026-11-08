@@ -183,7 +183,10 @@ SF.Hub = (function () {
       }
       // Load the warehouse stock into the rocket: animated where you are, instantly elsewhere.
       while (r.n < H.rocketCap && whCount(ws) > 0 && (!here || loadT <= 0)) {
-        const code = +Object.keys(ws.wh).find(c => ws.wh[c] > 0);
+        // Take turns between the resources in stock, so a fast one never starves the others.
+        const keys = Object.keys(ws.wh).filter(c => ws.wh[c] > 0).sort((a, b) => a - b);
+        r.turn = ((r.turn || 0) + 1) % keys.length;
+        const code = +keys[r.turn];
         ws.wh[code]--; if (!ws.wh[code]) delete ws.wh[code];
         r.load[code] = (r.load[code] || 0) + 1; r.n++;
         if (here) { loadT = 0.1; SF.fly(code, C.depot.x + 40, C.depot.y - 30, () => ({ x: H.pad.x, y: H.pad.y - 60 }), { dur: 0.4, arc: 40 }); break; }
