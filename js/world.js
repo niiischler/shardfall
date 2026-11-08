@@ -34,7 +34,7 @@
       W.planet = SF.planet();
       SF.Save.ensureWorld(SF.state, SF.state.planet);
       const L = SF.layoutPlanet(W.planet);
-      W.regions = L.regions; W.plots = SF.applyLots(L.plots, SF.ws());
+      W.regions = L.regions; W.plots = SF.applyLots(W.planet.home ? L.plots.concat(SF.Fab.lotPlots()) : L.plots, SF.ws());
       // Halcyon has the big hall.
       const rocket = W.plot('launch'), H = C.hub.hallAt;
       W.hall = W.planet.home ? { x: H.x, y: H.y, r: 62, padY: H.y + 70 } : null;

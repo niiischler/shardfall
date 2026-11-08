@@ -230,11 +230,7 @@ SF.layoutPlanet = function (planet) {
       const [x, y] = h.abs ? h.abs : h.at ? [reg.x + h.at[0], reg.y + h.at[1]] : at(sett, C.gateRadius);
       plots.push(Object.assign({}, h, { x: Math.round(x), y: Math.round(y) }));
     }
-    // Empty building lots in New Haven: you choose what goes where (see SF.BUILDS).
-    C.haven.lots.forEach(([dx, dy], i) => plots.push({
-      id: 'L' + (i + 1), kind: 'lot', lot: true, name: 'Building lot', desc: 'Stand here to choose a building', cost: 0,
-      requires: 'g4', x: Math.round(reg.x + dx), y: Math.round(reg.y + dy),
-    }));
+    // New Haven's buildings stand wherever you put them (see js/factory.js): they are not part of the layout.
   } else {
     for (const id of ['h1', 'ref', 'h2', 'launch']) {
       if (id === 'ref') { plot('ref', 'refinery', 'Refinery', 'Everything sells for +50%', ...spot()); continue; }

@@ -7,6 +7,10 @@ SF.Input = (function () {
 
   function first() { SF.Audio.init(); if (onFirst) { const f = onFirst; onFirst = null; f(); } }
 
+  // Build mode (js/factory.js) can take pointer events for itself: hook(type, event) returns true when it did.
+  let hook = null;
+  function setHook(fn) { hook = fn; }
+
   function attach(canvas, firstInteraction) {
     onFirst = firstInteraction;
     window.addEventListener('keydown', e => {
@@ -19,6 +23,7 @@ SF.Input = (function () {
 
     canvas.addEventListener('pointerdown', e => {
       first();
+      if (hook && hook('down', e)) { try { canvas.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault(); return; }
       if (joy.active) return;
       joy.active = true; joy.id = e.pointerId;
       joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY;
@@ -26,11 +31,12 @@ SF.Input = (function () {
       e.preventDefault();
     });
     canvas.addEventListener('pointermove', e => {
+      if (hook && !joy.active && hook('move', e)) return;
       if (!joy.active || e.pointerId !== joy.id) return;
       // The base stays where the finger first landed; only the knob moves.
       joy.x = e.clientX; joy.y = e.clientY;
     });
-    const end = e => { if (e.pointerId === joy.id) { joy.active = false; joy.id = null; } };
+    const end = e => { if (hook && !joy.active && hook('up', e)) return; if (e.pointerId === joy.id) { joy.active = false; joy.id = null; } };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
   }
@@ -51,5 +57,5 @@ SF.Input = (function () {
     return { x: 0, y: 0 };
   }
 
-  return { attach, vector, joy, R, keys };
+  return { attach, vector, joy, R, keys, setHook };
 })();

@@ -164,6 +164,36 @@ SF.Render = (function () {
       ctx.fillStyle = '#ffd9e6'; ctx.beginPath(); ctx.ellipse(4, 1, 3.5, 4.5, 0.3, 0, TAU); ctx.fill();
       ctx.fillStyle = R.color; ctx.beginPath(); ctx.arc(4, 1, 2, 0, TAU); ctx.fill();
     },
+    // Fabricator parts.
+    gear(ctx, R) {
+      ctx.fillStyle = R.dark; ctx.strokeStyle = R.edge; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, r = i % 2 ? 6 : 8.5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r * 0.9); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = R.color; ctx.beginPath(); ctx.ellipse(-0.5, -0.5, 5, 4.5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = R.edge; ctx.beginPath(); ctx.ellipse(0, 0, 2, 1.8, 0, 0, TAU); ctx.fill();
+    },
+    wire(ctx, R) {
+      ctx.fillStyle = '#6b4a2a'; ctx.beginPath(); ctx.ellipse(0, 0, 4, 7, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = R.edge; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.strokeStyle = R.color; ctx.lineWidth = 1.8;
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.ellipse(i * 1.6, 0, 6.5, 6.5, 0, -1.2, 1.2); ctx.stroke(); }
+      ctx.strokeStyle = R.dark; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(6, 3); ctx.quadraticCurveTo(9, 6, 7, 8); ctx.stroke();
+    },
+    circuit(ctx, R) {
+      ctx.fillStyle = R.dark; ctx.strokeStyle = R.edge; ctx.lineWidth = 1.2;
+      roundRect(ctx, -8, -6, 16, 12, 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-6, -3); ctx.lineTo(-2, -3); ctx.lineTo(0, -1); ctx.moveTo(-6, 3); ctx.lineTo(1, 3); ctx.moveTo(6, -3); ctx.lineTo(3, -3); ctx.stroke();
+      ctx.fillStyle = '#2b2d33'; ctx.fillRect(0, -3, 5, 5);
+      ctx.fillStyle = R.color; ctx.fillRect(-7, -5, 2, 2); ctx.fillRect(5, 2, 2, 2);
+    },
+    glass(ctx, R) {
+      ctx.lineWidth = 1.2; ctx.strokeStyle = R.edge;
+      poly(ctx, [[-7, 6], [-4, -7], [7, -7], [4, 6]]); ctx.fillStyle = rgba(R.color, 0.85); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-2, 3); ctx.lineTo(0, -4); ctx.moveTo(1, 3); ctx.lineTo(2, -1); ctx.stroke();
+    },
     ingot(ctx, R) {
       ctx.lineWidth = 1.2; ctx.strokeStyle = R.edge;
       poly(ctx, [[-8, 5], [-6, -1], [6, -1], [8, 5]]); ctx.fillStyle = R.dark; ctx.fill(); ctx.stroke();

@@ -39,7 +39,7 @@ SF.UI = (function () {
       list.push('Warehouses: drop offs on the other planets now fill cargo rockets that fly to the hall on Halcyon');
       list.push('Carry home: anything in your pack from other planets goes straight into the hall when you land');
       list.push('Smelter: docked to the hall by belts, turns iron and copper ore into the ingots your buildings need');
-      list.push('New Haven: choose for yourself what to build on each lot (habitats, belt factory, research lab, canteen)');
+      list.push('New Haven: a free build area. Tap the hammer to place buildings, belts and machines wherever you like');
     }
     return list;
   }
@@ -51,7 +51,9 @@ SF.UI = (function () {
       sound: $('btn-sound'), menuBtn: $('btn-menu'), menu: $('menu'), intro: $('intro'),
       reset: $('btn-reset'), resetConfirm: $('reset-confirm'), resetYes: $('btn-reset-yes'), resetNo: $('btn-reset-no'),
       closeMenu: $('btn-close-menu'), stats: $('menu-stats'), arrive: $('arrive'),
+      build: $('btn-build'), buildbar: $('buildbar'), buildTools: $('build-tools'), buildSub: $('build-sub'), buildMsg: $('build-msg'),
     };
+    els.build.addEventListener('click', () => { SF.Audio.init(); if (SF.Fab.mode.on) SF.Fab.exit(); else SF.Fab.enter(); });
     els.sound.addEventListener('click', () => {
       SF.Audio.init();
       const m = !SF.Audio.isMuted();
@@ -155,7 +157,7 @@ SF.UI = (function () {
       return `Next: stand on the ${next.name} plot to build it (${fmt(next.cost - ws.plots[next.id].paid)} left)`;
     }
     if (SF.hubActive()) return 'Harvest and unload at the WAREHOUSE. Full cargo rockets fly to the hall on Halcyon';
-    if (SF.World.plots.some(p => p.kind === 'lot' && SF.plotVisible(p))) return 'New Haven has empty lots: stand on one to choose a building';
+    if (SF.atHome() && SF.Fab.unlocked() && !SF.World.plots.some(p => p.lot)) return 'New Haven is open: tap the hammer to place buildings, belts and machines';
     if (SF.atHome()) return 'Fly to other planets for materials, or hire crew in the habitats';
     return 'Everything is built. Max out your upgrades!';
   }
@@ -179,6 +181,7 @@ SF.UI = (function () {
   function zoneDef(zone) {
     if (!zone) return null;
     const pl = SF.planetName();
+    if (zone.startsWith('fab:')) { const m = SF.Fab.byId(zone.slice(4)); if (m) return fabDef(m); }
     if (zone === 'upgrade') return { title: 'Upgrade terminal', eyebrow: 'Suit and tools', cards: upgradeCards };
     if (zone === 'hall') return { title: 'Halcyon Hall', eyebrow: 'Home storage', cards: hallCards };
     if (zone === 'board') return { title: 'Contract board', eyebrow: 'Orders from the colony', cards: contractCards };
@@ -373,7 +376,7 @@ SF.UI = (function () {
     `<span class="t-name">${R.plural}</span><span class="t-num"><b>0</b><small></small></span><span class="bar"><i></i></span><span class="t-tag"></span></div>`; };
   const known = pi => !SF.PLANETS[pi].far || !!SF.state.worlds[pi];
   const planetGroups = (filter) => SF.PLANETS.map((pl, pi) => ({ name: pl.name, tint: pl.theme.accent, codes: known(pi) ? pl.resources.map(r => pi * 10 + r.tier).filter(filter) : [] }))
-    .concat([{ name: 'Smelted', tint: '#dfe5ee', codes: Object.keys(SF.INGOTS).map(Number).filter(filter) }]);
+    .concat([{ name: 'Smelted', tint: '#dfe5ee', codes: Object.keys(SF.INGOTS).map(Number).filter(filter) }, { name: 'Fabricated', tint: '#ffd36b', codes: Object.keys(SF.PARTS).map(Number).filter(filter) }]);
 
   function storeCard(id, opts) {
     const div = info(id, `<div class="store-top"><span class="card-name">${opts.title}</span><span class="card-lvl"></span></div><span class="card-eff"></span><div class="store"></div>`);
@@ -824,6 +827,107 @@ SF.UI = (function () {
     refresh();
   }
 
+  // ---------- free build area: machine popups and the build bar ----------
+  const recipeText = r => Object.keys(r.in).map(c => `${r.in[c]} ${(r.in[c] > 1 ? SF.res(+c).plural : SF.res(+c).name).toLowerCase()}`).join(' + ') + ' → ' + Object.keys(r.out).map(c => `${r.out[c]} ${(r.out[c] > 1 ? SF.res(+c).plural : SF.res(+c).name).toLowerCase()}`).join(' + ');
+  function fabDef(m) {
+    const K = C.fab.kinds[m.k];
+    return { title: K.name, eyebrow: 'New Haven machine', cards: () => fabCards(m) };
+  }
+  function openFab(id) {
+    const m = SF.Fab.byId(id);
+    if (!m) return;
+    const d = fabDef(m);
+    openPanel(d.title, d.cards(), d.eyebrow);
+  }
+  function fabCards(m) {
+    const Fb = SF.Fab, cards = [];
+    if (m.k === 'fab') {
+      cards.push(htmlCard('fab-info', 'Fabricator', () => {
+        const r = Fb.recipe(m);
+        let html = '';
+        if (r) {
+          for (const c in r.in) html += meter(SF.res(+c).plural + ' inside', m.in[c] || 0, r.in[c] * 2, SF.res(+c).color);
+          for (const c in r.out) html += meter(SF.res(+c).plural + ' waiting to leave', m.out[c] || 0, r.out[c] * 2, SF.res(+c).color);
+        }
+        return { html, text: Fb.status(m) + '. Belts pointing into any side bring the inputs; the parts leave at the yellow arrow onto a belt or straight into a Hall input.' };
+      }));
+      for (const r of SF.RECIPES) {
+        const out = +Object.keys(r.out)[0], btn = card('rec-' + r.id, SF.res(out).name, () => Fb.setRecipe(m, r.id), false);
+        btn.querySelector('.card-cost').innerHTML = `<img alt="" src="${icon(out)}" class="rec-icon">`;
+        cards.push({ btn, update(x) {
+          x.btn.querySelector('.card-lvl').textContent = m.rec === r.id ? 'Making this' : `${r.time}s each`;
+          x.btn.querySelector('.card-eff').textContent = recipeText(r) + ` · worth ${fmt(SF.resValue(out) * r.out[out])}`;
+          x.btn.classList.toggle('chosen', m.rec === r.id);
+        } });
+      }
+    } else if (m.k === 'feed') {
+      cards.push(htmlCard('feed-info', 'Hall output', () => ({ html: '', text: Fb.status(m) + '. Tap a material below to send it out (tap it again to stop). It leaves at the yellow arrow, one every ' + C.fab.kinds.feed.every + 's.' })));
+      cards.push(storeCard('feed-pick', {
+        title: 'From the hall', empty: 'The hall is empty.',
+        groups: () => planetGroups(c => (SF.state.hold[c] || 0) > 0 || c === m.sel),
+        count: c => SF.state.hold[c] || 0,
+        tap: c => Fb.setSel(m, c),
+        tag: c => (c === m.sel ? 'sending' : ''),
+        lvl: () => (m.sel != null ? 'Sending ' + SF.res(m.sel).plural.toLowerCase() : 'Nothing chosen'),
+        text: () => '',
+      }));
+    } else {
+      cards.push(htmlCard('sink-info', 'Hall input', () => ({ html: '', text: Fb.status(m) + '. Everything a belt brings here goes into the hall (and is sold if the hall is full).' })));
+    }
+    return cards;
+  }
+
+  let subOpen = false;
+  function buildBar() {
+    const Fb = SF.Fab, md = Fb.mode;
+    els.buildbar.hidden = !md.on;
+    els.build.setAttribute('aria-pressed', md.on ? 'true' : 'false');
+    els.build.classList.toggle('active', md.on);
+    if (!md.on) { subOpen = false; refresh(); return; }
+    const okB = Fb.beltsOk();
+    const price = q => [q.cost ? fmt(q.cost) : '', ...Object.keys(q.needs).map(c => `${q.needs[c]} ${SF.res(+c).name.toLowerCase()}`)].filter(Boolean).join(' + ');
+    const tools = [
+      { id: null, name: 'Look', sub: 'Pan, tap a machine' },
+      { id: 'belt', name: 'Belt', sub: okB ? price(Fb.priceOf('belt')) + ' each' : 'Needs Belt Factory', off: !okB },
+      ...Object.keys(C.fab.kinds).map(k => ({ id: k, name: C.fab.kinds[k].name, sub: okB ? price(Fb.priceOf(k)) : 'Needs Belt Factory', off: !okB })),
+      { id: 'sub', name: 'Buildings', sub: 'Habitat, lab, ...' },
+      { id: 'move', name: 'Move', sub: 'Machines, buildings' },
+      { id: 'remove', name: 'Remove', sub: 'Full refund' },
+      { id: 'rot', name: 'Turn ⟳', sub: ['→', '↓', '←', '↑'][md.rot] },
+      { id: 'done', name: 'Done', sub: 'Walk again' },
+    ];
+    els.buildTools.innerHTML = tools.map((t, i) => `<button type="button" class="tool${(t.id === md.tool || (t.id === 'sub' && (subOpen || (md.tool || '').startsWith('b:')))) ? ' on' : ''}${t.off ? ' off' : ''}${t.id === 'done' ? ' done' : ''}" data-i="${i}"><b>${t.name}</b><small>${t.sub}</small></button>`).join('');
+    els.buildTools.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => {
+      SF.Audio.init();
+      const t = tools[+b.dataset.i];
+      if (t.id === 'done') { Fb.exit(); return; }
+      if (t.id === 'rot') { Fb.rotate(); return; }
+      if (t.id === 'sub') { subOpen = !subOpen; buildBar(); return; }
+      if (t.off) { md.msg = 'Build the Belt Factory first (Buildings)'; SF.Audio.nope(); buildBar(); return; }
+      subOpen = false; Fb.setTool(t.id);
+    }));
+    els.buildSub.hidden = !subOpen;
+    if (subOpen) {
+      const kinds = Object.keys(SF.BUILDS);
+      els.buildSub.innerHTML = kinds.map((k, i) => { const ok = SF.Home.canChoose(k), q = SF.Home.quote(k);
+        return `<button type="button" class="tool${md.tool === 'b:' + k ? ' on' : ''}${ok ? '' : ' off'}" data-k="${k}"><b>${SF.BUILDS[k].name}</b><small>${ok ? price(q) : 'Already built or planned'}</small></button>`; }).join('');
+      els.buildSub.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => {
+        SF.Audio.init();
+        if (b.classList.contains('off')) { SF.Audio.nope(); return; }
+        subOpen = false; Fb.setTool('b:' + b.dataset.k); if (md.tool !== 'b:' + b.dataset.k) Fb.setTool('b:' + b.dataset.k);
+      }));
+    }
+    const t = md.tool || '';
+    els.buildMsg.textContent = md.msg || (!t ? 'Drag to look around (WASD works too). Tap a machine to set it up.' :
+      t === 'belt' ? 'Drag to lay belts; they follow your finger. A single tap lays one facing the Turn arrow.' :
+      t.startsWith('b:') ? `Tap to place the ${SF.BUILDS[t.slice(2)].name}. Then walk there and pay for it, as before.` :
+      t === 'move' ? 'Tap a machine or building, then tap where it should stand.' :
+      t === 'remove' ? 'Tap or drag over belts and machines. You get everything back.' :
+      `Tap to place the ${C.fab.kinds[t].name}. The yellow arrow is its output side (Turn changes it).`);
+    els.buildMsg.classList.toggle('warn', !!md.msg);
+    refresh();
+  }
+
   function closePanel() {
     refs = []; keyed = [];
     els.panel.classList.remove('open');
@@ -840,7 +944,8 @@ SF.UI = (function () {
     // A new crew member needs a new card.
     if (SF.player.zone && SF.player.zone.startsWith('bld:') && refs.length && refs[0].btn.id === 'hire' && refs.length !== SF.state.crew.length + 1) setZone(SF.player.zone);
     els.credits.textContent = fmt(SF.state.credits);
-    els.goal.textContent = goalText();
+    els.goal.textContent = SF.Fab.mode.on ? 'Build mode: tap Done or press B to walk again' : goalText();
+    els.build.hidden = !(SF.state.planet === C.home && SF.Fab.unlocked());
     els.planet.textContent = SF.planetName() + (SF.state.stars ? '  ★' + Math.min(SF.state.stars, C.home) : '');
     for (const r of refs) r.update(r);
   }
@@ -854,5 +959,5 @@ SF.UI = (function () {
     }
   }
 
-  return { init, refresh, tick, bump, setZone, hasPanel, dismissIntro, showArrival, perksFor, fmt };
+  return { init, refresh, tick, bump, setZone, hasPanel, dismissIntro, showArrival, perksFor, fmt, buildBar, openFab, closePanel, panelOpen: () => !els.panel.hidden };
 })();

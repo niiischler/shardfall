@@ -45,6 +45,19 @@ SF.CFG = {
     up: { credits: 20000, growth: 1.8, mats: { 112: 20, 122: 10 } } },   // belt upgrades at the Belt Factory (research 'beltTech')
 
   // New Haven on Halcyon: empty lots, relative to the settlement centre. You pick the building for each.
+  // The free build area in New Haven: a round grid where you place buildings, belts and machines yourself.
+  fab: {
+    G: 40, r: 600,                                          // grid cell size and the area's radius around New Haven's centre
+    speed: 1.6, gap: 0.5,                                   // belts: cells per second, spacing between items (cells)
+    belt: { 112: 1 },                                       // one belt tile
+    bld: { w: 5, h: 3 },                                    // ground a New Haven building takes (cells)
+    kinds: {
+      fab: { name: 'Fabricator', desc: 'Makes a recipe from what its belts bring', w: 3, h: 3, cost: 15000, needs: { 112: 20, 122: 10 } },
+      feed: { name: 'Hall output', desc: 'Puts a material from the hall onto a belt', w: 2, h: 2, cost: 4000, needs: { 112: 8, 122: 4 }, every: 0.5 },
+      sink: { name: 'Hall input', desc: 'Belts end here and it all goes into the hall', w: 2, h: 2, cost: 4000, needs: { 112: 8, 122: 4 } },
+    },
+  },
+  // Old fixed lots: only used to place buildings from saves made before the free build area.
   haven: { lots: [[-270, -230], [0, -230], [270, -230], [-270, 70], [0, 70], [270, 70], [-270, 370], [0, 370], [270, 370]] },
 
   // Crew food once a canteen stands: sunfruit becomes meals, cactus water becomes drinks.
@@ -111,7 +124,25 @@ SF.INGOTS = {
 };
 
 // Resources are identified everywhere by a code: planet index * 10 + tier.
-SF.res = code => SF.INGOTS[code] || SF.PLANETS[Math.floor(code / 10)].resources[code % 10];
+// Parts made by the fabricators in New Haven (codes 200+). Their value follows their recipe.
+SF.PARTS = {
+  200: { id: 'gear', name: 'Gear', plural: 'Gears', item: 'gear', color: '#c9d1dc', dark: '#7d8696', edge: '#2a2f38' },
+  201: { id: 'wire', name: 'Copper wire', plural: 'Copper wire', item: 'wire', color: '#f0a060', dark: '#a8552a', edge: '#4a1f0c' },
+  202: { id: 'circuit', name: 'Circuit', plural: 'Circuits', item: 'circuit', color: '#4fc36a', dark: '#1f6b34', edge: '#0f2a18' },
+  203: { id: 'glass', name: 'Glass pane', plural: 'Glass panes', item: 'glass', color: '#bfeeff', dark: '#6fb6d0', edge: '#2a5a6b' },
+};
+// What a fabricator can make: n inputs in, m outputs out, every `time` seconds.
+SF.RECIPES = [
+  { id: 'iron', in: { 12: 1 }, out: { 112: 1 }, time: 2 },
+  { id: 'copper', in: { 22: 1 }, out: { 122: 1 }, time: 2 },
+  { id: 'gear', in: { 112: 2 }, out: { 200: 1 }, time: 2 },
+  { id: 'wire', in: { 122: 1 }, out: { 201: 2 }, time: 1.5 },
+  { id: 'glass', in: { 21: 2 }, out: { 203: 1 }, time: 2.5 },
+  { id: 'circuit', in: { 201: 3, 112: 1 }, out: { 202: 1 }, time: 4 },
+];
+SF.isPart = code => !!SF.PARTS[code];
+
+SF.res = code => SF.INGOTS[code] || SF.PARTS[code] || SF.PLANETS[Math.floor(code / 10)].resources[code % 10];
 SF.isIngot = code => !!SF.INGOTS[code];
 
 SF.planet = i => SF.PLANETS[i == null ? SF.state.planet : i];
@@ -179,7 +210,15 @@ SF.demandUpdate = dt => {
   const d = SF.state.demand; if (!d) return;
   for (const c in d) { d[c] -= SF.CFG.demand.recover * dt; if (d[c] <= 0) delete d[c]; }
 };
-SF.resValue = code => SF.INGOTS[code] ? SF.resValue(SF.INGOTS[code].ore) * 1.6 : SF.res(code).value * SF.mult(Math.floor(code / 10));
+SF.resValue = code => {
+  if (SF.INGOTS[code]) return SF.resValue(SF.INGOTS[code].ore) * 1.6;
+  if (SF.PARTS[code]) {
+    // A part is worth half again what went into it.
+    const r = SF.RECIPES.find(q => q.out[code]);
+    return Object.keys(r.in).reduce((a, c) => a + SF.resValue(+c) * r.in[c], 0) / r.out[code] * 1.5;
+  }
+  return SF.res(code).value * SF.mult(Math.floor(code / 10));
+};
 SF.sellMult = () => (SF.ws().plots.ref && SF.ws().plots.ref.built ? SF.CFG.refineryMult : 1) * (1 + SF.CFG.perks.sale * SF.state.stars);
 
 // Buildings you can put on a New Haven lot. n = how many of that kind you already have (or planned).
