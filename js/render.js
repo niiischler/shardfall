@@ -918,29 +918,66 @@ SF.Render = (function () {
     label(ctx, p.desc, p.x, p.y + 30, 12, 'rgba(255,244,232,0.85)', 600);
   }
 
-  // A worn trail from the landing site out to a region: packed earth with a few stones along it.
-  function trail(ctx, tr, th) {
-    const { a, b } = tr, l = Math.hypot(b.x - a.x, b.y - a.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
-    ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(ang);
-    const w = C.trailWidth * 0.95;
-    const g = ctx.createLinearGradient(0, -w, 0, w);
-    g.addColorStop(0, 'rgba(70,45,30,0)'); g.addColorStop(0.2, 'rgba(70,45,30,0.3)'); g.addColorStop(0.5, 'rgba(95,65,42,0.4)'); g.addColorStop(0.8, 'rgba(70,45,30,0.3)'); g.addColorStop(1, 'rgba(70,45,30,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(-30, 0); ctx.quadraticCurveTo(0, -w, 60, -w); ctx.lineTo(l - 60, -w); ctx.quadraticCurveTo(l + 40, -w * 0.6, l + 60, 0); ctx.quadraticCurveTo(l + 40, w * 0.6, l - 60, w); ctx.lineTo(60, w); ctx.quadraticCurveTo(0, w, -30, 0); ctx.fill();
-    // footprints of a path: two faint ruts and scattered pebbles
-    ctx.strokeStyle = 'rgba(40,25,18,0.22)'; ctx.lineWidth = 6; ctx.setLineDash([22, 16]);
-    for (const o of [-18, 18]) { ctx.beginPath(); ctx.moveTo(20, o); ctx.lineTo(l - 20, o); ctx.stroke(); }
-    ctx.setLineDash([]);
-    let seed = Math.abs(Math.round(l + ang * 1000)) % 233280 + 1;
-    const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-    for (let x = 30; x < l - 20; x += 26) {
-      const y = (rnd() - 0.5) * w * 1.3, r = 2 + rnd() * 3;
-      ctx.fillStyle = rnd() > 0.5 ? 'rgba(255,244,232,0.16)' : 'rgba(40,25,20,0.2)';
-      ctx.beginPath(); ctx.ellipse(x, y, r * 1.4, r, 0, 0, TAU); ctx.fill();
-    }
-    ctx.restore();
+  // A worn footpath from the landing site out to a region: it winds a little, has soft grassy edges,
+  // a lighter trodden middle and a few flat stones. Drawn once per trail into its own canvas.
+  function hexRGB(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function mixRGB(c1, c2, k) { return c1.map((v, i) => Math.round(v + (c2[i] - v) * k)); }
+  const css = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  function trail(ctx, tr) {
+    if (!tr.cv) tr.cv = bakeTrail(tr);
+    const c = tr.cv;
+    ctx.drawImage(c.canvas, c.x, c.y);
   }
-
+  function bakeTrail(tr) {
+    const { a, b } = tr, l = Math.hypot(b.x - a.x, b.y - a.y), ux = (b.x - a.x) / l, uy = (b.y - a.y) / l;
+    let seed = Math.abs(Math.round(a.x * 7 + a.y * 13 + l)) % 233280 + 1;
+    const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const ph1 = rnd() * TAU, ph2 = rnd() * TAU, W0 = C.trailWidth * 0.42;
+    // points along a gently winding centre line, with the width tapering in at both ends
+    const pts = [];
+    for (let s = 0; s <= l; s += 6) {
+      const k = s / l, ease = Math.min(1, s / 120, (l - s) / 160);
+      const off = (Math.sin(s * 0.007 + ph1) * 24 + Math.sin(s * 0.019 + ph2) * 9) * Math.min(1, s / 200);
+      const w = W0 * (0.55 + 0.45 * ease) * (1 + Math.sin(s * 0.031 + ph2) * 0.12);
+      pts.push({ x: a.x + ux * s - uy * off, y: a.y + uy * s + ux * off, w, fade: Math.max(0, ease), k });
+    }
+    const pad = W0 * 2 + 30;
+    const minX = Math.min(...pts.map(p => p.x)) - pad, minY = Math.min(...pts.map(p => p.y)) - pad;
+    const maxX = Math.max(...pts.map(p => p.x)) + pad, maxY = Math.max(...pts.map(p => p.y)) + pad;
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil(maxX - minX); cv.height = Math.ceil(maxY - minY);
+    const g = cv.getContext('2d');
+    g.translate(-minX, -minY); g.lineCap = 'round'; g.lineJoin = 'round';
+    const ground = hexRGB(SF.World.planet.theme.ground);
+    const dirt = mixRGB(ground, [196, 160, 112], 0.42), edge = mixRGB(ground, [40, 28, 20], 0.35), worn = mixRGB(dirt, [255, 236, 200], 0.22);
+    const layer = (col, wk, alpha) => {
+      for (let i = 1; i < pts.length; i++) {
+        const p = pts[i - 1], q = pts[i];
+        g.strokeStyle = css(col, alpha * q.fade); g.lineWidth = q.w * 2 * wk;
+        g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke();
+      }
+    };
+    layer(edge, 1.25, 0.28);   // darker soft rim where the grass is pressed down
+    layer(dirt, 1.0, 0.85);    // packed earth
+    layer(worn, 0.45, 0.45);   // lighter trodden middle
+    // flat stepping stones and pebbles
+    for (let i = 4; i < pts.length - 4; i += 5 + Math.floor(rnd() * 5)) {
+      const p = pts[i], side = (rnd() - 0.5) * p.w * 1.3, r = 3 + rnd() * 5, f = p.fade;
+      const x = p.x - uy * side, y = p.y + ux * side;
+      g.fillStyle = css(edge, 0.35 * f); g.beginPath(); g.ellipse(x + 1, y + 2, r * 1.5, r, 0, 0, TAU); g.fill();
+      g.fillStyle = css(mixRGB(dirt, [255, 250, 240], 0.35), 0.9 * f); g.beginPath(); g.ellipse(x, y, r * 1.4, r * 0.9, 0, 0, TAU); g.fill();
+    }
+    // grass tufts nibbling at the edges so the path sits in the ground instead of on it
+    const tuft = mixRGB(ground, [255, 255, 230], 0.18);
+    g.lineWidth = 2;
+    for (let i = 2; i < pts.length - 2; i += 2 + Math.floor(rnd() * 3)) {
+      const p = pts[i], sd = rnd() > 0.5 ? 1 : -1, d = p.w * (0.85 + rnd() * 0.3) * sd;
+      const x = p.x - uy * d, y = p.y + ux * d;
+      g.strokeStyle = css(tuft, 0.75 * p.fade);
+      for (let j = -1; j <= 1; j++) { g.beginPath(); g.moveTo(x + j * 3, y); g.quadraticCurveTo(x + j * 4, y - 5, x + j * 6, y - 9 - rnd() * 4); g.stroke(); }
+    }
+    return { canvas: cv, x: minX, y: minY };
+  }
   // An empty lot in New Haven: a fenced square with a plus, waiting for you to pick a building.
   function lotMarking(ctx, p, t, active) {
     const s = C.plotR * 1.7;
