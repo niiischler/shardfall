@@ -19,7 +19,7 @@ SF.CFG = {
 
   // Campaign planets: base costs before the planet multiplier, and the order plots appear in.
   plotCosts: { g2: 1200, h1: 3200, ref: 7500, g3: 15000, h2: 26000, g4: 40000, g5: 90000, launch: 200000 },
-  plotRequires: { g2: null, h1: 'g2', ref: 'g2', g3: 'h1', h2: 'g3', g4: 'g3', g5: 'g4', launch: 'g5' },
+  plotRequires: { g2: null, h1: 'g2', ref: 'g2', g3: 'g2', h2: 'g3', g4: 'g3', g5: 'g4', launch: 'g5' },
 
   drone: { cap: 5, speed: 170, hitEvery: 0.6, max: 6, base: 1800, growth: 1.75 },
   producer: { base: 2200, growth: 1.7, max: 8 },
