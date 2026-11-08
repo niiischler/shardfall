@@ -64,6 +64,21 @@ SF.CFG = {
     hallAt: { x: 300, y: -290 },
   },
 
+  // Rocket Workshop (New Haven): rocket models for the cargo routes. cap and flight multiply the normal rocket.
+  // A model is built once; then any route can fly it. Its cargo frame upgrades add `frame.step` capacity per level.
+  rockets: {
+    models: {
+      std:     { name: 'Freighter', desc: 'The rocket every route starts with.', cap: 1, flight: 1, body: '#f2f0f8', trim: '#ff8f5a' },
+      courier: { name: 'Swift Courier', desc: 'Small bay, but there and back in half the time.', cap: 0.6, flight: 0.45, body: '#e8fbff', trim: '#6ff5e8',
+        cost: 150000, needs: { 112: 150, 122: 100, 4: 20 } },
+      heavy:   { name: 'Heavy Hauler', desc: 'Three times the cargo of a freighter, but slow.', cap: 3, flight: 1.7, body: '#ffe9b8', trim: '#c88a4a', wide: true,
+        cost: 300000, needs: { 112: 400, 122: 250, 23: 80 } },
+      tanker:  { name: 'Tanker', desc: 'Pressure tanks for liquids and gases. Only a tanker can carry them.', cap: 2, flight: 1.2, body: '#dfe5ee', trim: '#7fd8ff', liquid: true,
+        cost: 400000, needs: { 112: 300, 122: 400, 24: 60 }, locked: 'Needs a planet with liquids or gases. Find one on the star map.' },
+    },
+    frame: { cost: 40000, growth: 1.8, max: 10, step: 0.25, mats: { 112: 40, 122: 20 } },
+  },
+
   // Smelter on Halcyon: iron and copper ore from the hall become ingots for building.
   smelter: {
     at: { x: -300, y: -270 }, pickup: { x: 110, y: -205 },  // smelter, and the ore pickup pad beside the hall
@@ -152,6 +167,7 @@ SF.BUILDS = {
   },
   factory: { name: 'Belt Factory', desc: 'Conveyor belts for producers', unique: true, cost: () => 60000, needs: () => ({ 112: 200, 122: 100 }) },
   lab: { name: 'Research Lab', desc: 'Research rockets, drones and industry', unique: true, cost: () => 80000, needs: () => ({ 112: 150, 0: 400, 31: 200 }) },
+  workshop: { name: 'Rocket Workshop', desc: 'New rocket models for the cargo routes', unique: true, cost: () => 250000, needs: () => ({ 112: 300, 122: 200, 10: 400 }) },
   canteen: { name: 'Canteen', desc: 'Cooks meals and drinks for the crew', unique: true, cost: () => 50000, needs: () => ({ 10: 300, 21: 200, 122: 50 }) },
 };
 

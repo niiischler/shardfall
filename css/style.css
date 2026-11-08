@@ -263,7 +263,8 @@ button:focus-visible { outline: 3px solid var(--shard); outline-offset: 2px; }
 }
 
 /* build menu, research and job picker */
-.card .mats { margin: 6px 0 0; gap: 4px; }
+.card .mats { margin: 6px 0 0; gap: 4px; flex-direction: column; align-items: flex-start; flex-wrap: nowrap; }
+.card .mats li { font-variant-numeric: tabular-nums; }
 .card .mats li { padding: 2px 8px; font-size: 0.72rem; }
 .card .mats li.short { color: var(--ember); background: rgba(255, 143, 90, 0.12); }
 .card.info.tree-head { grid-column: 1 / -1; padding: 6px 12px; min-height: 0; background: transparent; border-color: transparent; }

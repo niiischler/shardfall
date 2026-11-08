@@ -22,7 +22,7 @@ SF.Save = {
       stack: [], player: { x: SF.CFG.start.x, y: SF.CFG.start.y },
       worlds: {}, hold: {}, crew: [], chest: {}, chestLvl: 0, hallLvl: 0, inbound: [],
       smelt: { q: {}, out: {}, hauler: false, hand: 0, driver: false, heat: 0, t: 0 },
-      research: {}, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
+      research: {}, fleet: { own: {}, frame: {} }, kitchen: { meal: 0, drink: 0, drivers: 0, t: 0 },
     }, keep || {});
     if (!s.worlds[s.planet]) s.worlds[s.planet] = this.freshWorld(s.planet, false);
     return s;
@@ -66,6 +66,12 @@ SF.Save = {
     const sm = data.smelt || {};
     s.smelt = { q: counts(sm.q), out: counts(sm.out), hauler: !!sm.hauler, hand: Math.max(0, num(sm.hand, 0) | 0), driver: !!sm.driver, heat: Math.max(0, num(sm.heat, 0) | 0), t: 0 };
     if (data.research) for (const n of SF.RESEARCH_NODES) { const l = num(data.research[n.id], 0) | 0; if (l > 0) s.research[n.id] = Math.min(n.max, l); }
+    const fl = data.fleet || {};
+    for (const id in SF.CFG.rockets.models) {
+      if (fl.own && fl.own[id] && id !== 'std') s.fleet.own[id] = 1;
+      const f = fl.frame ? num(fl.frame[id], 0) | 0 : 0;
+      if (f > 0) s.fleet.frame[id] = Math.min(SF.CFG.rockets.frame.max, f);
+    }
     const kt = data.kitchen || {};
     s.kitchen = { meal: Math.max(0, num(kt.meal, 0) | 0), drink: Math.max(0, num(kt.drink, 0) | 0), drivers: Math.max(0, num(kt.drivers, 0) | 0), t: 0 };
     if (Array.isArray(data.inbound)) s.inbound = data.inbound.filter(f => f && f.items).map(f => ({ t: num(f.t, 0), items: counts(f.items), from: num(f.from, 0) | 0 }));
@@ -79,6 +85,7 @@ SF.Save = {
       into.drones = Math.max(0, num(w.drones, 0) | 0);
       into.wh = counts(w.wh);
       into.whLvl = Math.max(0, Math.min(SF.CFG.hub.wh.max, w.whLvl | 0));
+      if (SF.CFG.rockets.models[w.model] && w.model !== 'std') into.model = w.model;
       if (w.pantry) into.pantry = { meal: Math.max(0, num(w.pantry.meal, 0) | 0), drink: Math.max(0, num(w.pantry.drink, 0) | 0) };
       // The old fixed home buildings move onto the new New Haven lots.
       if (pi === SF.CFG.home && w.plots) {
@@ -91,7 +98,7 @@ SF.Save = {
           w.plots[lot] = Object.assign({}, o, { kind, cost, needs });
         }
       }
-      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0, fl: num(w.rk.fl, 0) || undefined, total: num(w.rk.total, 0) || undefined, food: w.rk.food && { meal: num(w.rk.food.meal, 0) | 0, drink: num(w.rk.food.drink, 0) | 0 } }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
+      if (w.rk) { const load = counts(w.rk.load); into.rk = { load, model: SF.CFG.rockets.models[w.rk.model] ? w.rk.model : undefined, n: num(w.rk.n, 0) | 0, away: Math.max(0, num(w.rk.away, 0)), out: num(w.rk.out, 0) | 0, fl: num(w.rk.fl, 0) || undefined, total: num(w.rk.total, 0) || undefined, food: w.rk.food && { meal: num(w.rk.food.meal, 0) | 0, drink: num(w.rk.food.drink, 0) | 0 } }; if (!into.rk.n) into.rk.n = Object.values(load).reduce((a, b) => a + b, 0); }
       for (const id in into.plots) {
         const p = w.plots && w.plots[id];
         if (p) Object.assign(into.plots[id], { paid: num(p.paid, 0), built: !!p.built || into.plots[id].built, lvl: num(p.lvl, 0) | 0, pile: num(p.pile, 0) | 0, belt: !!p.belt, mk: p.mk ? 1 : 0, driver: !!p.driver, beltLvl: Math.max(0, Math.min(3, num(p.beltLvl, 0) | 0)), res: p.res || {} });
@@ -138,9 +145,9 @@ SF.Save = {
         if (p.paid || p.built || p.lvl || p.pile || res || p.kind) plots[id] = { paid: Math.floor(p.paid) || undefined, built: p.built || undefined, lvl: p.lvl || undefined, pile: p.pile || undefined, belt: p.belt || undefined, mk: p.mk || undefined, driver: p.driver || undefined, beltLvl: p.beltLvl || undefined, res, kind: p.kind, cost: p.kind ? p.cost : undefined, needs: p.kind ? p.needs : undefined };
       }
       const wh = w.wh && Object.keys(w.wh).length ? w.wh : undefined;
-      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined, fl: w.rk.fl, total: w.rk.total, food: w.rk.food || undefined } : undefined;
+      const rk = w.rk && (w.rk.n || w.rk.away) ? { load: w.rk.load, n: w.rk.n, out: w.rk.out || undefined, away: Math.round(w.rk.away * 10) / 10 || undefined, fl: w.rk.fl, total: w.rk.total, model: w.rk.away ? w.rk.model : undefined, food: w.rk.food || undefined } : undefined;
       const pantry = w.pantry && (w.pantry.meal || w.pantry.drink) ? w.pantry : undefined;
-      worlds[k] = { plots, drones: w.drones || undefined, wh, whLvl: w.whLvl || undefined, rk, pantry };
+      worlds[k] = { plots, drones: w.drones || undefined, wh, whLvl: w.whLvl || undefined, model: w.model && w.model !== 'std' ? w.model : undefined, rk, pantry };
     }
     return Object.assign({}, s, {
       credits: Math.round(s.credits * 100) / 100, totalEarned: Math.round(s.totalEarned), lifetime: Math.round(s.lifetime),

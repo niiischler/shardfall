@@ -145,6 +145,9 @@ After Kelvos you get the **Ion Axe** (trees, bushes, mushrooms, cacti 2x faster)
     or excavator for 30 iron ingots; it runs into a side input of the warehouse and carries the stock there by itself.
     Researched machines stand too far out for a belt and need a driver. After researching "Faster belts" (machines
     tree), the Belt Factory lists every belt on every planet and you choose which ones to upgrade (up to level 3).
+  - **Rocket Workshop**: build new cargo rocket models (Swift Courier: small but twice as fast; Heavy Hauler: three
+    times the cargo, slow; Tanker: for liquids and gases, later) and choose which one flies each planet's route.
+    Each model's cargo frame can be upgraded ten times (+25% capacity per level).
   - **Research Lab**: four trees (rocket technology, autonomous harvesting, industry, machines). Each level costs credits plus
     materials from the hall: faster and bigger cargo rockets, faster drones that carry more and hit harder, faster
     producers, faster crew and better recipes.
