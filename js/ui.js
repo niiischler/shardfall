@@ -155,6 +155,7 @@ SF.UI = (function () {
   const PANELS = {
     drones: p => [droneCard(p)],
     producer: p => [producerCard(p), driverCard(p), SF.World.hall ? null : beltCard(p), mk2Card(p)].filter(Boolean),
+    factory: () => beltOverview(),
     launch: () => (SF.atHome() ? travelCards() : [launchCard()]),
     habitat: () => crewCards(),
     lab: () => researchCards(),
@@ -267,6 +268,43 @@ SF.UI = (function () {
     };
   }
 
+  // Belt Factory on Halcyon: every belt on every planet, each upgradable up to the researched level.
+  const layoutCache = {};
+  function beltOverview() {
+    const cards = [], tech = SF.R('beltTech');
+    cards.push({
+      btn: info('belts-info', `<span class="card-name">Belts on every planet</span><span class="card-eff"></span>`),
+      update(r) {
+        r.btn.querySelector('.card-eff').textContent = tech ? `Faster belts move more stock per second. Research allows level ${tech} of 3. Materials come from the hall.` :
+          'Research "Faster belts" in the lab to upgrade belts here.';
+      },
+    });
+    SF.PLANETS.forEach((pl, pi) => {
+      const ws = SF.state.worlds[pi];
+      if (!ws || pi === C.home) return;
+      const L = layoutCache[pi] || (layoutCache[pi] = SF.layoutPlanet(pl));
+      for (const p of L.plots) {
+        const st = ws.plots[p.id];
+        if (p.kind !== 'producer' || !st || !st.built || !st.belt) continue;
+        const btn = card('belt-up-' + pi + p.id, `${p.name} belt`, () => SF.upgradeBelt(pi, p.id), false);
+        btn.style.setProperty('--tint', pl.theme.accent); btn.classList.add('research');
+        btn.insertAdjacentHTML('beforeend', '<ul class="res-list mats"></ul>');
+        cards.push({
+          btn,
+          update(r) {
+            const l = st.beltLvl || 0, max = l >= 3, locked = l >= tech, c = SF.beltCost(st, pi);
+            const now = 1 / SF.beltEvery(st), next = 1 / SF.beltEvery({ beltLvl: l + 1 });
+            fill(r.btn, `${pl.name} · level ${l}` + (max ? ' (max)' : locked ? ' · research needed' : ` → ${l + 1}`),
+              max ? `${now.toFixed(1)} items/s` : `${now.toFixed(1)} → ${next.toFixed(1)} items/s`, max || locked ? null : c.credits);
+            r.btn.querySelector('.mats').innerHTML = max || locked ? '' : matHave(c.mats);
+          },
+        });
+      }
+    });
+    if (cards.length === 1) cards.push({ btn: info('belts-none', '<span class="card-name">No belts yet</span><span class="card-eff">Install belts at the sawmills, mines and excavators on the other planets.</span>'), update() {} });
+    return cards;
+  }
+
   // Research 'mk2': a maxed machine can be rebuilt for more levels.
   function mk2Card(p) {
     if (!SF.R('mk2')) return null;
@@ -294,7 +332,13 @@ SF.UI = (function () {
       btn,
       update(r) {
         const st = SF.ws().plots[p.id], have = SF.Home.available(code);
-        r.btn.querySelector('.card-lvl').textContent = st.belt ? 'Installed' : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} (hall, chest, warehouse)` : 'Needs the Belt Factory on Halcyon';
+        if (p.research) {
+          r.btn.querySelector('.card-lvl').textContent = 'Too far out for a belt';
+          r.btn.querySelector('.card-eff').textContent = 'This machine stands where no belt reaches. Hire a driver to bring its stock in.';
+          r.btn.querySelector('.card-cost b').textContent = ''; r.btn.disabled = true;
+          return;
+        }
+        r.btn.querySelector('.card-lvl').textContent = st.belt ? `Installed · level ${st.beltLvl || 0}` : SF.Home.hasFactory() ? `${have} / ${need[code]} ${SF.res(code).name.toLowerCase()} (hall, chest, warehouse)` : 'Needs the Belt Factory on Halcyon';
         r.btn.querySelector('.card-eff').textContent = 'Carries the stock to the drop off by itself, so you never have to fetch it.';
         r.btn.querySelector('.card-cost b').textContent = st.belt ? '' : `${need[code]} ${SF.res(code).name}`;
         r.btn.disabled = st.belt || !SF.Home.hasFactory();
@@ -548,9 +592,16 @@ SF.UI = (function () {
         title: 'Waiting in the warehouse', empty: 'Nothing waiting. Drop your haul on the pad to fill the rocket.',
         groups: () => { const wh = SF.ws().wh || {}, pi = SF.state.planet; return planetGroups(c => Math.floor(c / 10) === pi && c < 100 || (wh[c] || 0) > 0); },
         count: c => (SF.ws().wh || {})[c] || 0,
-        lvl: () => `${Object.values(SF.ws().wh || {}).reduce((a, b) => a + b, 0)} items`,
-        text: () => 'Stock waits here while the rocket is away and loads up again when it lands.',
+        lvl: () => `${Object.values(SF.ws().wh || {}).reduce((a, b) => a + b, 0)} / ${SF.Hub.whCap()} items`,
+        text: () => SF.Hub.whFull() ? 'Full! Crew, drones, belts and you all wait until the rocket takes a load. Expand it below.' : 'Stock waits here while the rocket is away and loads up again when it lands.',
       }),
+      {
+        btn: card('up-wh', 'Expand the warehouse', () => SF.Hub.upgradeWarehouse(), true),
+        update(r) {
+          const W = C.hub.wh, l = SF.ws().whLvl || 0, maxed = l >= W.max, cap = SF.Hub.whCap();
+          fill(r.btn, maxed ? 'MAX' : `Lv ${l} → ${l + 1}`, maxed ? `Holds ${cap}` : `Holds ${cap} → ${cap + W.step} items`, maxed ? null : SF.Hub.whCost());
+        },
+      },
       htmlCard('wh-rocket', 'Cargo rocket', () => {
         const pi = SF.state.planet, n = SF.Food.crewOn(pi), pan = SF.Food.pantry(pi);
         return {

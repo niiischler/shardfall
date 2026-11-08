@@ -67,7 +67,8 @@ SF.Haul = (function () {
       if (tr.state === 'go') { goal = dest(i); if (Math.hypot(goal.x - tr.x, goal.y - tr.y) < 6) { tr.state = 'unload'; tr.t = 0.2; goal = null; } }
       if (tr.state === 'unload') {
         tr.t -= dt;
-        if (tr.t <= 0 && tr.cargo.length) { unloadOne(tr.cargo.pop(), tr); tr.t = K.load; }
+        if (!SF.World.hall && SF.Hub.whFull()) tr.wait = 'warehouse full';
+        else if (tr.t <= 0 && tr.cargo.length) { unloadOne(tr.cargo.pop(), tr); tr.t = K.load; }
         if (!tr.cargo.length && tr.t <= 0) tr.state = 'load';
       }
       if (goal) drive(tr, goal, dt);

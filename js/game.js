@@ -179,7 +179,7 @@
     }
     if (d.state === 'return') {
       goal = { x: C.dropZone.x, y: C.dropZone.y - 20 };
-      if (Math.hypot(goal.x - d.x, goal.y - d.y) < 34 && d.incoming === 0) {
+      if (Math.hypot(goal.x - d.x, goal.y - d.y) < 34 && d.incoming === 0 && !SF.Hub.whFull()) {
         d.cargo.forEach((code, i) => fly(code, d.x, d.y - 40, depotTarget, { delay: i * 0.08, dur: 0.4, arc: 50, onArrive(f) { deposit(f.code); } }));
         d.cargo = [];
         d.state = 'seek';
@@ -213,10 +213,10 @@
       }
     } else st.t = 0;
     // A conveyor belt carries the stock to the depot by itself.
-    if (st.belt && st.pile > 0) {
+    if (st.belt && st.pile > 0 && !SF.Hub.whFull()) {
       st.beltT = (st.beltT || 0) - dt;
       if (st.beltT <= 0) {
-        st.beltT = 0.8; st.pile--;
+        st.beltT = SF.beltEvery(st); st.pile--;
         const path = Rn.beltRoute(p), end = path[path.length - 1];
         fly(code, path[0].x, path[0].y, () => end, {
           dur: Rn.routeLen(path) / Rn.BELT_SPEED, arc: 0, path,
@@ -425,6 +425,10 @@
       P.deliverT -= dt;
       while (P.deliverT <= 0 && s.stack.length) {
         const from = Rn.stackSlot(P, s.stack.length - 1), code = s.stack[s.stack.length - 1];
+        if (zone === 'drop' && SF.Hub.whFull()) {
+          if (!P.chestWarned) { P.chestWarned = true; A.full(); FX.pop(C.depot.x, C.depot.y - 120, 'Warehouse full! Wait for the rocket or expand it', '#ff8f5a', 16, { life: 1.6 }); }
+          break;
+        }
         if (zone === 'chest' && !SF.Hub.storeChest(code, from.x, from.y)) {
           if (!P.chestWarned) { P.chestWarned = true; A.full(); FX.pop(W.chest.x, W.chest.y - 90, 'Chest full! Upgrade it here', '#ff8f5a', 16, { life: 1.4 }); }
           break;

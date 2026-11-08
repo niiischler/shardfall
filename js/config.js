@@ -37,7 +37,8 @@ SF.CFG = {
   },
 
   home: 3,                             // index of the home planet; travel opens there
-  conveyor: { needs: { 112: 30 } },    // 30 iron ingots per producer
+  conveyor: { needs: { 112: 30 }, every: 0.8, speedUp: 0.6,   // 30 iron ingots per belt; 1 item every 0.8s, +60% per belt level
+    up: { credits: 20000, growth: 1.8, mats: { 112: 20, 122: 10 } } },   // belt upgrades at the Belt Factory (research 'beltTech')
 
   // New Haven on Halcyon: empty lots, relative to the settlement centre. You pick the building for each.
   haven: { lots: [[-270, -230], [0, -230], [270, -230], [-270, 70], [0, 70], [270, 70], [-270, 370], [0, 370], [270, 370]] },
@@ -59,6 +60,7 @@ SF.CFG = {
     pad: { x: 205, y: 55 },                     // cargo rocket pad beside the warehouse, clear of the belts
     chest: { base: 40, step: 40, cost: 8000, growth: 1.85, max: 8 },   // portable chest, total items
     hall:  { base: 150, step: 150, cost: 20000, growth: 1.9, max: 8 },  // Halcyon hall, per resource
+    wh:    { base: 200, step: 150, cost: 15000, growth: 1.9, max: 8 },  // warehouse on each other planet, total items (cost x planet multiplier)
     hallAt: { x: 300, y: -290 },
   },
 
@@ -118,6 +120,24 @@ const priced = (base, growth, lvl) => Math.round(base * SF.mult(SF.atHome() ? SF
 SF.upgradeCost = key => { const u = SF.CFG.upgrades[key]; return priced(u.base, u.growth, SF.state.lvl[key]); };
 SF.droneCost = () => { const d = SF.CFG.drone; return priced(d.base, d.growth, Math.max(0, SF.ws().drones - 1)); };
 SF.producerCost = st => priced(SF.CFG.producer.base, SF.CFG.producer.growth, st.lvl) * (st.mk ? 2 : 1);
+SF.beltEvery = st => SF.CFG.conveyor.every / (1 + SF.CFG.conveyor.speedUp * (st.beltLvl || 0));
+SF.beltCost = (st, pi) => {
+  const u = SF.CFG.conveyor.up, l = st.beltLvl || 0;
+  return { credits: Math.round(u.credits * Math.pow(u.growth, l) * SF.mult(pi)), mats: Object.fromEntries(Object.entries(u.mats).map(([c, n]) => [c, n * (l + 1)])) };
+};
+// Belt Factory on Halcyon: upgrade any belt on any planet, up to the researched level. Materials come from the hall.
+SF.upgradeBelt = (pi, id) => {
+  const st = SF.state.worlds[pi] && SF.state.worlds[pi].plots[id];
+  if (!st || !st.belt || (st.beltLvl || 0) >= SF.R('beltTech')) { SF.Audio.nope(); return false; }
+  const c = SF.beltCost(st, pi), h = SF.state.hold;
+  if (SF.state.credits < c.credits || Object.keys(c.mats).some(k => (h[k] || 0) < c.mats[k])) { SF.Audio.nope(); return false; }
+  SF.state.credits -= c.credits;
+  for (const k in c.mats) { h[k] -= c.mats[k]; if (!h[k]) delete h[k]; }
+  st.beltLvl = (st.beltLvl || 0) + 1;
+  SF.Audio.build();
+  SF.save(); SF.UI.refresh();
+  return true;
+};
 SF.producerMax = st => SF.CFG.producer.max + (st.mk ? SF.CFG.producer.mk2.levels : 0);
 SF.hireCost = () => { const c = SF.CFG.crew; return Math.round(c.hire * Math.pow(c.growth, SF.state.crew.length)); };
 SF.resValue = code => SF.INGOTS[code] ? SF.resValue(SF.INGOTS[code].ore) * 1.6 : SF.res(code).value * SF.mult(Math.floor(code / 10));
@@ -158,6 +178,7 @@ SF.RESEARCH = [
     { id: 'autoDune', name: 'Duneveil machines', max: 1, credits: 80000, eff: () => 'Cactus condenser and copper mine on Duneveil', mats: { 122: 80, 23: 40 } },
     { id: 'autoHalcyon', name: 'Halcyon machines', max: 1, credits: 100000, eff: () => 'Sunfruit orchard, coral farm and pearl diver on Halcyon, straight into the hall', mats: { 122: 80, 24: 40 } },
     { id: 'twin', name: 'Second plant', max: 1, credits: 150000, after: 'presses', eff: () => 'Build a second copy of every machine', mats: { 112: 200, 122: 100, 14: 40 } },
+    { id: 'beltTech', name: 'Faster belts', max: 3, credits: 50000, after: 'presses', eff: l => `Belts can be upgraded to level ${l} at the Belt Factory`, mats: { 112: 100, 122: 60, 21: 200 } },
     { id: 'mk2', name: 'Mk2 machines', max: 1, credits: 200000, after: 'presses', eff: () => `Rebuild a maxed machine as Mk2: ${SF.CFG.producer.mk2.levels} more levels, faster`, mats: { 112: 250, 122: 150, 4: 30 } },
   ] },
 ];
