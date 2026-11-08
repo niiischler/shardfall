@@ -99,7 +99,8 @@ Harvesting, selling and building all happen by standing in the right place.
 1. **Harvest**: stand next to a resource node. Your tool swings automatically.
 2. **Carry**: loot flies onto your back. The pack has a capacity (shown above your head).
 3. **Sell**: walk onto the DROP OFF pad in front of the lander. Items fly in one by one and pay credits.
-4. **Upgrade**: stand on the UPGRADES terminal for Cargo Pack, Tool Power and Thruster Boots.
+4. **Upgrade**: stand on the UPGRADES terminal, press E (or tap Open) for Cargo Pack, Tool Power and Thruster Boots.
+   Every station works this way: standing on it shows an Open button, and its menu opens as a popup.
 5. **Build**: stand on a dashed plot and credits flow in until it is built.
 6. **Launch**: the launch pad flies you to the next planet.
 
@@ -174,7 +175,7 @@ js/fx.js          particles, floating numbers, screen shake
 js/biomes.js      ground and scenery per region (quarry, gorge, magic forest, ...)
 js/world.js       regions, node placement, collision, ground texture
 js/render.js      procedural drawing of every object
-js/ui.js          credit counter, goal line, upgrade/drone panels, menu
+js/ui.js          credit counter, goal line, Open button and station popups (storage overviews), menu
 js/game.js        rules and main loop
 ```
 
