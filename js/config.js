@@ -106,6 +106,7 @@ SF.CFG = {
   },
 
   // Smelter on Halcyon: iron and copper ore from the hall become ingots for building.
+  haul: { cap: 16, speed: 150, load: 0.12 },                // machine drivers' vehicles: load size, speed, seconds per item
   smelter: {
     at: { x: -300, y: -270 },                               // the smelter, docked to the hall by two belts
     oreBelt: [{ x: 196, y: -292 }, { x: 196, y: -262 }, { x: -160, y: -262 }, { x: -160, y: -372 }, { x: -194, y: -372 }],   // hall -> hopper

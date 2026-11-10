@@ -720,7 +720,9 @@
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
     // Keep the loop alive even if one frame throws.
-    try { update(dt); draw(); } catch (e) { console.error(e); }
+    // A broken update must never blank the screen: draw runs on its own.
+    try { update(dt); } catch (e) { console.error(e); }
+    try { draw(); } catch (e) { console.error(e); }
     requestAnimationFrame(frame);
   }
 
