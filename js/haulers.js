@@ -1,7 +1,7 @@
 // Machine drivers: every machine can get a driver who brings its stock to the warehouse (or the hall on
 // Halcyon). Each planet has its own vehicle. Drivers eat and drink like crew (see SF.Food.tickDriver).
 SF.Haul = (function () {
-  const C = SF.CFG, K = C.smelter.tractor;
+  const C = SF.CFG, K = C.haul;
   const VEH = ['hover', 'tractor', 'buggy', 'cart', 'crawler', 'petal'];
   const NAMES = { hover: 'Hover sled', tractor: 'Tractor', buggy: 'Dune buggy', cart: 'Beach cart', crawler: 'Tank crawler', petal: 'Petal glider' };
   const live = {};
